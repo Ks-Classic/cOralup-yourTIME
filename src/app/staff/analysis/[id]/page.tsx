@@ -12,6 +12,7 @@ interface SessionData {
   session_id: string
   status: string
   parent_name?: string
+  parent_phone?: string
   created_at: string
 }
 
