@@ -139,7 +139,7 @@ export default function IntegratedDiagnosisPage() {
   const [isSending, setIsSending] = useState(false)
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isScrollingRef = useRef(false)
-  const [diagnosisContainer, setDiagnosisContainer] = useState<HTMLDivElement | null>(null)
+  const mainContainerRef = useRef<HTMLElement | null>(null)
 
   // モックデータの初期化（セッションIDに基づく）
   useEffect(() => {
@@ -219,16 +219,18 @@ export default function IntegratedDiagnosisPage() {
     [staffItemsByCategory]
   )
 
-  // アクティブカテゴリの初期化
+  // アクティブカテゴリの初期化（デフォルトは「舌」）
   useEffect(() => {
     if (currentMainView === 'diagnosis' && staffCategoryOrder.length > 0 && !activeCategory) {
-      setActiveCategory(staffCategoryOrder[0])
+      // デフォルトで「舌」カテゴリを選択
+      const defaultCategory = staffCategoryOrder.includes('舌') ? '舌' : staffCategoryOrder[0]
+      setActiveCategory(defaultCategory)
     }
   }, [currentMainView, staffCategoryOrder, activeCategory])
 
   // Intersection Observerでスクロール位置を監視
   useEffect(() => {
-    if (currentMainView !== 'diagnosis' || !diagnosisContainer) return
+    if (currentMainView !== 'diagnosis') return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -240,8 +242,8 @@ export default function IntegratedDiagnosisPage() {
         })
       },
       {
-        root: diagnosisContainer,
-        rootMargin: '-100px 0px -70% 0px',
+        root: mainContainerRef.current,
+        rootMargin: '-120px 0px -70% 0px',
         threshold: 0
       }
     )
@@ -252,16 +254,31 @@ export default function IntegratedDiagnosisPage() {
     })
 
     return () => observer.disconnect()
-  }, [currentMainView, staffCategoryOrder, diagnosisContainer])
+  }, [currentMainView, staffCategoryOrder])
 
   // タブクリック時のスクロール処理
-  const handleCategoryClick = useCallback((category: string) => {
+  const handleCategoryClick = useCallback((e: React.MouseEvent, category: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
     isScrollingRef.current = true
     setActiveCategory(category)
 
     const element = document.getElementById(`category-${category}`)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' })
+    const mainContainer = mainContainerRef.current
+    
+    if (element && mainContainer) {
+      // mainコンテナ内でのスクロール
+      const containerRect = mainContainer.getBoundingClientRect()
+      const elementRect = element.getBoundingClientRect()
+      // ヘッダー分の高さを考慮（カテゴリタブ + 進捗バー）
+      const headerOffset = 120
+      const offsetTop = elementRect.top - containerRect.top + mainContainer.scrollTop - headerOffset
+      
+      mainContainer.scrollTo({
+        top: Math.max(0, offsetTop),
+        behavior: 'smooth'
+      })
     }
 
     // スクロール完了後にフラグを解除（概算時間）
@@ -588,25 +605,27 @@ export default function IntegratedDiagnosisPage() {
             )}
             <div className="grid grid-cols-2 gap-1.5">
               {item.options?.map(option => (
-                <label
+                <div
                   key={option.value}
+                  role="radio"
+                  aria-checked={value === option.value}
+                  tabIndex={0}
+                  onClick={() => updateDiagnosisValue(item.id, option.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      updateDiagnosisValue(item.id, option.value)
+                    }
+                  }}
                   className={cn(
-                    'flex items-center justify-center p-2.5 border-2 rounded-lg cursor-pointer transition-all touch-manipulation min-h-[44px] font-medium',
+                    'flex items-center justify-center p-2.5 border-2 rounded-lg cursor-pointer transition-all touch-manipulation min-h-[44px] font-medium select-none',
                     value === option.value
                       ? 'border-coral-500 bg-coral-50 text-coral-700'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   )}
                 >
-                  <input
-                    type="radio"
-                    name={item.id}
-                    value={option.value}
-                    checked={value === option.value}
-                    onChange={() => updateDiagnosisValue(item.id, option.value)}
-                    className="sr-only"
-                  />
                   <span className="text-sm">{option.label}</span>
-                </label>
+                </div>
               ))}
             </div>
           </div>
@@ -632,28 +651,35 @@ export default function IntegratedDiagnosisPage() {
               {item.options?.map(option => {
                 const isChecked = checkboxValue.includes(option.value)
                 return (
-                  <label
+                  <div
                     key={option.value}
+                    role="checkbox"
+                    aria-checked={isChecked}
+                    tabIndex={0}
+                    onClick={() => {
+                      const newValue = isChecked
+                        ? checkboxValue.filter(v => v !== option.value)
+                        : [...checkboxValue, option.value]
+                      updateDiagnosisValue(item.id, newValue)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        const newValue = isChecked
+                          ? checkboxValue.filter(v => v !== option.value)
+                          : [...checkboxValue, option.value]
+                        updateDiagnosisValue(item.id, newValue)
+                      }
+                    }}
                     className={cn(
-                      'flex items-center justify-center p-2.5 border-2 rounded-lg cursor-pointer transition-all touch-manipulation min-h-[44px] font-medium',
+                      'flex items-center justify-center p-2.5 border-2 rounded-lg cursor-pointer transition-all touch-manipulation min-h-[44px] font-medium select-none',
                       isChecked
                         ? 'border-coral-500 bg-coral-50 text-coral-700'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     )}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) => {
-                        const newValue = e.target.checked
-                          ? [...checkboxValue, option.value]
-                          : checkboxValue.filter(v => v !== option.value)
-                        updateDiagnosisValue(item.id, newValue)
-                      }}
-                      className="sr-only"
-                    />
                     <span className="text-sm">{option.label}</span>
-                  </label>
+                  </div>
                 )
               })}
             </div>
@@ -787,7 +813,10 @@ export default function IntegratedDiagnosisPage() {
       </header>
 
       {/* メインコンテンツエリア */}
-      <main className="flex-1 overflow-y-auto pb-[72px] overscroll-y-contain touch-pan-y">
+      <main 
+        ref={mainContainerRef}
+        className="flex-1 overflow-y-auto pb-[72px] overscroll-y-contain touch-pan-y"
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={currentMainView}
@@ -959,9 +988,9 @@ export default function IntegratedDiagnosisPage() {
 
             {/* 診断ビュー（カテゴリタブ付き） */}
             {currentMainView === 'diagnosis' && (
-              <div className="flex flex-col min-h-[calc(100vh-200px)]">
-                {/* 進捗バー */}
-                <div className="px-3 py-2 bg-gray-50 border-b mb-3">
+              <div className="flex flex-col h-full">
+                {/* 進捗バー - 固定 */}
+                <div className="px-3 py-2 bg-gray-50 border-b sticky top-0 z-20">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-gray-600">診断入力進捗</span>
                     <span className="text-xs font-medium">{diagnosisProgressPercentage}%</span>
@@ -969,8 +998,8 @@ export default function IntegratedDiagnosisPage() {
                   <Progress value={diagnosisProgressPercentage} className="h-1.5" />
                 </div>
 
-                {/* カテゴリタブ */}
-                <div className="border-b bg-white overflow-x-auto sticky top-0 z-10 scrollbar-hide">
+                {/* カテゴリタブ - 固定 */}
+                <div className="border-b bg-white overflow-x-auto sticky top-[52px] z-10 scrollbar-hide shadow-sm">
                   <div className="flex">
                     {staffCategoryOrder.map((category) => {
                       const items = staffItemsByCategory[category] || []
@@ -984,14 +1013,18 @@ export default function IntegratedDiagnosisPage() {
                       return (
                         <button
                           key={category}
-                          onClick={() => handleCategoryClick(category)}
+                          type="button"
+                          onClick={(e) => handleCategoryClick(e, category)}
                           className={cn(
-                            "px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap",
+                            "px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap touch-manipulation",
+                            "active:scale-95 active:bg-gray-100",
+                            "[&:active]:outline-none [&:active]:ring-0",
                             activeCategory === category
                               ? "border-blue-500 text-blue-600 bg-blue-50"
                               : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300",
                             isComplete && "text-green-600"
                           )}
+                          style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                           <div className="flex items-center gap-1.5">
                             <span>{category}</span>
@@ -1008,11 +1041,9 @@ export default function IntegratedDiagnosisPage() {
                   </div>
                 </div>
 
-                {/* 全カテゴリの診断項目 */}
+                {/* 全カテゴリの診断項目 - スクロール可能 */}
                 <div
-                  className="flex-1 overflow-y-auto px-3 py-3 overscroll-y-contain touch-pan-y"
-                  data-diagnosis-container
-                  ref={setDiagnosisContainer}
+                  className="flex-1 px-3 py-3"
                 >
                   <div className="space-y-6">
                     {staffCategoryOrder.map((category) => {
@@ -1256,7 +1287,11 @@ export default function IntegratedDiagnosisPage() {
           ].map(({ view, label, icon }) => (
             <button
               key={view}
-              onClick={() => setCurrentMainView(view)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentMainView(view)
+              }}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-2.5 px-1 transition-colors min-h-[60px] touch-manipulation",
                 currentMainView === view
