@@ -265,7 +265,7 @@ ${session.parent_name}様
             <h3 className="text-lg font-semibold text-gray-900 mb-3">メッセージ</h3>
             <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-400">
               <p className="text-purple-800 italic">
-                "{report.encouragingMessage}"
+                &ldquo;{report.encouragingMessage}&rdquo;
               </p>
             </div>
           </div>
