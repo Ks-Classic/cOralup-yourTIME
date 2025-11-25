@@ -201,7 +201,8 @@ export async function POST(request: NextRequest) {
 
     responses?.forEach(response => {
       const date = new Date(response.submitted_at).toISOString().split('T')[0]
-      const key = group_by === 'date' ? date : response.form_schemas?.form_type || 'unknown'
+      const formSchema = Array.isArray(response.form_schemas) ? response.form_schemas[0] : response.form_schemas
+      const key = group_by === 'date' ? date : formSchema?.form_type || 'unknown'
 
       if (!aggregation[key]) {
         aggregation[key] = {
