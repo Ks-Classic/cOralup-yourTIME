@@ -774,6 +774,15 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     }
   }
 
+  // 完了状態の判定（早期リターンの前に配置 - React Hooksのルール）
+  const completedViews = useMemo(() => ({
+    questionnaire: !!questionnaire,
+    photos: photos.length > 0,
+    diagnosis: diagnosisProgressPercentage > 0,
+    review: false,
+    report: !!analysisResult,
+  }), [questionnaire, photos, diagnosisProgressPercentage, analysisResult])
+
   if (!session || !questionnaire) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -784,15 +793,6 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       </div>
     )
   }
-
-  // 完了状態の判定
-  const completedViews = useMemo(() => ({
-    questionnaire: !!questionnaire,
-    photos: photos.length > 0,
-    diagnosis: diagnosisProgressPercentage > 0,
-    review: false,
-    report: !!analysisResult,
-  }), [questionnaire, photos, diagnosisProgressPercentage, analysisResult])
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">

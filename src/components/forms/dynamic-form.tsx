@@ -304,3 +304,5 @@ export const DynamicForm = forwardRef<DynamicFormRef, DynamicFormProps>(({
     </FormProvider>
   )
 })
+
+DynamicForm.displayName = 'DynamicForm'
