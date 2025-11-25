@@ -67,6 +67,7 @@ export type FormSchemaConfig = {
 export type FormSchema = {
   id: string
   schema_id: string
+  event_id?: string
   form_type: string
   name: string
   description?: string
