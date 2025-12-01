@@ -326,35 +326,79 @@ export default function IntegratedDiagnosisPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completedSteps, isStepCompleted])
 
-  // カメラ開始
-  const startCamera = async (photoType: string) => {
-    try {
-      // 既存のストリームを停止
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop())
-        setStream(null)
-      }
+  // 写真プレビュー状態
+  const [previewPhoto, setPreviewPhoto] = useState<{url: string, type: string} | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      })
-
-      setStream(mediaStream)
-      setCurrentPhotoType(photoType)
-      setIsCameraOpen(true)
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Error accessing camera:', error)
-      stopCamera()
-      alert('カメラへのアクセスに失敗しました。他のアプリでカメラを使用していないか確認してください。')
+  // カメラ開始（input file経由でネイティブカメラを起動）
+  const startCamera = (photoType: string) => {
+    setCurrentPhotoType(photoType)
+    // hidden inputをクリックしてカメラを起動
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
     }
   }
 
-  // カメラ停止
+  // ファイル選択時の処理（カメラ撮影後）
+  const handleFileCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !currentPhotoType) return
+
+    // ファイルをプレビュー用URLに変換
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewPhoto({ url: objectUrl, type: currentPhotoType })
+    
+    // inputをリセット（同じファイルを再選択可能にする）
+    event.target.value = ''
+  }
+
+  // プレビューから保存
+  const savePreviewPhoto = () => {
+    if (!previewPhoto) return
+
+    const newPhoto: PhotoData = {
+      id: `${previewPhoto.type}-${Date.now()}`,
+      url: previewPhoto.url,
+      type: previewPhoto.type as PhotoData['type'],
+      uploaded_at: new Date().toISOString(),
+    }
+
+    setPhotos(prev => [...prev.filter(p => p.type !== previewPhoto.type), newPhoto])
+    
+    // 全ての写真が撮影済みならステップ完了
+    const newPhotoCount = photos.filter(p => p.type !== previewPhoto.type).length + 1
+    if (newPhotoCount >= photoTypes.length) {
+      markStepCompleted('photos')
+    }
+
+    setPreviewPhoto(null)
+    setCurrentPhotoType('')
+  }
+
+  // プレビューをキャンセル（取り直し）
+  const retakePhoto = () => {
+    if (previewPhoto) {
+      URL.revokeObjectURL(previewPhoto.url)
+    }
+    setPreviewPhoto(null)
+    // 再度カメラを起動
+    setTimeout(() => {
+      if (fileInputRef.current) {
+        fileInputRef.current.click()
+      }
+    }, 100)
+  }
+
+  // プレビューを閉じる
+  const closePreview = () => {
+    if (previewPhoto) {
+      URL.revokeObjectURL(previewPhoto.url)
+    }
+    setPreviewPhoto(null)
+    setCurrentPhotoType('')
+  }
+
+  // カメラ停止（後方互換性のため残す）
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
@@ -364,7 +408,7 @@ export default function IntegratedDiagnosisPage() {
     setCurrentPhotoType('')
   }
 
-  // 写真撮影
+  // レガシー：ビデオストリームからの撮影（フォールバック用）
   const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return
 
@@ -914,6 +958,16 @@ export default function IntegratedDiagnosisPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Hidden file input for camera capture */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileCapture}
+                    className="hidden"
+                  />
+
                   <div className="grid grid-cols-1 gap-4">
                     {photoTypes.map((type) => {
                       const existingPhoto = photos.find(p => p.type === type.key)
@@ -986,8 +1040,8 @@ export default function IntegratedDiagnosisPage() {
                   <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-xs text-blue-800">
                       <strong>📱 カメラの使い方：</strong><br />
-                      各写真タイプの枠をタップすると、カメラが起動します。<br />
-                      初回はブラウザからカメラへのアクセス許可が必要です。
+                      各写真タイプの枠をタップすると、スマホのカメラが起動します。<br />
+                      撮影後、プレビューで確認してから保存できます。
                     </p>
                   </div>
                 </CardContent>
@@ -1319,7 +1373,58 @@ export default function IntegratedDiagnosisPage() {
         </div>
       </nav>
 
-      {/* カメラモーダル（フルスクリーン） */}
+      {/* 写真プレビューモーダル（フルスクリーン） */}
+      {previewPhoto && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <div className="flex-1 flex items-center justify-center relative p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewPhoto.url}
+              alt="プレビュー"
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </div>
+
+          <div className="bg-black/90 p-6 space-y-4 safe-area-inset-bottom">
+            <div className="text-center text-white mb-4">
+              <p className="text-lg font-semibold">
+                {photoTypes.find(t => t.key === previewPhoto.type)?.label}
+              </p>
+              <p className="text-sm text-gray-300">
+                この写真でよろしいですか？
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={closePreview}
+                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <X className="w-4 h-4 mr-2" />
+                キャンセル
+              </Button>
+              <Button
+                variant="outline"
+                onClick={retakePhoto}
+                className="flex-1 bg-yellow-500/20 border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/30"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                撮り直す
+              </Button>
+              <Button
+                onClick={savePreviewPhoto}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                保存
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* レガシーカメラモーダル（フォールバック用） */}
       {isCameraOpen && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
           <div className="flex-1 flex items-center justify-center relative">
