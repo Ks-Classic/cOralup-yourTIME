@@ -2,17 +2,22 @@ import { createClient } from '@supabase/supabase-js'
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/database'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// 環境変数が未設定の場合はダミー値を使用（モックモード）
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mock.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key'
 
-// ブラウザ用クライアント
-export const supabase = createBrowserClient<Database>(
-  supabaseUrl,
-  supabaseAnonKey
-)
+// モックモードかどうかを判定
+export const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL
 
-// サーバー用クライアント
+// ブラウザ用クライアント（モックモードでもエラーを出さない）
+export const supabase = isMockMode
+  ? null as any // モックモードではnullを返す
+  : createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
+
+// サーバー用クライアント（モックモード対応）
 export const createServerSupabaseClient = () => {
+  if (isMockMode) return null as any
+
   return createClient<Database>(
     supabaseUrl,
     supabaseAnonKey,
