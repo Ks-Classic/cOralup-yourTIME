@@ -303,6 +303,7 @@ export default function IntegratedDiagnosisPage() {
   // 全体進捗計算（各ステップの完了状況）
   const overallProgressPercentage = useMemo(() => {
     const stepWeights: Record<DiagnosisStep, number> = {
+      start: 0,
       session: 10,
       photos: 20,
       diagnosis: 40,
