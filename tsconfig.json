@@ -17,6 +17,8 @@
     "jsx": "preserve",
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
+    "downlevelIteration": true,
+    "target": "es2015",
     "plugins": [
       {
         "name": "next"
