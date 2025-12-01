@@ -260,13 +260,13 @@ export default function IntegratedDiagnosisPage() {
   const handleCategoryClick = useCallback((e: React.MouseEvent, category: string) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     isScrollingRef.current = true
     setActiveCategory(category)
 
     const element = document.getElementById(`category-${category}`)
     const mainContainer = mainContainerRef.current
-    
+
     if (element && mainContainer) {
       // mainコンテナ内でのスクロール
       const containerRect = mainContainer.getBoundingClientRect()
@@ -274,7 +274,7 @@ export default function IntegratedDiagnosisPage() {
       // ヘッダー分の高さを考慮（カテゴリタブ + 進捗バー）
       const headerOffset = 120
       const offsetTop = elementRect.top - containerRect.top + mainContainer.scrollTop - headerOffset
-      
+
       mainContainer.scrollTo({
         top: Math.max(0, offsetTop),
         behavior: 'smooth'
@@ -323,6 +323,7 @@ export default function IntegratedDiagnosisPage() {
     })
 
     return totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completedSteps, isStepCompleted])
 
   // カメラ開始
@@ -346,6 +347,7 @@ export default function IntegratedDiagnosisPage() {
         videoRef.current.srcObject = mediaStream
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error accessing camera:', error)
       stopCamera()
       alert('カメラへのアクセスに失敗しました。他のアプリでカメラを使用していないか確認してください。')
@@ -402,6 +404,7 @@ export default function IntegratedDiagnosisPage() {
         markStepCompleted('photos')
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error capturing photo:', error)
       alert('写真の撮影に失敗しました')
     } finally {
@@ -501,6 +504,7 @@ export default function IntegratedDiagnosisPage() {
       setAnalysisResult(mockResult)
       markStepCompleted('analysis')
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
       alert('分析の実行に失敗しました')
     } finally {
@@ -537,6 +541,7 @@ export default function IntegratedDiagnosisPage() {
       }))
       setEditableReport(mockReport)
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error generating report:', error)
       alert('レポートの生成に失敗しました')
     } finally {
@@ -555,6 +560,7 @@ export default function IntegratedDiagnosisPage() {
       markStepCompleted('report')
       router.push('/staff')
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
       alert('レポートの送信に失敗しました')
     } finally {
@@ -814,7 +820,7 @@ export default function IntegratedDiagnosisPage() {
       </header>
 
       {/* メインコンテンツエリア */}
-      <main 
+      <main
         ref={mainContainerRef}
         className="flex-1 overflow-y-auto pb-[72px] overscroll-y-contain touch-pan-y"
       >
@@ -944,6 +950,7 @@ export default function IntegratedDiagnosisPage() {
                             {existingPhoto ? (
                               <div className="flex flex-col items-end gap-2">
                                 <div className="relative">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={existingPhoto.url}
                                     alt={type.label}

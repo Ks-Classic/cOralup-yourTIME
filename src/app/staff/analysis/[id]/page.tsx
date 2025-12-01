@@ -87,6 +87,7 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
         const id = resolvedParams.id
         setSessionId(id || 'demo')
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error resolving params:', error)
         setSessionId('demo')
       }
@@ -132,6 +133,7 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
         }
 
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching data:', error)
         alert('データの取得に失敗しました')
         router.push('/staff')
@@ -176,6 +178,7 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
       } as AnalysisResult))
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
       alert('分析の実行に失敗しました')
     } finally {
@@ -216,6 +219,7 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
       setEditableReport(report)
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error generating report:', error)
       alert('レポートの生成に失敗しました')
     } finally {
@@ -260,6 +264,7 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
       router.push('/staff')
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error saving report:', error)
       alert('レポートの保存に失敗しました')
     }
@@ -295,6 +300,7 @@ ${questionnaire?.child_name}様の診断結果をお送りします。
       })
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error sending LINE message:', error)
     }
   }
@@ -487,6 +493,7 @@ ${questionnaire?.child_name}様の診断結果をお送りします。
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {diagnosis.photos.map((photo, index) => (
                 <div key={index} className="text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.url}
                     alt={`Photo ${index + 1}`}

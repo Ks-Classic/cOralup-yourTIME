@@ -71,6 +71,7 @@ export default function ReportPage() {
       alert('診断レポートが送信されました（モック）')
       router.push('/staff')
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
       alert('レポートの送信に失敗しました')
     } finally {

@@ -42,20 +42,20 @@ function buildValidationSchema(schema: FormSchemaConfig) {
       case 'email':
       case 'tel':
       case 'textarea':
-        let stringSchema = z.string()
+        let stringSchema: z.ZodTypeAny = z.string()
         // まず全てのバリデーションを適用
         if (field.validation?.minLength) {
-          stringSchema = stringSchema.min(field.validation.minLength, `${field.name}は${field.validation.minLength}文字以上で入力してください`)
+          stringSchema = (stringSchema as z.ZodString).min(field.validation.minLength, `${field.name}は${field.validation.minLength}文字以上で入力してください`)
         }
         if (field.validation?.maxLength) {
-          stringSchema = stringSchema.max(field.validation.maxLength, `${field.name}は${field.validation.maxLength}文字以内で入力してください`)
+          stringSchema = (stringSchema as z.ZodString).max(field.validation.maxLength, `${field.name}は${field.validation.maxLength}文字以内で入力してください`)
         }
         if (field.validation?.pattern) {
-          stringSchema = stringSchema.regex(new RegExp(field.validation.pattern), field.validation.patternMessage || `${field.name}の形式が正しくありません`)
+          stringSchema = (stringSchema as z.ZodString).regex(new RegExp(field.validation.pattern), field.validation.patternMessage || `${field.name}の形式が正しくありません`)
         }
         // 必須チェックとoptional()は最後に適用
         if (field.required) {
-          stringSchema = stringSchema.min(1, `${field.name}を入力してください`)
+          stringSchema = (stringSchema as z.ZodString).min(1, `${field.name}を入力してください`)
         } else {
           stringSchema = stringSchema.optional()
         }
@@ -63,14 +63,14 @@ function buildValidationSchema(schema: FormSchemaConfig) {
         break
       case 'number':
         // まず z.number() でスキーマを作成し、バリデーションを適用
-        let baseNumberSchema = z.number({ invalid_type_error: `${field.name}は数値で入力してください` })
+        let baseNumberSchema: z.ZodTypeAny = z.number({ invalid_type_error: `${field.name}は数値で入力してください` })
         
         // バリデーションを先に適用
         if (field.validation?.min !== undefined) {
-          baseNumberSchema = baseNumberSchema.min(field.validation.min, `${field.name}は${field.validation.min}以上で入力してください`)
+          baseNumberSchema = (baseNumberSchema as z.ZodNumber).min(field.validation.min, `${field.name}は${field.validation.min}以上で入力してください`)
         }
         if (field.validation?.max !== undefined) {
-          baseNumberSchema = baseNumberSchema.max(field.validation.max, `${field.name}は${field.validation.max}以下で入力してください`)
+          baseNumberSchema = (baseNumberSchema as z.ZodNumber).max(field.validation.max, `${field.name}は${field.validation.max}以下で入力してください`)
         }
         
         // 必須チェックとoptional()はbaseNumberSchemaに適用
@@ -103,7 +103,7 @@ function buildValidationSchema(schema: FormSchemaConfig) {
         break
       case 'checkbox':
       case 'multi-select':
-        let arraySchema = z.array(z.string())
+        let arraySchema: z.ZodTypeAny = z.array(z.string())
         if (!field.required) {
           arraySchema = arraySchema.optional()
         }
@@ -111,14 +111,14 @@ function buildValidationSchema(schema: FormSchemaConfig) {
         break
       case 'select':
       case 'radio':
-        let selectSchema = z.string()
+        let selectSchema: z.ZodTypeAny = z.string()
         if (!field.required) {
           selectSchema = selectSchema.optional()
         }
         shape[fieldId] = selectSchema
         break
       case 'date':
-        let dateSchema = z.string()
+        let dateSchema: z.ZodTypeAny = z.string()
         if (!field.required) {
           dateSchema = dateSchema.optional()
         }

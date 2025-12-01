@@ -14,7 +14,7 @@ interface DiagnosisFieldProps {
 
 export function DiagnosisField({ item, value, onChange }: DiagnosisFieldProps) {
     const renderField = () => {
-        switch (item.type) {
+        switch (item.answerType) {
             case 'text':
                 return (
                     <div className="space-y-2">

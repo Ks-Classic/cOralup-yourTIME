@@ -24,6 +24,7 @@ export type FormFieldValidation = {
   maxLength?: number
   pattern?: string
   patternMessage?: string
+  step?: number
 }
 
 export type FormFieldConfig = {

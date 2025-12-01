@@ -51,6 +51,7 @@ export function useFormSchema(options: UseFormSchemaOptions) {
 
         setSchemas(parsedSchemas)
       } catch (err: any) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching form schemas:', err)
         setError(err.message || 'フォームスキーマの取得に失敗しました')
       } finally {

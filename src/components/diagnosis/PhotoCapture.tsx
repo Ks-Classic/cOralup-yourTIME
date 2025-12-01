@@ -39,6 +39,7 @@ export function PhotoCapture({
                 videoRef.current.srcObject = mediaStream
             }
         } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('カメラの起動に失敗しました:', error)
             alert('カメラの起動に失敗しました')
         }
@@ -131,6 +132,7 @@ export function PhotoCapture({
                         </div>
                     ) : existingPhoto ? (
                         <div className="space-y-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={existingPhoto.url}
                                 alt={label}

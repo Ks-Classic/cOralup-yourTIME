@@ -45,6 +45,8 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
         const id = resolvedParams.id
         setSessionId(id || 'demo')
       } catch (error) {
+        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console
         console.error('Error resolving params:', error)
         setSessionId('demo')
       }
@@ -68,7 +70,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
       created_at: new Date().toISOString(),
     }
 
-    const mockQuestionnaire: QuestionnaireData | null = 
+    const mockQuestionnaire: QuestionnaireData | null =
       mockSession.status === 'questionnaire_completed' ? {
         child_name: 'お子様 花子',
         child_age: 8,
@@ -202,6 +204,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
               className="rounded-xl border border-white bg-white p-3 shadow-sm transition hover:shadow-md"
               onClick={showQRCode}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrCodeUrl}
                 alt="Session QR Code"

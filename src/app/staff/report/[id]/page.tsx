@@ -40,6 +40,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         const id = resolvedParams.id
         setSessionId(id || 'demo')
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error resolving params:', error)
         setSessionId('demo')
       }
@@ -84,6 +85,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         setReport(mockReport)
 
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching data:', error)
         alert('データの取得に失敗しました')
         router.push('/staff')
@@ -145,6 +147,7 @@ ${session.parent_name}様
       }
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
       alert('レポートの送信に失敗しました')
     } finally {

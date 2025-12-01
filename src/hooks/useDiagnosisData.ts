@@ -67,6 +67,7 @@ export function useDiagnosisData({
 
             setLastSaved(new Date())
         } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('データの保存に失敗しました:', error)
         } finally {
             setIsSaving(false)
@@ -87,6 +88,7 @@ export function useDiagnosisData({
                 setLastSaved(new Date(data.savedAt))
             }
         } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('データの読み込みに失敗しました:', error)
         }
     }, [sessionId])

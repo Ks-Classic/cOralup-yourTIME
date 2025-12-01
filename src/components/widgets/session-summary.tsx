@@ -30,9 +30,9 @@ export function SessionSummary({
   const displaySessionId = sessionId || displaySession?.session_id
   const displayParentName = parentName ?? displaySession?.parent_name ?? '未入力'
   const displayParentPhone = parentPhone ?? displaySession?.parent_phone ?? '未入力'
-  const displayChildName = childName ?? displaySession?.child_name ?? '未入力'
-  const displayChildAge = childAge ?? displaySession?.child_age ?? null
-  const displayChildGender = childGender ?? displaySession?.child_gender ?? null
+  const displayChildName = childName ?? '未入力'
+  const displayChildAge = childAge ?? null
+  const displayChildGender = childGender ?? null
   const displayStatus = status ?? displaySession?.status ?? '未設定'
   const displayCreatedAt = createdAt ?? displaySession?.created_at ?? null
 

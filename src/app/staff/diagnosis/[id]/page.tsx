@@ -121,6 +121,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
         const id = resolvedParams.id
         setSessionId(id || '')
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error resolving params:', error)
         setSessionId('')
       }
@@ -288,6 +289,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     })
 
     return totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completedSteps, isStepCompleted])
 
   // カメラ開始
@@ -305,6 +307,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
         videoRef.current.srcObject = mediaStream
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error accessing camera:', error)
       alert('カメラへのアクセスに失敗しました。設定を確認してください。')
     }
@@ -360,8 +363,8 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       } else if (currentPhotoType.startsWith('custom-')) {
         // 既存カスタム写真の再撮影
         const photoId = currentPhotoType
-        setPhotos(prev => prev.map(p => 
-          p.id === photoId 
+        setPhotos(prev => prev.map(p =>
+          p.id === photoId
             ? { ...p, url: objectUrl, uploaded_at: new Date().toISOString() }
             : p
         ))
@@ -375,7 +378,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
         }
         setPhotos(prev => [...prev.filter(p => p.type !== currentPhotoType), newPhoto])
       }
-      
+
       stopCamera()
 
       // 全ての固定写真が撮影済みならステップ完了
@@ -384,6 +387,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
         markStepCompleted('photos')
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error capturing photo:', error)
       alert('写真の撮影に失敗しました')
     } finally {
@@ -493,6 +497,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       setAnalysisResult(mockResult)
       markStepCompleted('analysis')
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
       alert('分析の実行に失敗しました')
     } finally {
@@ -529,6 +534,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       }))
       setEditableReport(mockReport)
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error generating report:', error)
       alert('レポートの生成に失敗しました')
     } finally {
@@ -547,6 +553,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       markStepCompleted('report')
       router.push('/staff')
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
       alert('レポートの送信に失敗しました')
     } finally {
@@ -588,6 +595,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     })
 
     return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMainView, staffCategoryOrder])
 
 
@@ -847,583 +855,585 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
             transition={{ duration: 0.2 }}
             className="p-4"
           >
-              {/* 問診ビュー */}
-              {currentMainView === 'questionnaire' && questionnaire && (
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-lg flex items-center space-x-2">
-                      <FileText className="w-5 h-5" />
-                      <span>セッション情報確認</span>
-                    </CardTitle>
-                    <CardDescription className="text-sm">
-                      親御さんが入力した問診票内容を確認してください
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">お子様情報</h3>
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                        <p className="text-sm"><span className="font-medium">お名前:</span> {questionnaire.child_name}</p>
-                        <p className="text-sm"><span className="font-medium">年齢:</span> {questionnaire.child_age}歳</p>
-                        <p className="text-sm"><span className="font-medium">性別:</span> {questionnaire.child_gender === 'male' ? '男' : questionnaire.child_gender === 'female' ? '女' : 'その他'}</p>
-                      </div>
+            {/* 問診ビュー */}
+            {currentMainView === 'questionnaire' && questionnaire && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <FileText className="w-5 h-5" />
+                    <span>セッション情報確認</span>
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    親御さんが入力した問診票内容を確認してください
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">お子様情報</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                      <p className="text-sm"><span className="font-medium">お名前:</span> {questionnaire.child_name}</p>
+                      <p className="text-sm"><span className="font-medium">年齢:</span> {questionnaire.child_age}歳</p>
+                      <p className="text-sm"><span className="font-medium">性別:</span> {questionnaire.child_gender === 'male' ? '男' : questionnaire.child_gender === 'female' ? '女' : 'その他'}</p>
                     </div>
+                  </div>
 
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">気になること</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {questionnaire.concerns.map((concern, index) => (
+                        <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          {concern}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-2">理想の状態</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {questionnaire.ideal_goals.map((goal, index) => (
+                        <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          {goal}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  {questionnaire.medical_history.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">気になること</h3>
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">既往歴</h3>
                       <div className="flex flex-wrap gap-2">
-                        {questionnaire.concerns.map((concern, index) => (
-                          <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                            {concern}
+                        {questionnaire.medical_history.map((history, index) => (
+                          <Badge key={index} variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                            {history}
                           </Badge>
                         ))}
                       </div>
                     </div>
+                  )}
 
+                  {questionnaire.notes && (
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">理想の状態</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {questionnaire.ideal_goals.map((goal, index) => (
-                          <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            {goal}
-                          </Badge>
-                        ))}
-                      </div>
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">スタッフへのメッセージ</h3>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{questionnaire.notes}</p>
                     </div>
+                  )}
 
-                    {questionnaire.medical_history.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">既往歴</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {questionnaire.medical_history.map((history, index) => (
-                            <Badge key={index} variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                              {history}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                </CardContent>
+              </Card>
+            )}
 
-                    {questionnaire.notes && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">スタッフへのメッセージ</h3>
-                        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{questionnaire.notes}</p>
-                      </div>
-                    )}
-
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* 写真ビュー */}
-              {currentMainView === 'photos' && (
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-lg flex items-center space-x-2">
-                      <Camera className="w-5 h-5" />
-                      <span>写真撮影</span>
-                    </CardTitle>
-                    <CardDescription className="text-sm">
-                      診断に必要な写真を撮影してください
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 gap-4">
-                      {photoTypes.map((type) => {
-                        const existingPhoto = photos.find(p => p.type === type.key)
-                        return (
-                          <button
-                            key={type.key}
-                            onClick={() => startCamera(type.key)}
-                            className={cn(
-                              'w-full border-2 rounded-xl p-4 transition-all text-left',
-                              'hover:border-coral-300 hover:shadow-md active:scale-[0.98]',
-                              existingPhoto
-                                ? 'border-green-300 bg-green-50'
-                                : 'border-gray-200 bg-white'
+            {/* 写真ビュー */}
+            {currentMainView === 'photos' && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <Camera className="w-5 h-5" />
+                    <span>写真撮影</span>
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    診断に必要な写真を撮影してください
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4">
+                    {photoTypes.map((type) => {
+                      const existingPhoto = photos.find(p => p.type === type.key)
+                      return (
+                        <button
+                          key={type.key}
+                          onClick={() => startCamera(type.key)}
+                          className={cn(
+                            'w-full border-2 rounded-xl p-4 transition-all text-left',
+                            'hover:border-coral-300 hover:shadow-md active:scale-[0.98]',
+                            existingPhoto
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-gray-200 bg-white'
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="text-xl">{type.icon}</span>
+                                <h3 className="font-semibold text-gray-900">{type.label}</h3>
+                                {existingPhoto && (
+                                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                                    撮影済み
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600">{type.description}</p>
+                              {!existingPhoto && (
+                                <p className="text-xs text-coral-600 mt-2 font-medium">
+                                  👆 タップしてカメラを起動
+                                </p>
+                              )}
+                            </div>
+                            {existingPhoto ? (
+                              <div className="flex flex-col items-end gap-2">
+                                <div className="relative">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={existingPhoto.url}
+                                    alt={type.label}
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      startCamera(type.key)
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deletePhoto(existingPhoto.id)
+                                    }}
+                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                                <span className="text-xs text-gray-500">タップで再撮影</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-coral-100 text-coral-600">
+                                <Camera className="w-6 h-6" />
+                              </div>
                             )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* その他写真セクション */}
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-gray-900">その他写真</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={startAddCustomPhoto}
+                        className="text-coral-600 border-coral-300 hover:bg-coral-50"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        追加
+                      </Button>
+                    </div>
+
+                    {/* カスタム写真一覧 */}
+                    {photos.filter(p => p.type === 'custom').length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {photos.filter(p => p.type === 'custom').map((customPhoto) => (
+                          <div
+                            key={customPhoto.id}
+                            className="border-2 border-purple-200 bg-purple-50 rounded-xl p-4"
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
-                                  <span className="text-xl">{type.icon}</span>
-                                  <h3 className="font-semibold text-gray-900">{type.label}</h3>
-                                  {existingPhoto && (
-                                    <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-                                      撮影済み
-                                    </Badge>
-                                  )}
+                                  <span className="text-xl">📎</span>
+                                  <h4 className="font-semibold text-gray-900">
+                                    {customPhoto.customTitle || 'その他写真'}
+                                  </h4>
+                                  <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
+                                    撮影済み
+                                  </Badge>
                                 </div>
-                                <p className="text-sm text-gray-600">{type.description}</p>
-                                {!existingPhoto && (
-                                  <p className="text-xs text-coral-600 mt-2 font-medium">
-                                    👆 タップしてカメラを起動
-                                  </p>
-                                )}
+                                <p className="text-xs text-gray-500">
+                                  撮影: {new Date(customPhoto.uploaded_at).toLocaleString('ja-JP')}
+                                </p>
                               </div>
-                              {existingPhoto ? (
-                                <div className="flex flex-col items-end gap-2">
-                                  <div className="relative">
-                                    <img
-                                      src={existingPhoto.url}
-                                      alt={type.label}
-                                      className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        startCamera(type.key)
-                                      }}
-                                    />
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        deletePhoto(existingPhoto.id)
-                                      }}
-                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                  <span className="text-xs text-gray-500">タップで再撮影</span>
+                              <div className="flex flex-col items-end gap-2">
+                                <div className="relative">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={customPhoto.url}
+                                    alt={customPhoto.customTitle || 'その他写真'}
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer"
+                                    onClick={() => retakeCustomPhoto(customPhoto.id)}
+                                  />
+                                  <button
+                                    onClick={() => deletePhoto(customPhoto.id)}
+                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
                                 </div>
-                              ) : (
-                                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-coral-100 text-coral-600">
-                                  <Camera className="w-6 h-6" />
-                                </div>
-                              )}
+                                <span className="text-xs text-gray-500">タップで再撮影</span>
+                              </div>
                             </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-
-                    {/* その他写真セクション */}
-                    <div className="mt-8 pt-6 border-t border-gray-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900">その他写真</h3>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={startAddCustomPhoto}
-                          className="text-coral-600 border-coral-300 hover:bg-coral-50"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          追加
-                        </Button>
+                          </div>
+                        ))}
                       </div>
+                    ) : (
+                      <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+                        <p className="text-sm text-gray-500">
+                          その他の写真を追加する場合は<br />
+                          「追加」ボタンをタップしてください
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                      {/* カスタム写真一覧 */}
-                      {photos.filter(p => p.type === 'custom').length > 0 ? (
-                        <div className="grid grid-cols-1 gap-3">
-                          {photos.filter(p => p.type === 'custom').map((customPhoto) => (
-                            <div
-                              key={customPhoto.id}
-                              className="border-2 border-purple-200 bg-purple-50 rounded-xl p-4"
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2 mb-1">
-                                    <span className="text-xl">📎</span>
-                                    <h4 className="font-semibold text-gray-900">
-                                      {customPhoto.customTitle || 'その他写真'}
-                                    </h4>
-                                    <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
-                                      撮影済み
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs text-gray-500">
-                                    撮影: {new Date(customPhoto.uploaded_at).toLocaleString('ja-JP')}
-                                  </p>
-                                </div>
-                                <div className="flex flex-col items-end gap-2">
-                                  <div className="relative">
-                                    <img
-                                      src={customPhoto.url}
-                                      alt={customPhoto.customTitle || 'その他写真'}
-                                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer"
-                                      onClick={() => retakeCustomPhoto(customPhoto.id)}
-                                    />
-                                    <button
-                                      onClick={() => deletePhoto(customPhoto.id)}
-                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                  <span className="text-xs text-gray-500">タップで再撮影</span>
-                                </div>
-                              </div>
+                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>📱 カメラの使い方：</strong><br />
+                      各写真タイプの枠をタップすると、カメラが起動します。<br />
+                      初回はブラウザからカメラへのアクセス許可が必要です。
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 診断ビュー（カテゴリタブ付き） */}
+            {currentMainView === 'diagnosis' && (
+              <div className="px-4 pt-4 pb-2 space-y-6">
+                {staffCategoryOrder.map((category) => {
+                  const items = staffItemsByCategory[category] || []
+                  return (
+                    <div key={category} id={`category-${category}`} className="scroll-mt-[115px]">
+                      <Card className="shadow-sm">
+                        <CardHeader className="pb-4">
+                          <CardTitle className="text-lg">{category}</CardTitle>
+                          <CardDescription className="text-sm">
+                            {items.length}項目
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          {items.map(item => (
+                            <div key={item.id} className="pb-6 border-b border-gray-100 last:border-0 last:pb-0">
+                              {renderField(item)}
                             </div>
                           ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                          <p className="text-sm text-gray-500">
-                            その他の写真を追加する場合は<br />
-                            「追加」ボタンをタップしてください
-                          </p>
-                        </div>
-                      )}
+                        </CardContent>
+                      </Card>
                     </div>
+                  )
+                })}
+              </div>
+            )}
 
-                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs text-blue-800">
-                        <strong>📱 カメラの使い方：</strong><br />
-                        各写真タイプの枠をタップすると、カメラが起動します。<br />
-                        初回はブラウザからカメラへのアクセス許可が必要です。
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* 診断ビュー（カテゴリタブ付き） */}
-              {currentMainView === 'diagnosis' && (
-                <div className="px-4 pt-4 pb-2 space-y-6">
-                  {staffCategoryOrder.map((category) => {
-                    const items = staffItemsByCategory[category] || []
-                    return (
-                      <div key={category} id={`category-${category}`} className="scroll-mt-[115px]">
-                        <Card className="shadow-sm">
-                          <CardHeader className="pb-4">
-                            <CardTitle className="text-lg">{category}</CardTitle>
-                            <CardDescription className="text-sm">
-                              {items.length}項目
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-6">
-                            {items.map(item => (
-                              <div key={item.id} className="pb-6 border-b border-gray-100 last:border-0 last:pb-0">
-                                {renderField(item)}
-                              </div>
-                            ))}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* 分析ビュー */}
-              {currentMainView === 'review' && (
-                <div className="space-y-6">
-                  {/* AI分析セクション */}
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-lg flex items-center space-x-2">
-                        <Brain className="w-5 h-5" />
-                        <span>AI分析</span>
-                      </CardTitle>
-                      <CardDescription className="text-sm">
-                        AI分析を実行してレポートを生成します
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {!analysisResult ? (
-                        <div className="text-center py-8">
-                          <Button
-                            onClick={runAnalysis}
-                            disabled={isAnalyzing}
-                            className="bg-coral-500 hover:bg-coral-600"
-                            size="lg"
-                          >
-                            {isAnalyzing ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                分析中...
-                              </>
-                            ) : (
-                              <>
-                                <Brain className="w-5 h-5 mr-2" />
-                                AI分析を実行
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          {/* 姿勢分析結果 */}
-                          {analysisResult.postureAnalysis && (
-                            <div className="bg-blue-50 rounded-lg p-4">
-                              <h3 className="font-semibold text-gray-900 mb-2">姿勢分析結果</h3>
-                              <div className="space-y-2 text-sm">
-                                <p><span className="font-medium">総合スコア:</span> {analysisResult.postureAnalysis.overallScore}/10</p>
-                                <p><span className="font-medium">問題点:</span> {analysisResult.postureAnalysis.issues.join(', ')}</p>
-                                <p><span className="font-medium">推奨事項:</span> {analysisResult.postureAnalysis.recommendations.join(', ')}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 口腔分析結果 */}
-                          {analysisResult.oralAnalysis && (
-                            <div className="bg-green-50 rounded-lg p-4">
-                              <h3 className="font-semibold text-gray-900 mb-2">口腔機能分析結果</h3>
-                              <div className="space-y-2 text-sm">
-                                <p><span className="font-medium">総合スコア:</span> {analysisResult.oralAnalysis.overallScore}/10</p>
-                                <p><span className="font-medium">問題点:</span> {analysisResult.oralAnalysis.issues.join(', ')}</p>
-                                <p><span className="font-medium">推奨事項:</span> {analysisResult.oralAnalysis.recommendations.join(', ')}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {!editableReport && (
-                            <Button
-                              onClick={generateReport}
-                              disabled={isGeneratingReport}
-                              className="w-full bg-coral-500 hover:bg-coral-600"
-                            >
-                              {isGeneratingReport ? 'レポート生成中...' : 'レポートを生成'}
-                            </Button>
-                          )}
-
-                          {/* レポート編集 */}
-                          {editableReport && (
-                            <div className="space-y-4">
-                              <h3 className="font-semibold text-gray-900">レポート内容</h3>
-                              <div className="space-y-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-900 mb-2">要約</label>
-                                  <Textarea
-                                    value={editableReport.summary}
-                                    onChange={(e) => setEditableReport({ ...editableReport, summary: e.target.value })}
-                                    rows={3}
-                                    className="resize-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-900 mb-2">分析</label>
-                                  <Textarea
-                                    value={editableReport.analysis}
-                                    onChange={(e) => setEditableReport({ ...editableReport, analysis: e.target.value })}
-                                    rows={5}
-                                    className="resize-none"
-                                  />
-                                </div>
-                              </div>
-                              <Button
-                                onClick={() => setCurrentMainView('report')}
-                                className="w-full bg-coral-500 hover:bg-coral-600"
-                              >
-                                レポート送信へ進む
-                                <ChevronRight className="w-4 h-4 ml-2" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* レポートビュー */}
-              {currentMainView === 'report' && (
+            {/* 分析ビュー */}
+            {currentMainView === 'review' && (
+              <div className="space-y-6">
+                {/* AI分析セクション */}
                 <Card className="shadow-sm">
                   <CardHeader className="pb-4">
                     <CardTitle className="text-lg flex items-center space-x-2">
-                      <Send className="w-5 h-5" />
-                      <span>レポート送信</span>
+                      <Brain className="w-5 h-5" />
+                      <span>AI分析</span>
                     </CardTitle>
                     <CardDescription className="text-sm">
-                      最終レポートを確認して送信してください
+                      AI分析を実行してレポートを生成します
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {editableReport ? (
-                      <div className="space-y-4">
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">要約</h3>
-                          <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{editableReport.summary}</p>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">分析</h3>
-                          <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{editableReport.analysis}</p>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">推奨事項</h3>
-                          <ul className="list-disc list-inside text-sm text-gray-700 bg-gray-50 rounded-lg p-4 space-y-1">
-                            {editableReport.recommendations.map((rec: string, index: number) => (
-                              <li key={index}>{rec}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">次のステップ</h3>
-                          <ul className="list-disc list-inside text-sm text-gray-700 bg-gray-50 rounded-lg p-4 space-y-1">
-                            {editableReport.nextSteps.map((step: string, index: number) => (
-                              <li key={index}>{step}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">メッセージ</h3>
-                          <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{editableReport.encouragingMessage}</p>
-                        </div>
+                    {!analysisResult ? (
+                      <div className="text-center py-8">
                         <Button
-                          onClick={sendReport}
-                          disabled={isSending}
-                          className="w-full bg-coral-500 hover:bg-coral-600"
+                          onClick={runAnalysis}
+                          disabled={isAnalyzing}
+                          className="bg-coral-500 hover:bg-coral-600"
                           size="lg"
                         >
-                          {isSending ? '送信中...' : (
+                          {isAnalyzing ? (
                             <>
-                              <Send className="w-5 h-5 mr-2" />
-                              LINEでレポートを送信
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              分析中...
+                            </>
+                          ) : (
+                            <>
+                              <Brain className="w-5 h-5 mr-2" />
+                              AI分析を実行
                             </>
                           )}
                         </Button>
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <p className="text-gray-600 mb-4">レポートを生成してください</p>
-                        <Button
-                          onClick={() => setCurrentMainView('review')}
-                          variant="outline"
-                        >
-                          分析に戻る
-                        </Button>
+                      <div className="space-y-6">
+                        {/* 姿勢分析結果 */}
+                        {analysisResult.postureAnalysis && (
+                          <div className="bg-blue-50 rounded-lg p-4">
+                            <h3 className="font-semibold text-gray-900 mb-2">姿勢分析結果</h3>
+                            <div className="space-y-2 text-sm">
+                              <p><span className="font-medium">総合スコア:</span> {analysisResult.postureAnalysis.overallScore}/10</p>
+                              <p><span className="font-medium">問題点:</span> {analysisResult.postureAnalysis.issues.join(', ')}</p>
+                              <p><span className="font-medium">推奨事項:</span> {analysisResult.postureAnalysis.recommendations.join(', ')}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 口腔分析結果 */}
+                        {analysisResult.oralAnalysis && (
+                          <div className="bg-green-50 rounded-lg p-4">
+                            <h3 className="font-semibold text-gray-900 mb-2">口腔機能分析結果</h3>
+                            <div className="space-y-2 text-sm">
+                              <p><span className="font-medium">総合スコア:</span> {analysisResult.oralAnalysis.overallScore}/10</p>
+                              <p><span className="font-medium">問題点:</span> {analysisResult.oralAnalysis.issues.join(', ')}</p>
+                              <p><span className="font-medium">推奨事項:</span> {analysisResult.oralAnalysis.recommendations.join(', ')}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {!editableReport && (
+                          <Button
+                            onClick={generateReport}
+                            disabled={isGeneratingReport}
+                            className="w-full bg-coral-500 hover:bg-coral-600"
+                          >
+                            {isGeneratingReport ? 'レポート生成中...' : 'レポートを生成'}
+                          </Button>
+                        )}
+
+                        {/* レポート編集 */}
+                        {editableReport && (
+                          <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-900">レポート内容</h3>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-2">要約</label>
+                                <Textarea
+                                  value={editableReport.summary}
+                                  onChange={(e) => setEditableReport({ ...editableReport, summary: e.target.value })}
+                                  rows={3}
+                                  className="resize-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-2">分析</label>
+                                <Textarea
+                                  value={editableReport.analysis}
+                                  onChange={(e) => setEditableReport({ ...editableReport, analysis: e.target.value })}
+                                  rows={5}
+                                  className="resize-none"
+                                />
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => setCurrentMainView('report')}
+                              className="w-full bg-coral-500 hover:bg-coral-600"
+                            >
+                              レポート送信へ進む
+                              <ChevronRight className="w-4 h-4 ml-2" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </main >
+              </div>
+            )}
 
-        {/* 下部ナビゲーションメニュー */}
-        < nav className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50" >
-          <div className="flex">
-            {[
-              { view: 'questionnaire' as MainView, label: '問診', icon: <FileText className="w-5 h-5" /> },
-              { view: 'photos' as MainView, label: '写真', icon: <Camera className="w-5 h-5" /> },
-              { view: 'diagnosis' as MainView, label: '診断', icon: <CheckCircle2 className="w-5 h-5" /> },
-              { view: 'review' as MainView, label: '分析', icon: <Brain className="w-5 h-5" /> },
-              { view: 'report' as MainView, label: 'レポート', icon: <Send className="w-5 h-5" /> },
-            ].map(({ view, label, icon }) => (
-              <button
-                key={view}
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setCurrentMainView(view)
-                }}
-                className={cn(
-                  "flex-1 flex flex-col items-center justify-center py-2 px-1 transition-colors",
-                  currentMainView === view
-                    ? "text-blue-600 bg-blue-50"
-                    : "text-gray-600 hover:text-gray-900"
-                )}
-              >
-                <div className="relative">
-                  {icon}
-                  {completedViews[view] && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+            {/* レポートビュー */}
+            {currentMainView === 'report' && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <Send className="w-5 h-5" />
+                    <span>レポート送信</span>
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    最終レポートを確認して送信してください
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {editableReport ? (
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">要約</h3>
+                        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{editableReport.summary}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">分析</h3>
+                        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{editableReport.analysis}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">推奨事項</h3>
+                        <ul className="list-disc list-inside text-sm text-gray-700 bg-gray-50 rounded-lg p-4 space-y-1">
+                          {editableReport.recommendations.map((rec: string, index: number) => (
+                            <li key={index}>{rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">次のステップ</h3>
+                        <ul className="list-disc list-inside text-sm text-gray-700 bg-gray-50 rounded-lg p-4 space-y-1">
+                          {editableReport.nextSteps.map((step: string, index: number) => (
+                            <li key={index}>{step}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-2">メッセージ</h3>
+                        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{editableReport.encouragingMessage}</p>
+                      </div>
+                      <Button
+                        onClick={sendReport}
+                        disabled={isSending}
+                        className="w-full bg-coral-500 hover:bg-coral-600"
+                        size="lg"
+                      >
+                        {isSending ? '送信中...' : (
+                          <>
+                            <Send className="w-5 h-5 mr-2" />
+                            LINEでレポートを送信
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600 mb-4">レポートを生成してください</p>
+                      <Button
+                        onClick={() => setCurrentMainView('review')}
+                        variant="outline"
+                      >
+                        分析に戻る
+                      </Button>
+                    </div>
                   )}
-                </div>
-                <span className="text-xs mt-1">{label}</span>
-              </button>
-            ))}
-          </div>
-        </nav >
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main >
 
-        {/* カスタム写真タイトル入力モーダル */}
-        {isAddingCustomPhoto && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                その他写真を追加
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    写真のタイトル
-                  </label>
-                  <Input
-                    value={customPhotoTitle}
-                    onChange={(e) => setCustomPhotoTitle(e.target.value)}
-                    placeholder="例: 舌の裏側、歯の側面など"
-                    className="w-full"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={cancelAddCustomPhoto}
-                    className="flex-1"
-                  >
-                    キャンセル
-                  </Button>
-                  <Button
-                    onClick={confirmCustomPhotoTitle}
-                    className="flex-1 bg-coral-500 hover:bg-coral-600"
-                    disabled={!customPhotoTitle.trim()}
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    撮影へ
-                  </Button>
-                </div>
+      {/* 下部ナビゲーションメニュー */}
+      < nav className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50" >
+        <div className="flex">
+          {[
+            { view: 'questionnaire' as MainView, label: '問診', icon: <FileText className="w-5 h-5" /> },
+            { view: 'photos' as MainView, label: '写真', icon: <Camera className="w-5 h-5" /> },
+            { view: 'diagnosis' as MainView, label: '診断', icon: <CheckCircle2 className="w-5 h-5" /> },
+            { view: 'review' as MainView, label: '分析', icon: <Brain className="w-5 h-5" /> },
+            { view: 'report' as MainView, label: 'レポート', icon: <Send className="w-5 h-5" /> },
+          ].map(({ view, label, icon }) => (
+            <button
+              key={view}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentMainView(view)
+              }}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center py-2 px-1 transition-colors",
+                currentMainView === view
+                  ? "text-blue-600 bg-blue-50"
+                  : "text-gray-600 hover:text-gray-900"
+              )}
+            >
+              <div className="relative">
+                {icon}
+                {completedViews[view] && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                )}
               </div>
-            </div>
-          </div>
-        )}
+              <span className="text-xs mt-1">{label}</span>
+            </button>
+          ))}
+        </div>
+      </nav >
 
-        {/* カメラモーダル（フルスクリーン） */}
-        {isCameraOpen && (
-          <div className="fixed inset-0 bg-black z-50 flex flex-col">
-            <div className="flex-1 flex items-center justify-center relative">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute inset-4 border-2 border-white border-dashed rounded-lg opacity-50" />
+      {/* カスタム写真タイトル入力モーダル */}
+      {isAddingCustomPhoto && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              その他写真を追加
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  写真のタイトル
+                </label>
+                <Input
+                  value={customPhotoTitle}
+                  onChange={(e) => setCustomPhotoTitle(e.target.value)}
+                  placeholder="例: 舌の裏側、歯の側面など"
+                  className="w-full"
+                  autoFocus
+                />
               </div>
-            </div>
-
-            <div className="bg-black/80 p-6 space-y-4">
-              <div className="text-center text-white mb-4">
-                <p className="text-lg font-semibold">
-                  {currentPhotoType === 'custom' 
-                    ? customPhotoTitle || 'その他写真'
-                    : currentPhotoType.startsWith('custom-')
-                      ? photos.find(p => p.id === currentPhotoType)?.customTitle || 'その他写真'
-                      : photoTypes.find(t => t.key === currentPhotoType)?.label
-                  }
-                </p>
-                <p className="text-sm text-gray-300">
-                  {currentPhotoType === 'custom' || currentPhotoType.startsWith('custom-')
-                    ? 'タップして撮影してください'
-                    : photoTypes.find(t => t.key === currentPhotoType)?.description
-                  }
-                </p>
-              </div>
-
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={stopCamera}
-                  className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  onClick={cancelAddCustomPhoto}
+                  className="flex-1"
                 >
-                  <X className="w-4 h-4 mr-2" />
                   キャンセル
                 </Button>
                 <Button
-                  onClick={capturePhoto}
-                  disabled={isCapturing}
+                  onClick={confirmCustomPhotoTitle}
                   className="flex-1 bg-coral-500 hover:bg-coral-600"
+                  disabled={!customPhotoTitle.trim()}
                 >
-                  {isCapturing ? '撮影中...' : '📸 撮影'}
+                  <Camera className="w-4 h-4 mr-2" />
+                  撮影へ
                 </Button>
               </div>
             </div>
-
-            <canvas ref={canvasRef} className="hidden" />
           </div>
-        )}
+        </div>
+      )}
+
+      {/* カメラモーダル（フルスクリーン） */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <div className="flex-1 flex items-center justify-center relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-contain"
+            />
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-4 border-2 border-white border-dashed rounded-lg opacity-50" />
+            </div>
+          </div>
+
+          <div className="bg-black/80 p-6 space-y-4">
+            <div className="text-center text-white mb-4">
+              <p className="text-lg font-semibold">
+                {currentPhotoType === 'custom'
+                  ? customPhotoTitle || 'その他写真'
+                  : currentPhotoType.startsWith('custom-')
+                    ? photos.find(p => p.id === currentPhotoType)?.customTitle || 'その他写真'
+                    : photoTypes.find(t => t.key === currentPhotoType)?.label
+                }
+              </p>
+              <p className="text-sm text-gray-300">
+                {currentPhotoType === 'custom' || currentPhotoType.startsWith('custom-')
+                  ? 'タップして撮影してください'
+                  : photoTypes.find(t => t.key === currentPhotoType)?.description
+                }
+              </p>
+            </div>
+
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={stopCamera}
+                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <X className="w-4 h-4 mr-2" />
+                キャンセル
+              </Button>
+              <Button
+                onClick={capturePhoto}
+                disabled={isCapturing}
+                className="flex-1 bg-coral-500 hover:bg-coral-600"
+              >
+                {isCapturing ? '撮影中...' : '📸 撮影'}
+              </Button>
+            </div>
+          </div>
+
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+      )}
     </div >
   )
 }

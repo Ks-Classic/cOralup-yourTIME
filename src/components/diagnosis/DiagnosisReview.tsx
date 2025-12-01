@@ -15,9 +15,14 @@ interface DiagnosisReviewProps {
 }
 
 export function DiagnosisReview({ formData, photos, items, onEdit }: DiagnosisReviewProps) {
-    const formatValue = (item: DiagnosisItem, value: string | string[] | number | undefined) => {
+    const formatValue = (item: DiagnosisItem, value: string | string[] | number | boolean | undefined) => {
         if (value === undefined || value === null || value === '') {
             return '未入力'
+        }
+
+        // boolean型の処理
+        if (typeof value === 'boolean') {
+            return value ? 'はい' : 'いいえ'
         }
 
         if (Array.isArray(value)) {
@@ -37,7 +42,7 @@ export function DiagnosisReview({ formData, photos, items, onEdit }: DiagnosisRe
 
         // オプションからラベルを取得
         if (item.options) {
-            const option = item.options.find(opt => opt.value === value)
+            const option = item.options.find(opt => opt.value === String(value))
             return option?.label || String(value)
         }
 
@@ -70,6 +75,7 @@ export function DiagnosisReview({ formData, photos, items, onEdit }: DiagnosisRe
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             {photos.map(photo => (
                                 <div key={photo.id} className="space-y-1">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={photo.url}
                                         alt={photo.type}

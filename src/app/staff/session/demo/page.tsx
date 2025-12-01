@@ -182,6 +182,7 @@ export default function SessionDetailPage() {
               className="rounded-xl border border-white bg-white p-3 shadow-sm transition hover:shadow-md"
               onClick={showQRCode}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrCodeUrl}
                 alt="Session QR Code"

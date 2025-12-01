@@ -32,6 +32,7 @@ export default function DiagnosisStartPage() {
         videoRef.current.srcObject = mediaStream
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error accessing camera:', error)
       setError('カメラへのアクセスに失敗しました。設定を確認してください。')
       setIsCameraOpen(false)
@@ -64,7 +65,7 @@ export default function DiagnosisStartPage() {
     }
 
     setIsProcessing(true)
-    
+
     // セッションID確定後、統合診断ページに遷移
     router.push(`/staff/diagnosis/${sessionId.trim()}`)
   }
@@ -110,7 +111,7 @@ export default function DiagnosisStartPage() {
               </div>
 
               {isCameraOpen && (
-              <div className="relative space-y-3">
+                <div className="relative space-y-3">
                   <div className="relative bg-black rounded-lg overflow-hidden">
                     <video
                       ref={videoRef}
@@ -127,7 +128,7 @@ export default function DiagnosisStartPage() {
                       </div>
                     </div>
                   </div>
-                    <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-3">
                     <Button
                       onClick={handleQRCodeScan}
                       className="flex-1"

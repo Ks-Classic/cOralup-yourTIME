@@ -146,6 +146,7 @@ export default function AnalysisPage() {
       } as AnalysisResult))
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
       alert('分析の実行に失敗しました')
     } finally {
@@ -176,6 +177,7 @@ export default function AnalysisPage() {
       setEditableReport(mockReport)
 
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error generating report:', error)
       alert('レポートの生成に失敗しました')
     } finally {
@@ -199,6 +201,7 @@ export default function AnalysisPage() {
       alert('診断レポートが送信されました（モック）')
       router.push(`/staff/report/demo`)
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error saving report:', error)
       alert('レポートの保存に失敗しました')
     }
@@ -392,6 +395,7 @@ export default function AnalysisPage() {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {diagnosis.photos.map((photo, index) => (
                 <div key={index} className="text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.url}
                     alt={`Photo ${index + 1}`}

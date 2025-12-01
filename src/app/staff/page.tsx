@@ -15,7 +15,7 @@ import { generateQRCode } from '@/utils'
 interface Session {
   id: string
   sessionId: string
-  status: 'active' | 'completed' | 'expired'
+  status: 'active' | 'completed' | 'expired' | 'questionnaire_completed'
   createdAt: string
   childName?: string
   parentName?: string
@@ -54,6 +54,7 @@ export default function StaffPage() {
   useEffect(() => {
     // モックデータを設定
     setSessions(mockSessions)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchSessions = async () => {
@@ -71,7 +72,7 @@ export default function StaffPage() {
         status: 'active',
         createdAt: new Date().toISOString(),
       }
-      
+
       setSessions(prev => [newSession, ...prev])
 
       // QRコード生成
@@ -80,6 +81,7 @@ export default function StaffPage() {
       const qrCode = await generateQRCode(sessionUrl)
       setQrCodeUrl(qrCode)
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error creating session:', error)
       alert('セッションの作成に失敗しました')
     } finally {
@@ -182,7 +184,7 @@ export default function StaffPage() {
               <p className="text-xs text-gray-600 mt-1">親御さんに通知</p>
             </div>
           </div>
-          
+
           {/* クイックアクション */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-4 border-t border-blue-200">
             <Link href="/staff/diagnosis/demo#step=session">
@@ -282,6 +284,7 @@ export default function StaffPage() {
               className="rounded-xl border border-white bg-white p-3 shadow-sm transition hover:shadow-md"
               onClick={() => window.open(qrCodeUrl, '_blank')}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrCodeUrl}
                 alt="Session QR Code"
