@@ -64,8 +64,9 @@ interface QuestionnaireData {
 interface PhotoData {
   id: string
   url: string
-  type: 'posture_front' | 'posture_side' | 'oral_front' | 'oral_side' | 'oral_closeup'
+  type: 'posture_front' | 'posture_side' | 'oral_front' | 'oral_side' | 'oral_closeup' | 'custom'
   uploaded_at: string
+  customTitle?: string  // カスタム写真用のタイトル
 }
 
 interface AnalysisResult {
@@ -154,6 +155,11 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [diagnosisContainer, setDiagnosisContainer] = useState<HTMLDivElement | null>(null)
+
+  // カスタム写真用の状態
+  const [isAddingCustomPhoto, setIsAddingCustomPhoto] = useState(false)
+  const [customPhotoTitle, setCustomPhotoTitle] = useState('')
+  const [pendingCustomPhotoId, setPendingCustomPhotoId] = useState<string | null>(null)
 
   // モックデータの初期化（セッションIDに基づく）
   useEffect(() => {
