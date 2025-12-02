@@ -1,0 +1,93 @@
+# レポートWebページ仕様書
+
+## 概要
+PDF出力からUUID形式のWebページに変更。スピードと確実性を重視。
+
+## URL形式
+```
+/report/{uuid}
+例: /report/550e8400-e29b-41d4-a716-446655440000
+```
+
+## ページ構成
+
+### 1. ヘッダー
+- 診断日・イベント名
+- タイトル「分析シート」
+- お子様の年齢・お名前
+
+### 2. 写真セクション（3枚横並び）
+| 横向き姿勢 | 正面姿勢 | 口腔内 |
+|-----------|---------|--------|
+| 3:4比率 | 3:4比率 | 3:4比率 |
+
+### 3. 分析できること
+- AI分析サマリー
+- 姿勢と口腔の相関説明
+
+### 4. 評価セクション（2カラム）
+- 姿勢評価: スコア/10 + 指摘事項
+- 口腔評価: スコア/10 + 指摘事項
+
+### 5. 月齢考慮コメント
+- 年齢に応じた専門的アドバイス
+
+### 6. フッター
+- cOral upブランド
+- 有効期限（90日）
+
+## 技術仕様
+
+### フロントエンド
+- Next.js App Router
+- Framer Motion（アニメーション）
+- Tailwind CSS
+- 印刷/PDF保存対応（@media print）
+
+### API
+```
+GET /api/report/{id}
+POST /api/report/create
+```
+
+### データ型
+```typescript
+interface ReportData {
+  id: string
+  childName: string
+  childAge: number
+  childAgeMonths?: number
+  parentName: string
+  eventName: string
+  diagnosisDate: string
+  photos: {
+    postureSide?: string
+    postureFront?: string
+    oralFront?: string
+  }
+  aiAnalysis: {
+    summary: string
+    ageConsideration?: string
+  }
+  postureAnalysis?: {
+    overallScore: number
+    issues: string[]
+  }
+  oralAnalysis?: {
+    overallScore: number
+    issues: string[]
+  }
+}
+```
+
+## 実装ファイル
+- `src/app/report/[id]/page.tsx` - レポート表示ページ
+- `src/app/api/report/[id]/route.ts` - レポート取得API
+- `src/app/api/report/create/route.ts` - レポート作成API
+
+## ステータス
+- [x] 基本実装完了
+- [x] 分析シート形式UI
+- [ ] 写真アップロード連携
+- [ ] LINE通知連携
+
