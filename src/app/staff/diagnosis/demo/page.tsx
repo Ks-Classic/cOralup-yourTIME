@@ -11,7 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { diagnosisItems, diagnosisItemsByCategory, categoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2 } from 'lucide-react'
+import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink } from 'lucide-react'
+import { ReportPreview } from '@/components/staff/ReportPreview'
 import { cn } from '@/utils'
 import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-generator'
 import { generateQRCode } from '@/utils'
@@ -95,6 +96,8 @@ interface AnalysisResult {
       functionEstimation: string
     }
   }
+  // レポート用サマリー（分析シート形式）
+  reportSummary?: string
   report?: {
     summary: string
     analysis: string
@@ -543,6 +546,7 @@ export default function IntegratedDiagnosisPage() {
             functionEstimation: '良好',
           },
         },
+        reportSummary: 'お子さんの姿勢は背中が丸くなりお腹が前に出る「凹円背」で、歯は噛み合わせが深い過蓋咬合の状態です。どちらも体の使い方やバランスの乱れから起こることがあります。姿勢がゆるやかに変わるとあごの動きにも影響しやすく、歯並びにも関わることがあります。また、歯並びが整うと口まわりの筋肉の使い方が安定して、姿勢も自然と整いやすくなります。そのため、姿勢と歯並びはつながっていると考え、両方を一緒に見ることが大切です。',
       }
 
       setAnalysisResult(mockResult)
@@ -1188,73 +1192,40 @@ export default function IntegratedDiagnosisPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {/* 姿勢分析結果 */}
-                        {analysisResult.postureAnalysis && (
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <h3 className="text-xs font-semibold text-gray-900 mb-2">姿勢分析結果</h3>
-                            <div className="space-y-1.5 text-xs">
-                              <p><span className="font-medium">総合スコア:</span> {analysisResult.postureAnalysis.overallScore}/10</p>
-                              <p><span className="font-medium">問題点:</span> {analysisResult.postureAnalysis.issues.join(', ')}</p>
-                              <p><span className="font-medium">推奨事項:</span> {analysisResult.postureAnalysis.recommendations.join(', ')}</p>
-                            </div>
-                          </div>
-                        )}
+                        {/* レポートプレビュー */}
+                        <ReportPreview
+                          childName={questionnaire?.child_name || sessionData?.child_name || 'お子様'}
+                          childAgeMonths={questionnaire?.child_age_months}
+                          childAge={questionnaire?.child_age || sessionData?.child_age}
+                          eventName="cOral up 診断"
+                          diagnosisDate={new Date().toISOString()}
+                          photos={{
+                            postureSide: photos.posture_side,
+                            postureFront: photos.posture_front,
+                            oralFront: photos.oral_front,
+                          }}
+                          aiSummary={analysisResult.reportSummary || ''}
+                        />
 
-                        {/* 口腔分析結果 */}
-                        {analysisResult.oralAnalysis && (
-                          <div className="bg-green-50 rounded-lg p-3">
-                            <h3 className="text-xs font-semibold text-gray-900 mb-2">口腔機能分析結果</h3>
-                            <div className="space-y-1.5 text-xs">
-                              <p><span className="font-medium">総合スコア:</span> {analysisResult.oralAnalysis.overallScore}/10</p>
-                              <p><span className="font-medium">問題点:</span> {analysisResult.oralAnalysis.issues.join(', ')}</p>
-                              <p><span className="font-medium">推奨事項:</span> {analysisResult.oralAnalysis.recommendations.join(', ')}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {!editableReport && (
+                        {/* アクションボタン */}
+                        <div className="flex gap-2">
                           <Button
-                            onClick={generateReport}
-                            disabled={isGeneratingReport}
-                            className="w-full bg-coral-500 hover:bg-coral-600"
+                            onClick={() => window.open('/report/test-uuid', '_blank')}
+                            variant="outline"
+                            className="flex-1"
                           >
-                            {isGeneratingReport ? 'レポート生成中...' : 'レポートを生成'}
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            プレビュー
                           </Button>
-                        )}
+                          <Button
+                            onClick={() => setCurrentMainView('report')}
+                            className="flex-1 bg-coral-500 hover:bg-coral-600"
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            LINE送信へ
+                          </Button>
+                        </div>
 
-                        {/* レポート編集 */}
-                        {editableReport && (
-                          <div className="space-y-3">
-                            <h3 className="text-xs font-semibold text-gray-900">レポート内容</h3>
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-900 mb-1.5">要約</label>
-                                <Textarea
-                                  value={editableReport.summary}
-                                  onChange={(e) => setEditableReport({ ...editableReport, summary: e.target.value })}
-                                  rows={3}
-                                  className="resize-none text-base"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-900 mb-1.5">分析</label>
-                                <Textarea
-                                  value={editableReport.analysis}
-                                  onChange={(e) => setEditableReport({ ...editableReport, analysis: e.target.value })}
-                                  rows={4}
-                                  className="resize-none text-base"
-                                />
-                              </div>
-                            </div>
-                            <Button
-                              onClick={() => setCurrentMainView('report')}
-                              className="w-full bg-coral-500 hover:bg-coral-600"
-                            >
-                              レポート送信へ進む
-                              <ChevronRight className="w-4 h-4 ml-2" />
-                            </Button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </CardContent>
@@ -1271,44 +1242,32 @@ export default function IntegratedDiagnosisPage() {
                     <span>レポート送信</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    最終レポートを確認して送信してください
+                    レポートを確認してLINEで送信してください
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {editableReport ? (
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-900 mb-1.5">要約</h3>
-                        <p className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">{editableReport.summary}</p>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-900 mb-1.5">分析</h3>
-                        <p className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">{editableReport.analysis}</p>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-900 mb-1.5">推奨事項</h3>
-                        <ul className="list-disc list-inside text-xs text-gray-700 bg-gray-50 rounded-lg p-3 space-y-1 leading-relaxed">
-                          {editableReport.recommendations.map((rec: string, index: number) => (
-                            <li key={index}>{rec}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-900 mb-1.5">次のステップ</h3>
-                        <ul className="list-disc list-inside text-xs text-gray-700 bg-gray-50 rounded-lg p-3 space-y-1 leading-relaxed">
-                          {editableReport.nextSteps.map((step: string, index: number) => (
-                            <li key={index}>{step}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-900 mb-1.5">メッセージ</h3>
-                        <p className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">{editableReport.encouragingMessage}</p>
-                      </div>
+                  {analysisResult ? (
+                    <div className="space-y-4">
+                      {/* レポートプレビュー */}
+                      <ReportPreview
+                        childName={questionnaire?.child_name || sessionData?.child_name || 'お子様'}
+                        childAgeMonths={questionnaire?.child_age_months}
+                        childAge={questionnaire?.child_age || sessionData?.child_age}
+                        eventName="cOral up 診断"
+                        diagnosisDate={new Date().toISOString()}
+                        photos={{
+                          postureSide: photos.posture_side,
+                          postureFront: photos.posture_front,
+                          oralFront: photos.oral_front,
+                        }}
+                        aiSummary={analysisResult.reportSummary || ''}
+                      />
+
+                      {/* LINE送信ボタン */}
                       <Button
                         onClick={sendReport}
                         disabled={isSending}
-                        className="w-full bg-coral-500 hover:bg-coral-600"
+                        className="w-full bg-green-500 hover:bg-green-600"
                         size="lg"
                       >
                         {isSending ? '送信中...' : (
@@ -1321,7 +1280,7 @@ export default function IntegratedDiagnosisPage() {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <p className="text-gray-600 mb-4">レポートを生成してください</p>
+                      <p className="text-gray-600 mb-4">AI分析を実行してください</p>
                       <Button
                         onClick={() => setCurrentMainView('review')}
                         variant="outline"
