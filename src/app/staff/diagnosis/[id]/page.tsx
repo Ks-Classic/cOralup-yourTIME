@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { useDiagnosisStorage, cleanupOldDiagnosisData } from '@/hooks/useDiagnosisStorage'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -162,6 +163,63 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   const [customPhotoTitle, setCustomPhotoTitle] = useState('')
   const [pendingCustomPhotoId, setPendingCustomPhotoId] = useState<string | null>(null)
 
+  // 自動保存フック
+  const {
+    isLoaded: isStorageLoaded,
+    lastSaved,
+    loadFromStorage,
+    saveToStorage,
+    clearStorage,
+  } = useDiagnosisStorage(sessionId)
+
+  // 古いデータのクリーンアップ（初回のみ）
+  useEffect(() => {
+    cleanupOldDiagnosisData()
+  }, [])
+
+  // ストレージからデータを復元
+  useEffect(() => {
+    if (!sessionId || !isStorageLoaded) return
+
+    const savedData = loadFromStorage()
+    if (savedData) {
+      // 復元確認
+      const shouldRestore = window.confirm(
+        `前回の診断データが見つかりました（${new Date(savedData.lastSaved).toLocaleString('ja-JP')}）。\n復元しますか？`
+      )
+
+      if (shouldRestore) {
+        if (savedData.diagnosisValues) {
+          setDiagnosisValues(savedData.diagnosisValues)
+        }
+        if (savedData.staffNotes) {
+          setStaffNotes(savedData.staffNotes)
+        }
+        // 写真はURLが無効になっている可能性があるため復元しない
+      }
+    }
+  }, [sessionId, isStorageLoaded, loadFromStorage])
+
+  // データ変更時に自動保存
+  useEffect(() => {
+    if (!sessionId || !isStorageLoaded) return
+
+    // 空のデータは保存しない
+    if (Object.keys(diagnosisValues).length === 0 && !staffNotes) return
+
+    saveToStorage({
+      diagnosisValues,
+      staffNotes,
+      photos: photos.map(p => ({
+        id: p.id,
+        url: p.url,
+        type: p.type,
+        uploaded_at: p.uploaded_at,
+        customTitle: p.customTitle,
+      })),
+    })
+  }, [sessionId, isStorageLoaded, diagnosisValues, staffNotes, photos, saveToStorage])
+
   // モックデータの初期化（セッションIDに基づく）
   useEffect(() => {
     if (!sessionId) return
@@ -294,7 +352,33 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
 
   // 写真プレビュー状態
   const [previewPhoto, setPreviewPhoto] = useState<{url: string, type: string} | null>(null)
+  // 保存済み写真の表示状態
+  const [viewingPhoto, setViewingPhoto] = useState<PhotoData | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 保存済み写真を表示
+  const viewSavedPhoto = (photo: PhotoData) => {
+    setViewingPhoto(photo)
+  }
+
+  // 保存済み写真の表示を閉じる
+  const closeViewingPhoto = () => {
+    setViewingPhoto(null)
+  }
+
+  // 保存済み写真から再撮影
+  const retakeFromViewing = () => {
+    if (!viewingPhoto) return
+    const photoType = viewingPhoto.type === 'custom' ? viewingPhoto.id : viewingPhoto.type
+    setViewingPhoto(null)
+    setCurrentPhotoType(photoType)
+    // 少し遅延してカメラを起動
+    setTimeout(() => {
+      if (fileInputRef.current) {
+        fileInputRef.current.click()
+      }
+    }, 100)
+  }
 
   // カメラ開始（input file経由でネイティブカメラを起動）
   const startCamera = (photoType: string) => {
@@ -632,6 +716,8 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       // モックデータ用なので、実際のLINE通知はスキップ
       alert('診断レポートが送信されました（モック）')
       markStepCompleted('report')
+      // 送信成功時にローカルストレージをクリア
+      clearStorage()
       router.push('/staff')
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -899,6 +985,11 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
               <h1 className="text-lg font-bold text-gray-900">
                 {session?.child_name} ({session?.child_age}歳)
               </h1>
+              {lastSaved && (
+                <p className="text-xs text-gray-500">
+                  自動保存: {lastSaved.toLocaleTimeString('ja-JP')}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {currentMainView === 'diagnosis' && (
@@ -1033,7 +1124,15 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
                       return (
                         <button
                           key={type.key}
-                          onClick={() => startCamera(type.key)}
+                          onClick={() => {
+                            if (existingPhoto) {
+                              // 撮影済みの場合は写真を表示
+                              viewSavedPhoto(existingPhoto)
+                            } else {
+                              // 未撮影の場合はカメラを起動
+                              startCamera(type.key)
+                            }
+                          }}
                           className={cn(
                             'w-full border-2 rounded-xl p-4 transition-all text-left',
                             'hover:border-coral-300 hover:shadow-md active:scale-[0.98]',
@@ -1059,6 +1158,11 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
                                   👆 タップしてカメラを起動
                                 </p>
                               )}
+                              {existingPhoto && (
+                                <p className="text-xs text-green-600 mt-2 font-medium">
+                                  👆 タップして写真を確認
+                                </p>
+                              )}
                             </div>
                             {existingPhoto ? (
                               <div className="flex flex-col items-end gap-2">
@@ -1068,22 +1172,8 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
                                     src={existingPhoto.url}
                                     alt={type.label}
                                     className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      startCamera(type.key)
-                                    }}
                                   />
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      deletePhoto(existingPhoto.id)
-                                    }}
-                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
                                 </div>
-                                <span className="text-xs text-gray-500">タップで再撮影</span>
                               </div>
                             ) : (
                               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-coral-100 text-coral-600">
@@ -1472,8 +1562,9 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
 
       {/* 写真プレビューモーダル（フルスクリーン） */}
       {previewPhoto && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="flex-1 flex items-center justify-center relative p-4">
+        <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+          {/* プレビュー画像エリア */}
+          <div className="flex-1 flex items-center justify-center p-4 min-h-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewPhoto.url}
@@ -1482,7 +1573,8 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
             />
           </div>
 
-          <div className="bg-black/90 p-6 space-y-4 safe-area-inset-bottom">
+          {/* ボタンエリア - 固定高さで常に表示 */}
+          <div className="flex-shrink-0 bg-black/95 p-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
             <div className="text-center text-white mb-4">
               <p className="text-lg font-semibold">
                 {previewPhoto.type === 'custom'
@@ -1497,29 +1589,77 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={closePreview}
-                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="flex-1 h-12 bg-white/10 border-white/30 text-white hover:bg-white/20 text-sm"
               >
-                <X className="w-4 h-4 mr-2" />
+                <X className="w-4 h-4 mr-1" />
                 キャンセル
               </Button>
               <Button
                 variant="outline"
                 onClick={retakePhoto}
-                className="flex-1 bg-yellow-500/20 border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/30"
+                className="flex-1 h-12 bg-yellow-500/30 border-yellow-500/50 text-yellow-200 hover:bg-yellow-500/40 text-sm"
               >
-                <Camera className="w-4 h-4 mr-2" />
+                <Camera className="w-4 h-4 mr-1" />
                 撮り直す
               </Button>
               <Button
                 onClick={savePreviewPhoto}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white text-sm font-bold"
               >
-                <Check className="w-4 h-4 mr-2" />
+                <Check className="w-4 h-4 mr-1" />
                 保存
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 保存済み写真表示モーダル */}
+      {viewingPhoto && (
+        <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+          {/* 写真表示エリア */}
+          <div className="flex-1 flex items-center justify-center p-4 min-h-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={viewingPhoto.url}
+              alt="保存済み写真"
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </div>
+
+          {/* ボタンエリア */}
+          <div className="flex-shrink-0 bg-black/95 p-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+            <div className="text-center text-white mb-4">
+              <p className="text-lg font-semibold">
+                {viewingPhoto.type === 'custom'
+                  ? viewingPhoto.customTitle || 'その他写真'
+                  : photoTypes.find(t => t.key === viewingPhoto.type)?.label
+                }
+              </p>
+              <p className="text-sm text-gray-300">
+                撮影済みの写真です
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={closeViewingPhoto}
+                className="flex-1 h-12 bg-white/10 border-white/30 text-white hover:bg-white/20 text-sm"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                戻る
+              </Button>
+              <Button
+                onClick={retakeFromViewing}
+                className="flex-1 h-12 bg-coral-500 hover:bg-coral-600 text-white text-sm font-bold"
+              >
+                <Camera className="w-4 h-4 mr-1" />
+                再撮影
               </Button>
             </div>
           </div>

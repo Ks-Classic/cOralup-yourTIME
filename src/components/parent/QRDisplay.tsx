@@ -89,4 +89,3 @@ export function QRDisplay({ visitId, childName, className }: QRDisplayProps) {
     </div>
   )
 }
-

@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai
 
 // 環境変数チェック
 const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
-const modelName = process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.0-flash'
+const modelName = process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06'
 
 // モックモード判定
 export const isGeminiMockMode = !apiKey
