@@ -129,6 +129,8 @@ export default function IntegratedDiagnosisPage() {
   const [staffNotes, setStaffNotes] = useState('')
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [editableReport, setEditableReport] = useState<any>(null)
+  const [editableSummary, setEditableSummary] = useState('')
+  const [isReportConfirmed, setIsReportConfirmed] = useState(false)
 
   // UI状態
   const [currentPhotoType, setCurrentPhotoType] = useState<string>('')
@@ -550,6 +552,8 @@ export default function IntegratedDiagnosisPage() {
       }
 
       setAnalysisResult(mockResult)
+      setEditableSummary(mockResult.reportSummary || '')
+      setIsReportConfirmed(false)
       markStepCompleted('analysis')
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -1157,97 +1161,139 @@ export default function IntegratedDiagnosisPage() {
             {/* 確認/分析ビュー */}
             {currentMainView === 'review' && (
               <div className="space-y-4">
-                {/* AI分析セクション */}
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center space-x-2">
-                      <Brain className="w-4 h-4" />
-                      <span>AI分析</span>
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      AI分析を実行してレポートを生成します
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {!analysisResult ? (
-                      <div className="text-center py-8">
-                        <Button
-                          onClick={runAnalysis}
-                          disabled={isAnalyzing}
-                          className="bg-coral-500 hover:bg-coral-600"
-                          size="lg"
-                        >
-                          {isAnalyzing ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              分析中...
-                            </>
-                          ) : (
-                            <>
-                              <Brain className="w-5 h-5 mr-2" />
-                              AI分析を実行
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {/* レポートプレビュー */}
-                        <ReportPreview
-                          childName={questionnaire?.child_name || sessionData?.child_name || 'お子様'}
-                          childAgeMonths={questionnaire?.child_age_months}
-                          childAge={questionnaire?.child_age || sessionData?.child_age}
-                          eventName="cOral up 診断"
-                          diagnosisDate={new Date().toISOString()}
-                          photos={{
-                            postureSide: photos.posture_side,
-                            postureFront: photos.posture_front,
-                            oralFront: photos.oral_front,
-                          }}
-                          aiSummary={analysisResult.reportSummary || ''}
-                        />
-
-                        {/* アクションボタン */}
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => window.open('/report/test-uuid', '_blank')}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            プレビュー
-                          </Button>
-                          <Button
-                            onClick={() => setCurrentMainView('report')}
-                            className="flex-1 bg-coral-500 hover:bg-coral-600"
-                          >
-                            <Send className="w-4 h-4 mr-2" />
-                            LINE送信へ
-                          </Button>
+                {/* 入力チェックセクション */}
+                {!analysisResult && (
+                  <Card className="shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>入力チェック</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        写真と診断項目の入力状況を確認してください
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* 写真チェック */}
+                      <div>
+                        <h4 className="text-xs font-semibold text-gray-700 mb-2">写真（必須3枚）</h4>
+                        <div className="space-y-1">
+                          {[
+                            { key: 'posture_front', label: '正面姿勢' },
+                            { key: 'posture_side', label: '横向き姿勢' },
+                            { key: 'oral_front', label: '口腔内（正面）' },
+                          ].map(({ key, label }) => {
+                            const hasPhoto = photos.find(p => p.type === key)
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => !hasPhoto && setCurrentMainView('photos')}
+                                className={cn(
+                                  "w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors",
+                                  hasPhoto 
+                                    ? "bg-green-50 text-green-700" 
+                                    : "bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer"
+                                )}
+                              >
+                                <span className="flex items-center gap-2">
+                                  {hasPhoto ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                  {label}
+                                </span>
+                                {!hasPhoto && <ChevronRight className="w-3 h-3" />}
+                              </button>
+                            )
+                          })}
                         </div>
-
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
 
-            {/* レポートビュー */}
-            {currentMainView === 'report' && (
-              <Card className="shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center space-x-2">
-                    <Send className="w-4 h-4" />
-                    <span>レポート送信</span>
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    レポートを確認してLINEで送信してください
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {analysisResult ? (
-                    <div className="space-y-4">
+                      {/* 診断項目チェック */}
+                      <div>
+                        <h4 className="text-xs font-semibold text-gray-700 mb-2">診断項目（スタッフ入力）</h4>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {staffItems.filter(item => item.required).map(item => {
+                            const hasValue = diagnosisValues[item.id] !== undefined && 
+                                           diagnosisValues[item.id] !== null && 
+                                           diagnosisValues[item.id] !== ''
+                            return (
+                              <button
+                                key={item.id}
+                                onClick={() => !hasValue && setCurrentMainView('diagnosis')}
+                                className={cn(
+                                  "w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors",
+                                  hasValue 
+                                    ? "bg-green-50 text-green-700" 
+                                    : "bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer"
+                                )}
+                              >
+                                <span className="flex items-center gap-2">
+                                  {hasValue ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                  <span className="text-gray-400">[{item.category}]</span>
+                                  {item.question}
+                                </span>
+                                {!hasValue && <ChevronRight className="w-3 h-3" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 分析ボタン */}
+                      {(() => {
+                        const requiredPhotos = ['posture_front', 'posture_side', 'oral_front']
+                        const missingPhotos = requiredPhotos.filter(key => !photos.find(p => p.type === key))
+                        const missingDiagnosis = staffItems.filter(item => 
+                          item.required && 
+                          (diagnosisValues[item.id] === undefined || 
+                           diagnosisValues[item.id] === null || 
+                           diagnosisValues[item.id] === '')
+                        )
+                        const canAnalyze = missingPhotos.length === 0 && missingDiagnosis.length === 0
+
+                        return (
+                          <div className="pt-2">
+                            {!canAnalyze && (
+                              <p className="text-xs text-red-600 mb-2 text-center">
+                                未入力項目: 写真{missingPhotos.length}枚、診断{missingDiagnosis.length}項目
+                              </p>
+                            )}
+                            <Button
+                              onClick={runAnalysis}
+                              disabled={isAnalyzing || !canAnalyze}
+                              className={cn(
+                                "w-full",
+                                canAnalyze ? "bg-coral-500 hover:bg-coral-600" : "bg-gray-300"
+                              )}
+                              size="lg"
+                            >
+                              {isAnalyzing ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                  分析中...
+                                </>
+                              ) : (
+                                <>
+                                  <Brain className="w-5 h-5 mr-2" />
+                                  分析
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* AI分析結果セクション */}
+                {analysisResult && (
+                  <Card className="shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center space-x-2">
+                        <Brain className="w-4 h-4" />
+                        <span>分析結果</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       {/* レポートプレビュー */}
                       <ReportPreview
                         childName={questionnaire?.child_name || sessionData?.child_name || 'お子様'}
@@ -1256,42 +1302,78 @@ export default function IntegratedDiagnosisPage() {
                         eventName="cOral up 診断"
                         diagnosisDate={new Date().toISOString()}
                         photos={{
-                          postureSide: photos.posture_side,
-                          postureFront: photos.posture_front,
-                          oralFront: photos.oral_front,
+                          postureSide: photos.find(p => p.type === 'posture_side')?.url,
+                          postureFront: photos.find(p => p.type === 'posture_front')?.url,
+                          oralFront: photos.find(p => p.type === 'oral_front')?.url,
                         }}
-                        aiSummary={analysisResult.reportSummary || ''}
+                        aiSummary={editableSummary}
                       />
 
-                      {/* LINE送信ボタン */}
-                      <Button
-                        onClick={sendReport}
-                        disabled={isSending}
-                        className="w-full bg-green-500 hover:bg-green-600"
-                        size="lg"
-                      >
-                        {isSending ? '送信中...' : (
-                          <>
-                            <Send className="w-5 h-5 mr-2" />
-                            LINEでレポートを送信
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-600 mb-4">AI分析を実行してください</p>
-                      <Button
-                        onClick={() => setCurrentMainView('review')}
-                        variant="outline"
-                      >
-                        確認/分析に戻る
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                      {/* コメント編集 */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-2">
+                          <Edit2 className="w-3 h-3 inline mr-1" />
+                          分析コメント（編集可能）
+                        </label>
+                        <Textarea
+                          value={editableSummary}
+                          onChange={(e) => {
+                            setEditableSummary(e.target.value)
+                            setIsReportConfirmed(false)
+                          }}
+                          rows={5}
+                          className="text-sm resize-none"
+                          placeholder="分析コメントを入力..."
+                        />
+                      </div>
+
+                      {/* 確定・送信ボタン */}
+                      {!isReportConfirmed ? (
+                        <Button
+                          onClick={() => setIsReportConfirmed(true)}
+                          className="w-full bg-blue-500 hover:bg-blue-600"
+                          size="lg"
+                        >
+                          <Check className="w-5 h-5 mr-2" />
+                          レポートを確定
+                        </Button>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                            <Check className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                            <p className="text-xs text-green-700">レポート確定済み</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => setIsReportConfirmed(false)}
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              <Edit2 className="w-4 h-4 mr-2" />
+                              編集に戻る
+                            </Button>
+                            <Button
+                              onClick={sendReport}
+                              disabled={isSending}
+                              className="flex-1 bg-green-500 hover:bg-green-600"
+                            >
+                              {isSending ? '送信中...' : (
+                                <>
+                                  <Send className="w-4 h-4 mr-2" />
+                                  LINE送信
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
+
+            {/* レポートビュー */}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -1304,7 +1386,6 @@ export default function IntegratedDiagnosisPage() {
             { view: 'photos' as MainView, label: '写真', icon: <Camera className="w-4 h-4" /> },
             { view: 'diagnosis' as MainView, label: '診断', icon: <CheckCircle2 className="w-4 h-4" /> },
             { view: 'review' as MainView, label: '分析', icon: <Brain className="w-4 h-4" /> },
-            { view: 'report' as MainView, label: 'レポート', icon: <Send className="w-4 h-4" /> },
           ].map(({ view, label, icon }) => (
             <button
               key={view}
