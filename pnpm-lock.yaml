@@ -59,6 +59,9 @@ dependencies:
   html2canvas:
     specifier: ^1.4.1
     version: 1.4.1
+  html5-qrcode:
+    specifier: ^2.3.8
+    version: 2.3.8
   jspdf:
     specifier: ^2.5.1
     version: 2.5.2
@@ -4152,6 +4155,10 @@ packages:
     dependencies:
       css-line-break: 2.1.0
       text-segmentation: 1.0.3
+    dev: false
+
+  /html5-qrcode@2.3.8:
+    resolution: {integrity: sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==}
     dev: false
 
   /http-proxy-agent@5.0.0:
