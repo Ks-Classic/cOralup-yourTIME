@@ -170,9 +170,25 @@ CREATE TABLE reports (
 - `POST /api/reports/[sessionId]/send` - LINE送信
 
 #### AI分析
-- `POST /api/ai/analyze-posture` - 姿勢分析
-- `POST /api/ai/analyze-oral` - 口腔分析
-- `POST /api/ai/generate-report` - レポート生成
+- `POST /api/analysis` - 統合AI分析（visitIdベース、Gemini 2.5 Pro）
+- `GET /api/analysis?visitId=xxx` - 分析結果取得
+- `PATCH /api/analysis` - 分析結果更新（final_content, feedbackScore）
+- `POST /api/ai/analyze-posture` - 姿勢分析（レガシー）
+- `POST /api/ai/analyze-oral` - 口腔分析（レガシー）
+- `POST /api/ai/generate-report` - レポート生成（レガシー）
+
+##### AI分析実装詳細
+| ファイル | 役割 |
+|---------|------|
+| `src/lib/gemini.ts` | Geminiクライアント（リトライ、モックモード対応） |
+| `src/agents/oral-diagnosis/schema.ts` | Zodスキーマ、プロンプトビルダー |
+| `src/agents/oral-diagnosis/prompt.md` | プロンプトテンプレート |
+
+##### 環境変数
+```
+GOOGLE_AI_API_KEY=xxx           # Gemini APIキー
+GOOGLE_GEMINI_MODEL=gemini-2.5-pro-preview-05-06  # モデル名（省略可）
+```
 
 #### LINE連携
 - `POST /api/line/webhook` - LINE Webhook
