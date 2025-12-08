@@ -11,16 +11,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { DynamicForm, type DynamicFormRef } from '@/components/forms/dynamic-form'
-import { 
-  calculateAge, 
-  getFormType, 
+import {
+  calculateAge,
+  getFormType,
   createDateFromParts,
   generateYearOptions,
   generateMonthOptions,
   generateDayOptions
 } from '@/utils/age-calculator'
-import { preschoolerFormSchema } from '@/data/preschooler-form-schema'
-import { elementaryFormSchema } from '@/data/elementary-form-schema'
+import { preschoolerFormSchema as staticPreschoolerSchema } from '@/data/preschooler-form-schema'
+import { elementaryFormSchema as staticElementarySchema } from '@/data/elementary-form-schema'
+import type { FormSchemaConfig } from '@/types/forms'
 import { useQuestionnaireStorage } from '@/hooks/useQuestionnaireStorage'
 import { Sparkles, RotateCcw } from 'lucide-react'
 import { generateBasicInfoSampleData, generateSampleData } from '@/utils/sample-data-generator'
@@ -41,9 +42,9 @@ const basicInfoSchema = z.object({
   parentPhone: z.string().regex(/^(\+81|0)[0-9]{9,10}$/, '正しい電話番号を入力してください'),
 }).refine((data) => {
   const date = createDateFromParts(data.birthYear, data.birthMonth, data.birthDay)
-  return date.getFullYear() === data.birthYear && 
-         date.getMonth() === data.birthMonth - 1 && 
-         date.getDate() === data.birthDay
+  return date.getFullYear() === data.birthYear &&
+    date.getMonth() === data.birthMonth - 1 &&
+    date.getDate() === data.birthDay
 }, {
   message: '正しい日付を選択してください',
   path: ['birthDay'],
@@ -55,7 +56,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const resolvedParams = use(params)
   const sessionId = resolvedParams.id || 'demo'
-  
+
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
@@ -63,6 +64,46 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
   const [calculatedAge, setCalculatedAge] = useState<number | null>(null)
   const [formType, setFormType] = useState<'preschooler' | 'elementary' | null>(null)
   const questionnaireFormRef = useRef<DynamicFormRef>(null)
+
+  // スキーマデータ（動的取得）
+  const [activeFormSchema, setActiveFormSchema] = useState<FormSchemaConfig | null>(null)
+  const [isSchemaLoading, setIsSchemaLoading] = useState(false)
+
+  // フォームタイプが変更されたらAPIからスキーマを取得
+  useEffect(() => {
+    if (!formType) {
+      setActiveFormSchema(null)
+      return
+    }
+
+    const fetchSchema = async () => {
+      setIsSchemaLoading(true)
+      try {
+        const schemaId = formType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
+        const res = await fetch(`/api/questionnaire-schema?schema_id=${schemaId}`)
+
+        if (res.ok) {
+          const json = await res.json()
+          if (json.success && json.data) {
+            setActiveFormSchema(json.data)
+            return
+          }
+        }
+
+        // APIからの取得に失敗した場合、静的データにフォールバック
+        console.warn('問診票スキーマのAPI取得に失敗、静的データを使用します')
+        setActiveFormSchema(formType === 'preschooler' ? staticPreschoolerSchema : staticElementarySchema)
+      } catch (error) {
+        console.error('スキーマ取得エラー:', error)
+        // エラー時も静的データにフォールバック
+        setActiveFormSchema(formType === 'preschooler' ? staticPreschoolerSchema : staticElementarySchema)
+      } finally {
+        setIsSchemaLoading(false)
+      }
+    }
+
+    fetchSchema()
+  }, [formType])
 
   // localStorage連携
   const {
@@ -103,7 +144,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
       })
       setCurrentStep(storedData.currentStep || 1)
       setFormType(storedData.formType)
-      
+
       if (storedData.formType && storedData.currentStep === 2) {
         // ステップ2の場合はセッションサマリーも復元
         const birthDate = createDateFromParts(
@@ -129,7 +170,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
 
   // 生年月日から年齢を自動計算
   const watchedBirthDate = basicInfoForm.watch(['birthYear', 'birthMonth', 'birthDay'])
-  
+
   useEffect(() => {
     const [year, month, day] = watchedBirthDate
     if (year && month && day) {
@@ -150,7 +191,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
   // 年のオプション生成
   const yearOptions = useMemo(() => generateYearOptions(0, 18), [])
   const monthOptions = useMemo(() => generateMonthOptions(), [])
-  
+
   // 日のオプション生成（年と月に依存）
   const dayOptions = useMemo(() => {
     const [year, month] = watchedBirthDate
@@ -203,15 +244,8 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     }
   }
 
-  // 年齢に応じたフォームスキーマを選択
-  const activeFormSchema = useMemo(() => {
-    if (formType === 'preschooler') {
-      return preschoolerFormSchema
-    } else if (formType === 'elementary') {
-      return elementaryFormSchema
-    }
-    return null
-  }, [formType])
+
+
 
   const handleQuestionnaireSubmit = async (values: Record<string, unknown>) => {
     setIsLoading(true)
@@ -245,7 +279,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     if (currentStep === 1) {
       const sampleData = generateBasicInfoSampleData()
       basicInfoForm.reset(sampleData)
-      
+
       const birthDate = createDateFromParts(
         sampleData.birthYear,
         sampleData.birthMonth,
@@ -552,9 +586,9 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full h-12 text-base font-semibold mt-6" 
+              <Button
+                type="submit"
+                className="w-full h-12 text-base font-semibold mt-6"
                 disabled={isLoading || calculatedAge === null}
               >
                 {isLoading ? '保存中...' : '次へ進む'}
@@ -595,7 +629,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
             <div>
               <CardTitle className="text-xl sm:text-2xl">問診票入力</CardTitle>
               <CardDescription className="text-sm sm:text-base">
-                {formType === 'preschooler' 
+                {formType === 'preschooler'
                   ? '未就学児用の問診票です。各項目にご回答ください。'
                   : '小学生以上用の問診票です。各項目にご回答ください。'}
               </CardDescription>

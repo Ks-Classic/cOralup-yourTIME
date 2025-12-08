@@ -477,7 +477,19 @@ export default function StaffPage() {
             </div>
           )}
         </CardContent>
+
       </Card>
+
+      {/* 管理者リンク */}
+      <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+        <Link
+          href="/admin/schema-editor"
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-1"
+        >
+          <span className="opacity-50">⚙️</span>
+          管理者設定（スキーマ編集）
+        </Link>
+      </div>
     </div>
   )
 }

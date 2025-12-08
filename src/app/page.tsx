@@ -183,80 +183,19 @@ export default function LandingPage() {
           </Card>
         </section>
 
-        {/* 従来のカードセクション（簡略版） */}
-        <section className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">親御さん向け</h2>
-                <span className="text-2xl">👨‍👩‍👧</span>
-              </div>
-              <p className="text-sm text-gray-600">
-                LINE連携でセッションを開始し、問診・写真アップロード・結果閲覧までをスマートに体験できます。
-              </p>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-500">主な機能</p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
-                  <li>問診フォーム入力</li>
-                  <li>AI結果の確認</li>
-                  <li>QR表示によるスタッフ連携</li>
-                </ul>
-              </div>
-              <Link href="/parent" className="block pt-4">
-                <Button size="lg" className="w-full">親御さん用アプリへ</Button>
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">スタッフ向け</h2>
-                <span className="text-2xl">🧑‍⚕️</span>
-              </div>
-              <p className="text-sm text-gray-600">
-                セッション検索から診断入力、AI分析、レポート送信までイベント現場のオペレーションを効率化します。
-              </p>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-500">主な機能</p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
-                  <li>セッション・問診閲覧</li>
-                  <li>診断フォーム入力</li>
-                  <li>AI分析とLINE通知</li>
-                </ul>
-              </div>
-              <Link href="/staff" className="block pt-4">
-                <Button size="lg" variant="outline" className="w-full">スタッフ用ツールへ</Button>
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">管理者向け</h2>
-                <span className="text-2xl">📊</span>
-              </div>
-              <p className="text-sm text-gray-600">
-                ユーザー・問診・診断データの集計やフォーム作成、イベント管理、BI分析などを一元管理できます。
-              </p>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-500">主な機能</p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
-                  <li>ユーザー・診断管理</li>
-                  <li>動的フォームビルダー</li>
-                  <li>イベント進捗とBI分析</li>
-                </ul>
-              </div>
-              <Link href="/admin" className="block pt-4">
-                <Button size="lg" variant="secondary" className="w-full">管理者ダッシュボードへ</Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-
         <footer className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-6 text-center text-sm text-gray-500">
+
           LINE連携・Lark Base同期・AI分析を含むハイブリッドアーキテクチャで、イベント運営をトータルサポートします。
+
+          <div className="mt-4 pt-4 border-t border-gray-100/50">
+            <Link
+              href="/admin/schema-editor"
+              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <span className="opacity-50">⚙️</span>
+              管理者設定
+            </Link>
+          </div>
         </footer>
       </div>
     </main>

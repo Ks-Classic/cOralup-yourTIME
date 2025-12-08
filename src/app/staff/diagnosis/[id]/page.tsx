@@ -10,13 +10,14 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
-import { diagnosisItems, diagnosisItemsByCategory, categoryOrder } from '@/data/staff-diagnosis-items'
+import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, Plus } from 'lucide-react'
+import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, Plus, Loader2 } from 'lucide-react'
 import { cn } from '@/utils'
 import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-generator'
 import { generateQRCode } from '@/utils'
 import { AnimatePresence, motion } from 'framer-motion'
+
 
 // メインビューの定義（下部メニューで切り替え）
 type MainView = 'questionnaire' | 'photos' | 'diagnosis' | 'review' | 'report'
@@ -67,7 +68,7 @@ interface PhotoData {
   url: string
   type: 'posture_front' | 'posture_side' | 'oral_front' | 'oral_side' | 'oral_closeup' | 'custom'
   uploaded_at: string
-  customTitle?: string  // カスタム写真用のタイトル
+  customTitle?: string
 }
 
 interface AnalysisResult {
@@ -114,7 +115,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
 
   const [sessionId, setSessionId] = useState<string>('')
 
-  // パラメータの解決（Next.js 14対応）
+  // ... (params logic)
   useEffect(() => {
     const resolveParams = async () => {
       try {
@@ -130,10 +131,10 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     resolveParams()
   }, [params])
 
-  // メインビューの管理（下部メニューで切り替え）
+  // メインビューの管理
   const [currentMainView, setCurrentMainView] = useState<MainView>('questionnaire')
 
-  // ステップ管理（後方互換性のため残す）
+  // ステップ管理
   const [currentStep, setCurrentStep] = useState<DiagnosisStep>('session')
   const [completedSteps, setCompletedSteps] = useState<Set<DiagnosisStep>>(new Set())
 
@@ -145,6 +146,56 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   const [staffNotes, setStaffNotes] = useState('')
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [editableReport, setEditableReport] = useState<any>(null)
+
+  // スキーマデータ（動的取得）
+  const [diagnosisItems, setDiagnosisItems] = useState<DiagnosisItem[]>([])
+  const [categoryList, setCategoryList] = useState<any[]>([])
+  const [isSchemaLoading, setIsSchemaLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSchema = async () => {
+      console.log('[StaffDiagnosis] スキーマ取得開始...')
+      try {
+        const res = await fetch('/api/diagnosis-schema?input_type=staff')
+        console.log('[StaffDiagnosis] API応答ステータス:', res.status)
+        if (!res.ok) throw new Error('スキーマ取得失敗')
+        const json = await res.json()
+        console.log('[StaffDiagnosis] 取得データ:', json.data?.items?.length, '項目')
+
+        if (json.success && json.data) {
+          // APIデータをアプリケーションの形式に変換
+          const apiItems = json.data.items.map((item: any) => ({
+            id: item.id,
+            category: json.data.categories.find((c: any) => c.id === item.category_id)?.name || '未分類',
+            question: item.question,
+            answerType: item.answer_type, // 'radio' | 'checkbox' | ...
+            options: item.options,
+            required: item.is_required,
+            inputType: item.input_type,
+            note: item.note,
+            min: item.min_value,
+            max: item.max_value,
+            unit: item.unit,
+            placeholder: item.placeholder
+          }))
+
+          // 舌カテゴリの確認
+          const tongueItems = apiItems.filter((i: any) => i.category === '舌')
+          console.log('[StaffDiagnosis] 舌カテゴリ:', tongueItems.length, '件', tongueItems.map((i: any) => i.question))
+
+          setDiagnosisItems(apiItems)
+          setCategoryList(json.data.categories)
+        }
+      } catch (e) {
+        console.error('[StaffDiagnosis] エラー:', e)
+        // エラー時は静的データにフォールバック、または空にする
+        // setDiagnosisItems(staticDiagnosisItems) 
+      } finally {
+        setIsSchemaLoading(false)
+      }
+    }
+    fetchSchema()
+  }, [])
 
   // UI状態
   const [currentPhotoType, setCurrentPhotoType] = useState<string>('')
@@ -158,12 +209,12 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   const [isSending, setIsSending] = useState(false)
   const [diagnosisContainer, setDiagnosisContainer] = useState<HTMLDivElement | null>(null)
 
-  // カスタム写真用の状態
+  // ... (custom photo state)
   const [isAddingCustomPhoto, setIsAddingCustomPhoto] = useState(false)
   const [customPhotoTitle, setCustomPhotoTitle] = useState('')
   const [pendingCustomPhotoId, setPendingCustomPhotoId] = useState<string | null>(null)
 
-  // 自動保存フック
+  // ... (auto save hook)
   const {
     isLoaded: isStorageLoaded,
     lastSaved,
@@ -172,18 +223,17 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     clearStorage,
   } = useDiagnosisStorage(sessionId)
 
-  // 古いデータのクリーンアップ（初回のみ）
+  // ... (useEffect for restore)
   useEffect(() => {
     cleanupOldDiagnosisData()
   }, [])
 
-  // ストレージからデータを復元
   useEffect(() => {
+    // ... (restore logic)
     if (!sessionId || !isStorageLoaded) return
 
     const savedData = loadFromStorage()
     if (savedData) {
-      // 復元確認
       const shouldRestore = window.confirm(
         `前回の診断データが見つかりました（${new Date(savedData.lastSaved).toLocaleString('ja-JP')}）。\n復元しますか？`
       )
@@ -195,18 +245,14 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
         if (savedData.staffNotes) {
           setStaffNotes(savedData.staffNotes)
         }
-        // 写真はURLが無効になっている可能性があるため復元しない
       }
     }
   }, [sessionId, isStorageLoaded, loadFromStorage])
 
-  // データ変更時に自動保存
+  // ... (useEffect for auto save)
   useEffect(() => {
     if (!sessionId || !isStorageLoaded) return
-
-    // 空のデータは保存しない
     if (Object.keys(diagnosisValues).length === 0 && !staffNotes) return
-
     saveToStorage({
       diagnosisValues,
       staffNotes,
@@ -220,12 +266,10 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     })
   }, [sessionId, isStorageLoaded, diagnosisValues, staffNotes, photos, saveToStorage])
 
-  // モックデータの初期化（セッションIDに基づく）
+  // ... (mock session data effect)
   useEffect(() => {
     if (!sessionId) return
-
-    // TODO: 実際のAPIからセッション情報を取得
-    // 現在はモックデータを使用
+    // ... (mock data setup)
     const mockSession: SessionData = {
       id: sessionId,
       session_id: sessionId,
@@ -237,7 +281,6 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       child_gender: 'female',
       created_at: new Date().toISOString(),
     }
-
     const mockQuestionnaire: QuestionnaireData = {
       child_name: 'お子様 花子',
       child_age: 8,
@@ -247,12 +290,11 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       ideal_goals: ['きれいな歯並びになりたい', '正しい姿勢を身につけたい'],
       notes: '特に気になることはありません。',
     }
-
     setSession(mockSession)
     setQuestionnaire(mockQuestionnaire)
   }, [sessionId])
 
-  // URLハッシュ同期
+  // ... (url hash sync)
   useEffect(() => {
     const hash = window.location.hash.replace('#step=', '')
     if (hash && steps.includes(hash as DiagnosisStep)) {
@@ -265,7 +307,6 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     window.history.replaceState(null, '', `#step=${step}`)
   }, [])
 
-  // ステップ完了状態の管理
   const markStepCompleted = useCallback((step: DiagnosisStep) => {
     setCompletedSteps(prev => {
       const next = new Set(prev)
@@ -278,10 +319,10 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     return completedSteps.has(step)
   }, [completedSteps])
 
-  // スタッフ用項目のみフィルタリング
+  // スタッフ用項目のみフィルタリング（API取得データを使用）
   const staffItems = useMemo(() =>
     diagnosisItems.filter(item => item.inputType === 'staff'),
-    []
+    [diagnosisItems]
   )
 
   // カテゴリ別にグループ化（スタッフ用のみ）
@@ -296,11 +337,14 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     return grouped
   }, [staffItems])
 
-  // カテゴリの順序（スタッフ用のみ）
-  const staffCategoryOrder = useMemo(() =>
-    categoryOrder.filter(cat => staffItemsByCategory[cat]?.length > 0),
-    [staffItemsByCategory]
-  )
+  // カテゴリの順序（Activeなカテゴリのみ）
+  const staffCategoryOrder = useMemo(() => {
+    // APIから取得したカテゴリリストの順序を優先
+    if (categoryList.length > 0) {
+      return categoryList.map(c => c.name).filter(name => staffItemsByCategory[name]?.length > 0)
+    }
+    return []
+  }, [categoryList, staffItemsByCategory])
 
   // アクティブカテゴリの初期化（デフォルトは「舌」）
   useEffect(() => {
@@ -351,10 +395,32 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   }, [completedSteps, isStepCompleted])
 
   // 写真プレビュー状態
-  const [previewPhoto, setPreviewPhoto] = useState<{url: string, type: string} | null>(null)
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string, type: string } | null>(null)
   // 保存済み写真の表示状態
   const [viewingPhoto, setViewingPhoto] = useState<PhotoData | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // モーダル表示時にbodyのスクロールを無効化
+  useEffect(() => {
+    if (previewPhoto || viewingPhoto) {
+      // スクロール位置を保存
+      const scrollY = window.scrollY
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      document.body.style.overflow = 'hidden'
+
+      return () => {
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.left = ''
+        document.body.style.right = ''
+        document.body.style.overflow = ''
+        window.scrollTo(0, scrollY)
+      }
+    }
+  }, [previewPhoto, viewingPhoto])
 
   // 保存済み写真を表示
   const viewSavedPhoto = (photo: PhotoData) => {
@@ -397,7 +463,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     // ファイルをプレビュー用URLに変換
     const objectUrl = URL.createObjectURL(file)
     setPreviewPhoto({ url: objectUrl, type: currentPhotoType })
-    
+
     // inputをリセット（同じファイルを再選択可能にする）
     event.target.value = ''
   }
@@ -964,7 +1030,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     report: !!analysisResult,
   }), [questionnaire, photos, diagnosisProgressPercentage, analysisResult])
 
-  if (!session || !questionnaire) {
+  if (!session || !questionnaire || isSchemaLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
@@ -1562,21 +1628,33 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
 
       {/* 写真プレビューモーダル（フルスクリーン） */}
       {previewPhoto && (
-        <div className="fixed inset-0 bg-black z-[100] flex flex-col">
-          {/* プレビュー画像エリア */}
-          <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewPhoto.url}
-              alt="プレビュー"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-          </div>
-
-          {/* ボタンエリア - 固定高さで常に表示 */}
-          <div className="flex-shrink-0 bg-black/95 p-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
-            <div className="text-center text-white mb-4">
-              <p className="text-lg font-semibold">
+        <div
+          className="fixed inset-0 bg-black z-[9999]"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            touchAction: 'none',
+            overscrollBehavior: 'none',
+            overflow: 'hidden'
+          }}
+        >
+          {/* 上部：ボタンエリア - 絶対位置で上部固定 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#000',
+              padding: '16px',
+              zIndex: 10
+            }}
+          >
+            <div className="text-center text-white mb-3">
+              <p className="text-base font-semibold">
                 {previewPhoto.type === 'custom'
                   ? customPhotoTitle || 'その他写真'
                   : previewPhoto.type.startsWith('custom-')
@@ -1614,6 +1692,34 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
                 保存
               </Button>
             </div>
+          </div>
+
+          {/* 下部：画像エリア */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '160px',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '8px',
+              overflow: 'hidden'
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewPhoto.url}
+              alt="プレビュー"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
           </div>
         </div>
       )}

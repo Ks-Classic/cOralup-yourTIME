@@ -139,9 +139,6 @@ export const diagnosisItems: DiagnosisItem[] = [
   { id: 'exam_2', category: 'サーモグラフ', subCategory: 'サーモグラフ', question: '足指', answerType: 'radio', options: [{ value: 'visible', label: '写る' }, { value: 'not_visible', label: '写らない' }], required: true, inputType: 'staff' },
   { id: 'exam_3', category: 'サーモグラフ', subCategory: 'サーモグラフ', question: '重心位置', answerType: 'radio', options: [{ value: 'center', label: '中央' }, { value: 'right', label: '右' }, { value: 'left', label: '左' }], required: true, inputType: 'staff' },
   { id: 'exam_4', category: 'サーモグラフ', subCategory: 'サーモグラフ', question: '偏平足', answerType: 'radio', options: [{ value: 'no', label: '無' }, { value: 'yes', label: '有' }], required: true, inputType: 'staff' },
-  
-  // その他（スタッフ）
-  { id: 'other_1', category: 'その他', subCategory: 'その他', question: '特記事項・困りごと', answerType: 'textarea', required: false, inputType: 'staff', placeholder: '発達障害、日本語不可など（ほぼ書かない）' },
 ]
 
 // カテゴリ別にグループ化
@@ -171,6 +168,5 @@ export const categoryOrder = [
   '靴',
   '機能検査',
   'サーモグラフ',
-  'その他',
 ]
 

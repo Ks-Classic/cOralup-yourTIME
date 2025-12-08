@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Heart, AlertCircle } from 'lucide-react'
+import { Heart, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import Image from 'next/image'
+import { cn } from '@/utils'
 
 interface ReportData {
   id: string
@@ -36,6 +37,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const resolveParams = async () => {
@@ -100,6 +102,32 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     { key: 'oralFront', label: '口腔内' }
   ] as const
 
+  // 有効な写真のみをフィルタリング
+  const validPhotos = photoLabels
+    .map((item, index) => ({ ...item, url: reportData.photos[item.key], index }))
+    .filter(item => item.url)
+
+  const openPhotoViewer = (index: number) => {
+    const validIndex = validPhotos.findIndex(p => p.index === index)
+    if (validIndex !== -1) {
+      setSelectedPhotoIndex(validIndex)
+    }
+  }
+
+  const closePhotoViewer = () => {
+    setSelectedPhotoIndex(null)
+  }
+
+  const goToPrevPhoto = () => {
+    if (selectedPhotoIndex === null || validPhotos.length === 0) return
+    setSelectedPhotoIndex((selectedPhotoIndex - 1 + validPhotos.length) % validPhotos.length)
+  }
+
+  const goToNextPhoto = () => {
+    if (selectedPhotoIndex === null || validPhotos.length === 0) return
+    setSelectedPhotoIndex((selectedPhotoIndex + 1) % validPhotos.length)
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-[210mm] mx-auto bg-white p-6">
@@ -122,21 +150,34 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           {/* 写真セクション */}
           <section className="mb-6">
             <div className="grid grid-cols-3 gap-4">
-              {photoLabels.map(({ key, label }) => {
+              {photoLabels.map(({ key, label }, index) => {
                 const photoUrl = reportData.photos[key]
                 return (
                   <div
                     key={key}
-                    className="aspect-[3/4] bg-gray-100 rounded-lg border-2 border-gray-200 overflow-hidden flex items-center justify-center"
+                    className={cn(
+                      "aspect-[3/4] bg-gray-100 rounded-lg border-2 border-gray-200 overflow-hidden flex items-center justify-center relative",
+                      photoUrl && "cursor-pointer group"
+                    )}
+                    onClick={() => photoUrl && openPhotoViewer(index)}
                   >
                     {photoUrl ? (
-                      <Image
-                        src={photoUrl}
-                        alt={label}
-                        width={200}
-                        height={267}
-                        className="w-full h-full object-cover"
-                      />
+                      <>
+                        <Image
+                          src={photoUrl}
+                          alt={label}
+                          width={200}
+                          height={267}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* タップで拡大アイコン */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                        </div>
+                        <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1">
+                          {label}
+                        </p>
+                      </>
                     ) : (
                       <div className="text-center text-gray-500">
                         <p className="text-sm font-medium">{label}</p>
@@ -147,6 +188,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
                 )
               })}
             </div>
+            {validPhotos.length > 0 && (
+              <p className="text-xs text-gray-400 text-center mt-2">
+                タップで拡大表示
+              </p>
+            )}
           </section>
 
           {/* 分析できること */}
@@ -170,6 +216,81 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           </footer>
         </motion.div>
       </div>
+
+      {/* 写真拡大モーダル */}
+      {selectedPhotoIndex !== null && validPhotos.length > 0 && (
+        <div 
+          className="fixed inset-0 bg-black z-[9999] flex flex-col"
+          style={{ touchAction: 'none' }}
+        >
+          {/* ヘッダー */}
+          <div className="flex-shrink-0 flex items-center justify-between p-4 bg-black/80">
+            <button
+              onClick={closePhotoViewer}
+              className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <p className="text-white font-medium">
+              {validPhotos[selectedPhotoIndex].label}
+            </p>
+            <div className="text-white text-sm">
+              {selectedPhotoIndex + 1} / {validPhotos.length}
+            </div>
+          </div>
+
+          {/* 画像エリア */}
+          <div className="flex-1 flex items-center justify-center relative overflow-hidden">
+            {/* 前へボタン */}
+            {validPhotos.length > 1 && (
+              <button
+                onClick={goToPrevPhoto}
+                className="absolute left-2 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </button>
+            )}
+
+            {/* 画像 */}
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <Image
+                src={validPhotos[selectedPhotoIndex].url!}
+                alt={validPhotos[selectedPhotoIndex].label}
+                width={800}
+                height={1000}
+                className="max-w-full max-h-full object-contain"
+                style={{ maxHeight: 'calc(100vh - 160px)' }}
+              />
+            </div>
+
+            {/* 次へボタン */}
+            {validPhotos.length > 1 && (
+              <button
+                onClick={goToNextPhoto}
+                className="absolute right-2 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+              >
+                <ChevronRight className="w-8 h-8" />
+              </button>
+            )}
+          </div>
+
+          {/* インジケーター */}
+          {validPhotos.length > 1 && (
+            <div className="flex-shrink-0 flex justify-center gap-2 p-4 bg-black/80">
+              {validPhotos.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedPhotoIndex(index)}
+                  className={cn(
+                    "w-3 h-3 rounded-full transition-colors",
+                    index === selectedPhotoIndex ? "bg-white" : "bg-white/40"
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

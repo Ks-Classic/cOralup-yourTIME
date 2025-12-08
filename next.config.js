@@ -4,7 +4,13 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'placehold.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+    ],
     formats: ['image/avif', 'image/webp'],
   },
   async headers() {

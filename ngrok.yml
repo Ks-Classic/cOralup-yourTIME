@@ -1,0 +1,20 @@
+version: "2"
+authtoken: YOUR_NGROK_AUTH_TOKEN_HERE
+
+tunnels:
+  tunnel1:
+    proto: http
+    addr: 3000
+    bind_tls: true
+    
+  tunnel2:
+    proto: http
+    addr: 3001
+    bind_tls: true
+    
+  tunnel3:
+    proto: http
+    addr: 3002
+    bind_tls: true
+
+
