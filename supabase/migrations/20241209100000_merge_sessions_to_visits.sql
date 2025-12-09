@@ -42,47 +42,67 @@ END $$;
 DO $$
 DECLARE
     session_record RECORD;
+    sessions_exists BOOLEAN;
 BEGIN
+    -- sessions テーブルの存在確認
+    SELECT EXISTS (
+        SELECT 1 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'sessions'
+    ) INTO sessions_exists;
+    
     -- sessions テーブルが存在する場合のみ実行
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sessions') THEN
-        FOR session_record IN 
-            SELECT * FROM sessions
-        LOOP
-            -- 既存のvisitがある場合は更新、ない場合は新規作成
-            INSERT INTO visits (
-                session_id,
-                line_user_id,
-                parent_name,
-                parent_phone,
-                status,
-                visit_date,
-                created_at,
-                updated_at
-            )
-            VALUES (
-                session_record.session_id,
-                session_record.line_user_id,
-                session_record.parent_name,
-                session_record.parent_phone,
-                COALESCE(
-                    (SELECT status FROM visits WHERE session_id = session_record.session_id),
-                    session_record.status
-                ),
-                COALESCE(
-                    (SELECT visit_date FROM visits WHERE session_id = session_record.session_id),
-                    session_record.created_at
-                ),
-                session_record.created_at,
-                session_record.updated_at
-            )
-            ON CONFLICT (session_id) 
-            DO UPDATE SET
-                line_user_id = COALESCE(EXCLUDED.line_user_id, visits.line_user_id),
-                parent_name = COALESCE(EXCLUDED.parent_name, visits.parent_name),
-                parent_phone = COALESCE(EXCLUDED.parent_phone, visits.parent_phone),
-                status = COALESCE(visits.status, EXCLUDED.status),
-                updated_at = GREATEST(visits.updated_at, EXCLUDED.updated_at);
-        END LOOP;
+    IF sessions_exists THEN
+        BEGIN
+            -- データ移行を実行
+            FOR session_record IN 
+                SELECT * FROM sessions
+            LOOP
+                -- 既存のvisitがある場合は更新、ない場合は新規作成
+                INSERT INTO visits (
+                    session_id,
+                    line_user_id,
+                    parent_name,
+                    parent_phone,
+                    status,
+                    visit_date,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    session_record.session_id,
+                    session_record.line_user_id,
+                    session_record.parent_name,
+                    session_record.parent_phone,
+                    COALESCE(
+                        (SELECT status FROM visits WHERE session_id = session_record.session_id),
+                        session_record.status
+                    ),
+                    COALESCE(
+                        (SELECT visit_date FROM visits WHERE session_id = session_record.session_id),
+                        session_record.created_at
+                    ),
+                    session_record.created_at,
+                    session_record.updated_at
+                )
+                ON CONFLICT (session_id) 
+                DO UPDATE SET
+                    line_user_id = COALESCE(EXCLUDED.line_user_id, visits.line_user_id),
+                    parent_name = COALESCE(EXCLUDED.parent_name, visits.parent_name),
+                    parent_phone = COALESCE(EXCLUDED.parent_phone, visits.parent_phone),
+                    status = COALESCE(visits.status, EXCLUDED.status),
+                    updated_at = GREATEST(visits.updated_at, EXCLUDED.updated_at);
+            END LOOP;
+            RAISE NOTICE 'sessionsテーブルからvisitsテーブルへのデータ移行が完了しました。';
+        EXCEPTION
+            WHEN undefined_table THEN
+                RAISE NOTICE 'sessionsテーブルが存在しないため、データ移行をスキップします。';
+            WHEN OTHERS THEN
+                RAISE NOTICE 'データ移行中にエラーが発生しましたが、処理を続行します: %', SQLERRM;
+        END;
+    ELSE
+        RAISE NOTICE 'sessionsテーブルが存在しないため、データ移行をスキップします。';
     END IF;
 END $$;
 
@@ -181,9 +201,23 @@ CREATE INDEX IF NOT EXISTS idx_visits_staff_profile_id ON visits(staff_profile_i
 
 -- 8. sessions テーブルを削除（外部キー参照が全て更新された後）
 -- 注意: データ移行が完了していることを確認してから実行
--- トリガーを先に削除
-DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
-DROP TABLE IF EXISTS sessions CASCADE;
+DO $$
+BEGIN
+    -- sessions テーブルが存在する場合のみ削除
+    IF EXISTS (
+        SELECT 1 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'sessions'
+    ) THEN
+        -- トリガーを先に削除
+        DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
+        DROP TABLE sessions CASCADE;
+        RAISE NOTICE 'sessionsテーブルを削除しました。';
+    ELSE
+        RAISE NOTICE 'sessionsテーブルが存在しないため、削除をスキップします。';
+    END IF;
+END $$;
 
 -- 9. コメントを更新
 COMMENT ON TABLE visits IS '来場セッション管理テーブル（sessionsを統合）';

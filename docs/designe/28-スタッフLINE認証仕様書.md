@@ -159,18 +159,26 @@ LINE_STAFF_CHANNEL_SECRET=xxxxx
 LINE_STAFF_CHANNEL_ACCESS_TOKEN=xxxxx
 
 # スタッフ用LINE Login（LIFF認証用）
+# 注意: LINE Loginチャネルは別途作成が必要（Messaging APIチャネルとは別）
 LINE_STAFF_LOGIN_CHANNEL_ID=xxxxx
 LINE_STAFF_LOGIN_CHANNEL_SECRET=xxxxx
 
-# LIFF ID（LINE Loginチャネル内で発行）
+# LIFF ID（LINE Loginチャネル内でLIFFアプリ作成時に発行）
 NEXT_PUBLIC_STAFF_LIFF_ID=xxxxx-xxxxx
 
-# セッション暗号化キー
+# セッション暗号化キー（JWT署名用）
 STAFF_SESSION_SECRET=your-random-secret-key
 
 # cOralup組織ID（profiles.organization_id用）
 CORALUP_ORG_ID=xxxxx
 ```
+
+**環境変数設定手順:**
+1. LINE Developers ConsoleでMessaging APIチャネル作成 → `LINE_STAFF_CHANNEL_*` を取得
+2. LINE Developers ConsoleでLINE Loginチャネル作成 → `LINE_STAFF_LOGIN_CHANNEL_*` を取得
+3. LINE Loginチャネル内でLIFFアプリ作成 → `NEXT_PUBLIC_STAFF_LIFF_ID` を取得
+4. `STAFF_SESSION_SECRET` は `openssl rand -hex 32` で生成
+5. Vercel環境変数とローカル `.env.local` に設定
 
 ---
 
