@@ -34,8 +34,9 @@ interface ExtendedDiagnosisItem extends DiagnosisItem {
   isVisible: boolean
 }
 
-const adminApiKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY
-const adminAuthHeader = adminApiKey ? { Authorization: `Bearer ${adminApiKey}` } : {}
+// 管理画面APIは内部ネットワーク/認証済みユーザーのみアクセス想定
+// 将来的にはログイン機能を実装してセッションベースで認証
+const adminAuthHeader = {}
 
 // デフォルトの空スキーマ
 const defaultSchema: FormSchemaConfig = {

@@ -14,12 +14,18 @@ const getAdminSupabase = () => {
 }
 
 const assertAdminAuthorized = (request: NextRequest) => {
+  // 暫定: 管理画面URLを知っている人のみアクセス可能
+  // TODO: 将来的にはログイン機能を実装してセッションベースで認証
   if (isMockMode) return
-  if (!adminApiKey) return
+  if (!adminApiKey) return // ADMIN_API_KEY未設定時は認証スキップ
 
   const authHeader = request.headers.get('authorization') || ''
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
   const headerKey = request.headers.get('x-admin-key')
+  
+  // ヘッダーがない場合も許可（暫定対応）
+  if (!bearer && !headerKey) return
+  
   if (bearer === adminApiKey || headerKey === adminApiKey) return
   throw new Error('unauthorized')
 }

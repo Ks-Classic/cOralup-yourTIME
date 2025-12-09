@@ -212,8 +212,8 @@ export function convertVisitToLarkFields(visit: VisitData): LarkRecordFields {
     parent_name: visit.parent_name || '',
     status: visit.status,
     staff_name: visit.staff_name || '',
-    visit_time: visit.visit_date ? new Date(visit.visit_date).getTime() : null,
-    updated_at: Date.now(),
+    visit_time: visit.visit_date ? toJSTString(visit.visit_date) : '',
+    updated_at: nowJST(),
     reception_number: visit.reception_number || '',
     event_name: visit.event_name || '',
     child_age_months: visit.child_age_months || null,
@@ -260,7 +260,7 @@ export async function syncRealtimeStats(
         {
           metric_name: metric.metric_name,
           value: metric.value,
-          updated_at: Date.now(),
+          updated_at: nowJST(),
         },
         statsTableId
       )
@@ -269,7 +269,7 @@ export async function syncRealtimeStats(
         {
           metric_name: metric.metric_name,
           value: metric.value,
-          updated_at: Date.now(),
+          updated_at: nowJST(),
         },
         statsTableId
       )
@@ -331,7 +331,7 @@ export async function createAlert(
       alert_type: alert.type,
       description: alert.description,
       visit_id: alert.visitId || '',
-      created_at: Date.now(),
+      created_at: nowJST(),
       resolved: false,
     },
     alertsTableId
@@ -350,6 +350,28 @@ export class LarkApiError extends Error {
     super(message)
     this.name = 'LarkApiError'
   }
+}
+
+// ============================================
+// 日時ヘルパー (JST変換)
+// ============================================
+
+/**
+ * Date を JST 文字列に変換
+ * @param date Date オブジェクトまたは ISO 文字列
+ * @returns "2024/12/09 14:30:00" 形式の JST 文字列
+ */
+export function toJSTString(date: Date | string | number | null | undefined): string {
+  if (!date) return ''
+  const d = new Date(date)
+  return d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+}
+
+/**
+ * 現在時刻を JST 文字列で取得
+ */
+export function nowJST(): string {
+  return toJSTString(new Date())
 }
 
 // ============================================
