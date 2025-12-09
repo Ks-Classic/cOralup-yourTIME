@@ -1,6 +1,6 @@
 # Coralup TODO プロジェクト管理
 
-**最終更新: 2024-12-06**
+**最終更新: 2024-12-08**
 
 ---
 
@@ -18,40 +18,56 @@
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
-| 1.1 | マイグレーション適用 | `20241205000000_diagnosis_master_tables.sql` を本番適用 | 📋 | |
-| 1.2 | マイグレーション適用 | `20241206000000_questionnaire_master_tables.sql` を本番適用 | 📋 | |
-| 1.3 | マイグレーション適用 | `20241206000001_crm_tables.sql` を本番適用 | 📋 | |
-| 1.4 | 診断カテゴリシード | `diagnosis_categories` に16カテゴリ投入 | 📋 | |
-| 1.5 | 診断項目シード | `diagnosis_items` に約60項目投入 | 📋 | |
-| 1.6 | 問診カテゴリシード | `questionnaire_categories` に約10カテゴリ投入 | 📋 | |
-| 1.7 | 問診項目シード（未就学児） | `questionnaire_items` に未就学児用項目投入 | 📋 | |
-| 1.8 | 問診項目シード（小学生） | `questionnaire_items` に小学生用項目投入 | 📋 | |
-| 1.9 | YourTIMEイベント登録 | `events` テーブルにYourTIME 1件登録 | 📋 | |
-| 1.10 | cOralup組織確認 | `organizations` に cOralup が登録されていることを確認 | 📋 | |
+| 1.1 | マイグレーション適用 | `20241205000000_diagnosis_master_tables.sql` を本番適用 | ✅ | |
+| 1.2 | マイグレーション適用 | `20241206000000_questionnaire_master_tables.sql` を本番適用 | ✅ | |
+| 1.3 | マイグレーション適用 | `20241206000001_crm_tables.sql` を本番適用 | ✅ | |
+| 1.4 | 診断カテゴリシード | `diagnosis_categories` に16カテゴリ投入 | ✅ | |
+| 1.5 | 診断項目シード | `diagnosis_items` に約60項目投入 | ✅ | |
+| 1.6 | 問診カテゴリシード | `questionnaire_categories` に約10カテゴリ投入 | ✅ | |
+| 1.7 | 問診項目シード（未就学児） | `questionnaire_items` に未就学児用項目投入 | ✅ | |
+| 1.8 | 問診項目シード（小学生） | `questionnaire_items` に小学生用項目投入 | ✅ | |
+| 1.9 | YourTIMEイベント登録 | `events` テーブルにYourTIME 1件登録 | ✅ | |
+| 1.10 | cOralup組織確認 | `organizations` に cOralup が登録されていることを確認 | ✅ | |
 
-#### 02-parent: 問診画面DB連携
+#### 02-parent: 問診画面DB連携（3段階保存フロー）
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
-| 2.1 | 問診項目取得API作成 | `/api/questionnaire/items?target_age=preschool` | 📋 | |
-| 2.2 | 問診画面をDB読み込みに変更 | `src/app/(exhibition)/(parent)/` の問診画面 | 📋 | |
-| 2.3 | 問診回答保存API作成 | `POST /api/questionnaire/responses` | 📋 | |
-| 2.4 | 問診回答を正規化テーブルに保存 | `questionnaire_responses` への INSERT | 📋 | |
-| 2.5 | 旧テーブル互換保存 | `questionnaires` テーブルにも並行保存（互換用） | 📋 | |
-| 2.6 | 問診画面E2Eテスト | 未就学児フロー通しテスト | 📋 | |
-| 2.7 | 問診画面E2Eテスト | 小学生フロー通しテスト | 📋 | |
+| 2.0 | LINE Webhook実装 | 友だち追加→ `profiles` に `line_user_id`, `display_name` 即時登録 | ✅ | |
+| 2.1 | 基本情報保存API | `POST /api/parent/basic-info` → `profiles` UPDATE + `children` + `visits` INSERT | ✅ | |
+| 2.2 | 問診回答保存API | `POST /api/parent/questionnaire` → `questionnaire_responses` + `visits.status` 更新 | ✅ | |
+| 2.3 | 問診項目取得API | `GET /api/questionnaire/items?target_age=preschool` | ✅ | |
+| 2.4 | 問診画面DB読み込み | `src/app/(exhibition)/(parent)/` の問診画面をAPI化 | ✅ | |
+| 2.5 | 画面遷移時保存処理 | 基本情報「次へ」→ API呼出、問診「次へ：QR表示」→ API呼出 | ✅ | |
+| 2.6 | 旧テーブル互換保存 | `sessions`, `questionnaires` にも並行保存（互換用） | ✅ | |
+| 2.7 | スタッフ側引き継ぎAPI | `GET /api/staff/session?visit_id=xxx` → 子供・保護者・問診データ取得 | ✅ | |
+| 2.8 | 問診画面E2Eテスト | 未就学児/小学生フロー通しテスト | 📋 | |
 
 #### 03-staff: 診断画面DB連携
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
-| 3.1 | 診断項目取得API作成 | `/api/diagnosis/items?input_type=staff` | 📋 | |
-| 3.2 | 診断画面をDB読み込みに変更 | `src/app/staff/diagnosis/[id]/page.tsx` | 📋 | |
-| 3.3 | 診断回答保存API作成 | `POST /api/diagnosis/responses` | 📋 | |
-| 3.4 | 診断回答を正規化テーブルに保存 | `diagnosis_responses` への INSERT | 📋 | |
-| 3.5 | 旧テーブル互換保存 | `diagnoses` テーブルにも並行保存（互換用） | 📋 | |
+| 3.1 | 診断項目取得API作成 | `/api/diagnosis-schema?input_type=staff` | ✅ | |
+| 3.2 | 診断画面をDB読み込みに変更 | `src/app/staff/diagnosis/[id]/page.tsx` | ✅ | |
+| 3.3 | 診断回答保存API作成 | `POST /api/diagnoses` (正規化対応) | ✅ | |
+| 3.4 | 診断回答を正規化テーブルに保存 | `diagnosis_responses` への INSERT | ✅ | |
+| 3.5 | 旧テーブル互換保存 | `diagnoses` テーブルにも並行保存（互換用） | ✅ | |
 | 3.6 | 診断画面E2Eテスト | 全カテゴリ入力テスト | 📋 | |
-| 3.7 | レポート生成テスト | 正規化データからレポート生成確認 | 📋 | |
+| 3.7 | レポート生成テスト | 正規化データからレポート生成確認 | 🔧 | |
+
+#### 03-staff-auth: スタッフLINE認証 🆕
+
+| # | タスク | 詳細 | 状態 | 担当 |
+|---|--------|------|------|------|
+| 3.8 | LINE公式アカウント作成 | 「cOralupスタッフ」Messaging APIチャネル | 📋 | |
+| 3.9 | LINEログインチャネル作成 | OAuth認証用チャネル | 📋 | |
+| 3.10 | Webhook API実装 | 友だち追加→profiles作成 | 📋 | |
+| 3.11 | OAuth認証実装 | LINEログイン + セッションCookie | 📋 | |
+| 3.12 | スタッフホーム画面 | `/staff/home` QRスキャン + 履歴メニュー | 📋 | |
+| 3.13 | 対応履歴一覧画面 | `/staff/history` 自分の対応一覧 | 📋 | |
+| 3.14 | 対応詳細画面 | `/staff/history/[sessionId]` 問診・診断結果表示 | 📋 | |
+| 3.15 | 診断時スタッフ紐付け | visits.staff_profile_id 設定 | 📋 | |
+| 3.16 | スタッフ認証E2Eテスト | 友だち追加→ログイン→診断→履歴確認 | 📋 | |
 
 #### 04-test: 本番前テスト
 
@@ -81,7 +97,7 @@
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
-| 6.1 | 管理画面レイアウト | `src/app/admin/layout.tsx` 整備 | 📋 | |
+| 6.1 | 管理画面レイアウト | `src/app/admin/layout.tsx` 整備 | 🔧 | |
 | 6.2 | イベント一覧画面 | `src/app/admin/events/page.tsx` | 📋 | |
 | 6.3 | イベント作成画面 | `src/app/admin/events/new/page.tsx` | 📋 | |
 | 6.4 | イベント編集画面 | `src/app/admin/events/[id]/edit/page.tsx` | 📋 | |
@@ -92,13 +108,13 @@
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
-| 7.1 | 診断カテゴリCRUD API | `/api/admin/diagnosis/categories` (統合: `/api/admin/diagnosis-schema`) | ✅ | |
-| 7.2 | 診断項目CRUD API | `/api/admin/diagnosis/items` (統合: `/api/admin/diagnosis-schema`) | ✅ | |
-| 7.3 | 問診カテゴリCRUD API | `/api/admin/questionnaire/categories` (統合: `/api/admin/schemas`) | ✅ | |
-| 7.4 | 問診項目CRUD API | `/api/admin/questionnaire/items` (統合: `/api/admin/schemas`) | ✅ | |
-| 7.5 | スキーマエディタUI完成 | カテゴリ/項目の追加・編集・削除 | 🔧 | |
+| 7.1 | 診断カテゴリCRUD API | `/api/admin/diagnosis-schema` | ✅ | |
+| 7.2 | 診断項目CRUD API | `/api/admin/diagnosis-schema` | ✅ | |
+| 7.3 | 問診カテゴリCRUD API | `/api/admin/questionnaire-schema` | ✅ | |
+| 7.4 | 問診項目CRUD API | `/api/admin/questionnaire-schema` | ✅ | |
+| 7.5 | スキーマエディタUI完成 | カテゴリ/項目の追加・編集・削除 | ✅ | |
 | 7.6 | プレビュー機能 | 編集内容のリアルタイムプレビュー | ✅ | |
-| 7.7 | 保存・反映機能 | 変更の保存と実画面への反映（読込未実装） | 🔧 | |
+| 7.7 | 保存・反映機能 | 変更の保存と実画面への反映 | ✅ | |
 
 ---
 
@@ -208,7 +224,8 @@ docs/TODO/
 │   ├── 03-02-診断フォーム.md ✅
 │   ├── 03-03-AI分析.md ✅
 │   ├── 03-04-レポート送信.md ✅
-│   └── 03-05-診断DB連携.md 📋 NEW
+│   ├── 03-05-診断DB連携.md 📋 NEW
+│   └── 03-06-スタッフLINE認証.md 📋 NEW
 ├── 04-admin/
 │   ├── 04-01-ダッシュボード.md 📋
 │   ├── 04-02-ユーザー管理.md 📋
@@ -236,6 +253,7 @@ docs/TODO/
 | [07-実装ロードマップ.md](../designe/07-実装ロードマップ.md) | 実装スケジュール |
 | [26-診断項目DB設計書.md](../designe/26-診断項目DB設計書.md) | 診断マスタ設計 |
 | [27-問診項目DB設計書.md](../designe/27-問診項目DB設計書.md) | 問診マスタ設計 |
+| [28-スタッフLINE認証仕様書.md](../designe/28-スタッフLINE認証仕様書.md) | スタッフ認証設計 🆕 |
 
 ---
 

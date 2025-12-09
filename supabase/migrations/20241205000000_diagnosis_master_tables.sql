@@ -206,3 +206,6 @@ ORDER BY dr.session_id, dc.display_order, di.display_order;
 
 COMMENT ON VIEW diagnosis_results_view IS '診断結果詳細ビュー（セッション×項目）';
 
+
+
+

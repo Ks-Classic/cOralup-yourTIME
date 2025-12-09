@@ -32,6 +32,7 @@ export type FormFieldConfig = {
   name: string
   type: FormFieldType
   required?: boolean
+  isActive?: boolean
   placeholder?: string
   helperText?: string
   options?: FormFieldOption[]

@@ -19,9 +19,7 @@ import {
     generateMonthOptions,
     generateDayOptions
 } from '@/utils/age-calculator'
-import { preschoolerFormSchema as staticPreschoolerSchema } from '@/data/preschooler-form-schema'
-import { elementaryFormSchema as staticElementarySchema } from '@/data/elementary-form-schema'
-import type { FormSchemaConfig } from '@/types/forms'
+import type { FormSchemaConfig, FormFieldConfig, FormSectionConfig } from '@/types/forms'
 import { useQuestionnaireStorage } from '@/hooks/useQuestionnaireStorage'
 import { Sparkles, RotateCcw } from 'lucide-react'
 import { generateBasicInfoSampleData, generateSampleData } from '@/utils/sample-data-generator'
@@ -67,6 +65,68 @@ export default function QuestionnairePageDemo() {
     // スキーマデータ（動的取得）
     const [activeFormSchema, setActiveFormSchema] = useState<FormSchemaConfig | null>(null)
     const [isSchemaLoading, setIsSchemaLoading] = useState(false)
+    const [isSampleFilled, setIsSampleFilled] = useState(false) // サンプル入力フラグ
+
+    // DB項目をFormSchemaConfig形式に変換する関数
+    const convertToFormSchema = (apiData: {
+        categories: Array<{
+            id: string
+            name: string
+            description?: string
+            display_order: number
+            items: Array<{
+                id: string
+                question: string
+                answer_type: string
+                options?: Array<{ value: string; label: string }>
+                is_required: boolean
+                placeholder?: string
+                helper_text?: string
+                validation?: { min?: number; max?: number; minLength?: number; maxLength?: number }
+                display_order: number
+            }>
+        }>
+    }): FormSchemaConfig => {
+        const sections: FormSectionConfig[] = apiData.categories.map((category) => ({
+            id: category.id,
+            title: category.name,
+            description: category.description,
+            order: category.display_order,
+            fields: category.items.map((item): FormFieldConfig => {
+                const typeMap: Record<string, FormFieldConfig['type']> = {
+                    'radio': 'radio',
+                    'checkbox': 'checkbox',
+                    'text': 'text',
+                    'textarea': 'textarea',
+                    'number': 'number',
+                    'select': 'select',
+                    'multi-select': 'multi-select',
+                    'date': 'date',
+                    'email': 'email',
+                    'tel': 'tel',
+                }
+
+                return {
+                    id: item.id,
+                    name: item.question,
+                    type: typeMap[item.answer_type] || 'text',
+                    required: item.is_required,
+                    placeholder: item.placeholder,
+                    helperText: item.helper_text,
+                    options: item.options,
+                    validation: item.validation,
+                }
+            }),
+        }))
+
+        return {
+            sections,
+            settings: {
+                showProgress: true,
+                allowBackNavigation: true,
+            },
+        }
+    }
 
     // フォームタイプが変更されたらAPIからスキーマを取得
     useEffect(() => {
@@ -79,26 +139,30 @@ export default function QuestionnairePageDemo() {
             setIsSchemaLoading(true)
             console.log('[DemoQuestionnaire] スキーマ取得開始:', formType)
             try {
-                const schemaId = formType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
-                const res = await fetch(`/api/questionnaire-schema?schema_id=${schemaId}`)
+                // 新API: /api/questionnaire/items を使用
+                const targetAge = formType === 'preschooler' ? 'preschool' : 'elementary'
+                const res = await fetch(`/api/questionnaire/items?target_age=${targetAge}`)
                 console.log('[DemoQuestionnaire] API応答ステータス:', res.status)
 
                 if (res.ok) {
                     const json = await res.json()
-                    if (json.success && json.data) {
-                        console.log('[DemoQuestionnaire] スキーマ取得成功')
-                        setActiveFormSchema(json.data)
+                    if (json.success && json.data?.categories) {
+                        // DB形式からFormSchemaConfig形式に変換
+                        const convertedSchema = convertToFormSchema(json.data)
+                        setActiveFormSchema(convertedSchema)
+                        console.log('[DemoQuestionnaire] スキーマ取得成功:', {
+                            categories: json.data.categories.length,
+                            totalItems: json.data.meta?.total_items,
+                        })
                         return
                     }
                 }
 
-                // APIからの取得に失敗した場合、静的データにフォールバック
-                console.warn('[DemoQuestionnaire] 問診票スキーマのAPI取得に失敗、静的データを使用します')
-                setActiveFormSchema(formType === 'preschooler' ? staticPreschoolerSchema : staticElementarySchema)
+                console.error('[DemoQuestionnaire] 問診票スキーマのAPI取得に失敗しました')
+                setActiveFormSchema(null)
             } catch (error) {
                 console.error('[DemoQuestionnaire] スキーマ取得エラー:', error)
-                // エラー時も静的データにフォールバック
-                setActiveFormSchema(formType === 'preschooler' ? staticPreschoolerSchema : staticElementarySchema)
+                setActiveFormSchema(null)
             } finally {
                 setIsSchemaLoading(false)
             }
@@ -129,8 +193,13 @@ export default function QuestionnairePageDemo() {
         },
     })
 
-    // 保存データからフォームを復元
+    // 保存データからフォームを復元（初回のみ、サンプル入力後はスキップ）
     useEffect(() => {
+        if (isSampleFilled) {
+            // サンプル入力後は復元をスキップ
+            setIsInitializing(false)
+            return
+        }
         if (!isStorageLoading && storedData?.basicInfo) {
             basicInfoForm.reset({
                 furigana: storedData.basicInfo.furigana,
@@ -168,16 +237,17 @@ export default function QuestionnairePageDemo() {
             }
         }
         setIsInitializing(false)
-    }, [isStorageLoading, storedData, basicInfoForm, sessionId])
+    }, [isStorageLoading, storedData, basicInfoForm, sessionId, isSampleFilled])
 
-    // 生年月日から年齢を自動計算
-    const watchedBirthDate = basicInfoForm.watch(['birthYear', 'birthMonth', 'birthDay'])
+    // 生年月日から年齢を自動計算（watch配列による無限ループを防止）
+    const watchedYear = basicInfoForm.watch('birthYear')
+    const watchedMonth = basicInfoForm.watch('birthMonth')
+    const watchedDay = basicInfoForm.watch('birthDay')
 
     useEffect(() => {
-        const [year, month, day] = watchedBirthDate
-        if (year && month && day) {
+        if (watchedYear && watchedMonth && watchedDay) {
             try {
-                const birthDate = createDateFromParts(year, month, day)
+                const birthDate = createDateFromParts(watchedYear, watchedMonth, watchedDay)
                 const age = calculateAge(birthDate)
                 setCalculatedAge(age)
                 const newFormType = getFormType(age)
@@ -188,7 +258,7 @@ export default function QuestionnairePageDemo() {
                 setFormType(null)
             }
         }
-    }, [watchedBirthDate, saveFormType])
+    }, [watchedYear, watchedMonth, watchedDay, saveFormType])
 
     // 年のオプション生成
     const yearOptions = useMemo(() => generateYearOptions(0, 18), [])
@@ -196,12 +266,11 @@ export default function QuestionnairePageDemo() {
 
     // 日のオプション生成（年と月に依存）
     const dayOptions = useMemo(() => {
-        const [year, month] = watchedBirthDate
-        if (year && month) {
-            return generateDayOptions(year, month)
+        if (watchedYear && watchedMonth) {
+            return generateDayOptions(watchedYear, watchedMonth)
         }
         return generateDayOptions(new Date().getFullYear(), 1)
-    }, [watchedBirthDate])
+    }, [watchedYear, watchedMonth])
 
     const handleBasicInfoSubmit = async (data: BasicInfoForm) => {
         setIsLoading(true)
@@ -277,7 +346,12 @@ export default function QuestionnairePageDemo() {
     const handleFillSampleData = useCallback(() => {
         if (currentStep === 1) {
             const sampleData = generateBasicInfoSampleData()
-            basicInfoForm.reset(sampleData)
+            
+            // サンプル入力フラグをセット（useEffectの復元をブロック）
+            setIsSampleFilled(true)
+            
+            // resetで一括設定
+            basicInfoForm.reset(sampleData, { keepDefaultValues: false })
 
             const birthDate = createDateFromParts(
                 sampleData.birthYear,
@@ -285,13 +359,15 @@ export default function QuestionnairePageDemo() {
                 sampleData.birthDay
             )
             const age = calculateAge(birthDate)
+            const nextFormType = getFormType(age)
             setCalculatedAge(age)
-            setFormType(getFormType(age))
+            setFormType(nextFormType)
+            saveFormType(nextFormType)
         } else if (currentStep === 2 && activeFormSchema && questionnaireFormRef.current) {
             const sampleData = generateSampleData(activeFormSchema)
             questionnaireFormRef.current.fillSampleData(sampleData)
         }
-    }, [currentStep, activeFormSchema, basicInfoForm])
+    }, [currentStep, activeFormSchema, basicInfoForm, saveFormType])
 
     // 保存データをクリア
     const handleClearData = useCallback(() => {
@@ -325,6 +401,11 @@ export default function QuestionnairePageDemo() {
     if (currentStep === 1) {
         return (
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+                <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => router.push('/parent')}>
+                        ホームに戻る
+                    </Button>
+                </div>
                 <div className="space-y-4">
                     <div className="text-center space-y-2">
                         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
@@ -409,7 +490,7 @@ export default function QuestionnairePageDemo() {
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
                                         <Select
-                                            value={basicInfoForm.watch('birthYear')?.toString() || ''}
+                                            value={watchedYear?.toString() || ''}
                                             onValueChange={(value) => {
                                                 basicInfoForm.setValue('birthYear', parseInt(value), { shouldValidate: true })
                                             }}
@@ -428,7 +509,7 @@ export default function QuestionnairePageDemo() {
                                     </div>
                                     <div>
                                         <Select
-                                            value={basicInfoForm.watch('birthMonth')?.toString() || ''}
+                                            value={watchedMonth?.toString() || ''}
                                             onValueChange={(value) => {
                                                 basicInfoForm.setValue('birthMonth', parseInt(value), { shouldValidate: true })
                                             }}
@@ -447,7 +528,7 @@ export default function QuestionnairePageDemo() {
                                     </div>
                                     <div>
                                         <Select
-                                            value={basicInfoForm.watch('birthDay')?.toString() || ''}
+                                            value={watchedDay?.toString() || ''}
                                             onValueChange={(value) => {
                                                 basicInfoForm.setValue('birthDay', parseInt(value), { shouldValidate: true })
                                             }}
@@ -605,6 +686,11 @@ export default function QuestionnairePageDemo() {
     // ステップ2: 問診票詳細入力
     return (
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+            <div className="flex justify-between items-center">
+                <Button variant="outline" size="sm" onClick={() => router.push('/parent')}>
+                    ホームに戻る
+                </Button>
+            </div>
             {/* セッションサマリー */}
             {sessionSummaryData && (
                 <Card className="bg-gradient-to-r from-coral-50 to-blue-50 border-coral-200">
@@ -676,3 +762,5 @@ export default function QuestionnairePageDemo() {
         </div>
     )
 }
+
+

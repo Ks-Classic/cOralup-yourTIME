@@ -3,7 +3,7 @@ import { cn } from '@/utils'
 import type { FormFieldConfig } from '@/types/forms'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+// Radix Selectは無限更新の原因になるためネイティブselectを使用
 
 interface FormFieldRendererProps {
   field: FormFieldConfig
@@ -115,26 +115,24 @@ export function FormFieldRenderer({ field, isSubmitting }: FormFieldRendererProp
       return (
         <div className="space-y-2">
           {label}
-          <Select
-            defaultValue={watch(field.id)}
-            onValueChange={value => setValue(field.id, value, { shouldValidate: true })}
+          <select
+            id={field.id}
+            value={watch(field.id) || ''}
+            onChange={e => setValue(field.id, e.target.value, { shouldValidate: true })}
+            disabled={isSubmitting}
+            className={cn(
+              'w-full h-11 rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              fieldError ? 'border-red-500 focus:ring-red-500' : '',
+            )}
           >
-            <SelectTrigger className={cn(fieldError ? 'border-red-500 focus-visible:ring-red-500' : '', 'w-full')}>
-              <SelectValue placeholder={field.placeholder || '選択してください'} />
-            </SelectTrigger>
-            <SelectContent>
-              {field.options?.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex flex-col">
-                    <span>{option.label}</span>
-                    {option.description && (
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <option value="">{field.placeholder || '選択してください'}</option>
+            {(Array.isArray(field.options) ? field.options : []).map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           {helper}
           {error}
         </div>
@@ -143,31 +141,34 @@ export function FormFieldRenderer({ field, isSubmitting }: FormFieldRendererProp
       return (
         <div className="space-y-2">
           {label}
-          <div className="space-y-2">
-            {field.options?.map(option => (
-              <label
-                key={option.value}
-                className={cn(
-                  'flex items-center space-x-3 p-3 border rounded-lg transition-colors cursor-pointer',
-                  watch(field.id) === option.value
-                    ? 'border-coral-500 bg-coral-50'
-                    : 'hover:bg-gray-50'
-                )}
-              >
-                <input
-                  type="radio"
-                  value={option.value}
-                  {...register(field.id as any)}
-                  className="text-coral-500 focus:ring-coral-500"
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">{option.label}</p>
-                  {option.description && (
-                    <p className="text-xs text-gray-500">{option.description}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {(Array.isArray(field.options) ? field.options : []).map(option => {
+              const isSelected = watch(field.id) === option.value
+              return (
+                <label
+                  key={option.value}
+                  className={cn(
+                    'flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all text-sm',
+                    isSelected
+                      ? 'border-coral-500 bg-coral-50 shadow-sm text-coral-700'
+                      : 'border-slate-200 bg-white hover:border-coral-300 hover:bg-coral-50/60'
                   )}
-                </div>
-              </label>
-            ))}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      value={option.value}
+                      {...register(field.id as any)}
+                      className="sr-only"
+                    />
+                    <span className="font-medium">{option.label}</span>
+                  </div>
+                  {option.description && (
+                    <span className="text-xs text-slate-500">{option.description}</span>
+                  )}
+                </label>
+              )
+            })}
           </div>
           {helper}
           {error}

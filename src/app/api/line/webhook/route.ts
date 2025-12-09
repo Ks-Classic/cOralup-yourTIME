@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { createClient } from '@supabase/supabase-js'
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET!
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
+
+// Supabase クライアント
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,17 +67,86 @@ export async function POST(request: NextRequest) {
 
 async function handleFollowEvent(event: any) {
   // フォロー時の処理
-  const userId = event.source.userId
+  const lineUserId = event.source.userId
 
-  console.log('User followed:', userId)
+  console.log('User followed:', lineUserId)
 
-  // ユーザーをデータベースに登録
   try {
-    // 実際の実装では、ユーザーテーブルに登録する
-    console.log('Registering user:', userId)
+    // LINEプロフィールを取得
+    const profileResponse = await fetch(
+      `https://api.line.me/v2/bot/profile/${lineUserId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+        },
+      }
+    )
+
+    let displayName = null
+    let avatarUrl = null
+
+    if (profileResponse.ok) {
+      const profile = await profileResponse.json()
+      displayName = profile.displayName
+      avatarUrl = profile.pictureUrl
+      console.log('LINE profile fetched:', { displayName, avatarUrl })
+    }
+
+    // profiles テーブルに登録（存在しなければINSERT、存在すればUPDATE）
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          line_user_id: lineUserId,
+          display_name: displayName,
+          avatar_url: avatarUrl,
+          role: 'parent',
+          last_activity_at: new Date().toISOString(),
+        },
+        { onConflict: 'line_user_id' }
+      )
+      .select()
+
+    if (error) {
+      console.error('Error registering user to profiles:', error)
+      throw error
+    }
+
+    console.log('User registered to profiles:', data)
+
+    // ウェルカムメッセージを送信
+    await sendWelcomeMessage(lineUserId, displayName)
   } catch (error) {
-    console.error('Error registering user:', error)
+    console.error('Error in handleFollowEvent:', error)
   }
+}
+
+async function sendWelcomeMessage(userId: string, displayName: string | null) {
+  const welcomeMessage = {
+    type: 'text',
+    text: `${displayName ? `${displayName}さん、` : ''}友だち登録ありがとうございます！\n\n` +
+          'Coralup口腔育成診断システムです。\n\n' +
+          '下のボタンから診断を開始してください👇',
+  }
+
+  const buttonMessage = {
+    type: 'template',
+    altText: '診断を開始',
+    template: {
+      type: 'buttons',
+      text: 'お子様の口腔育成診断を始めましょう',
+      actions: [
+        {
+          type: 'uri',
+          label: '診断を開始する',
+          uri: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://coralup.vercel.app'}/questionnaire?line_user_id=${userId}`,
+        },
+      ],
+    },
+  }
+
+  await sendMessage(userId, welcomeMessage)
+  await sendMessage(userId, buttonMessage)
 }
 
 async function handleMessageEvent(event: any) {

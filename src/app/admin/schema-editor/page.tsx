@@ -70,6 +70,24 @@ export default function SchemaEditorPage() {
 
   // スキーマデータ
   const [questionnaireSchema, setQuestionnaireSchema] = useState<FormSchemaConfig>(defaultSchema)
+  const [hardDeleteCategoryIds, setHardDeleteCategoryIds] = useState<string[]>([])
+  const [hardDeleteItemIds, setHardDeleteItemIds] = useState<string[]>([])
+  const toggleFieldVisibility = useCallback((sectionId: string, fieldId: string) => {
+    setQuestionnaireSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? {
+            ...section,
+            fields: section.fields.map(field =>
+              field.id === fieldId ? { ...field, isActive: field.isActive === false ? true : false } : field
+            )
+          }
+          : section
+      )
+    }))
+  }, [])
+  const [schemaCache, setSchemaCache] = useState<{ preschooler?: FormSchemaConfig; elementary?: FormSchemaConfig }>({})
   const [diagnosisData, setDiagnosisData] = useState<{ categorized: Record<string, ExtendedDiagnosisItem[]>; categoryOrder: string[] }>({
     categorized: {},
     categoryOrder: []
@@ -77,9 +95,17 @@ export default function SchemaEditorPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true)
       try {
         if (activeTab === 'questionnaire') {
+          const cached = schemaCache[schemaType]
+          if (cached) {
+            // キャッシュがあればロード表示を挟まず即復元
+            setQuestionnaireSchema(cached)
+            setIsLoading(false)
+            return
+          }
+
+          setIsLoading(true)
           const schemaId = schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
           const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`)
 
@@ -89,13 +115,11 @@ export default function SchemaEditorPage() {
 
           const json = await res.json()
 
-          if (json.data && json.data.length > 0) {
-            setQuestionnaireSchema(json.data[0].config)
-          } else {
-            // データがない場合は空のスキーマまたはデフォルト値をセット
-            setQuestionnaireSchema(defaultSchema)
-          }
+          const nextSchema = (json.data && json.data.length > 0) ? json.data[0].config : defaultSchema
+          setQuestionnaireSchema(nextSchema)
+          setSchemaCache(prev => ({ ...prev, [schemaType]: nextSchema }))
         } else {
+          setIsLoading(true)
           // 診断項目取得
           const diagnosisRes = await fetch('/api/admin/diagnosis-schema')
 
@@ -127,6 +151,13 @@ export default function SchemaEditorPage() {
     fetchData()
   }, [schemaType, activeTab])
 
+  // フォーム編集内容をタブ跨ぎでも保持するためキャッシュへ同期
+  useEffect(() => {
+    if (activeTab === 'questionnaire') {
+      setSchemaCache(prev => ({ ...prev, [schemaType]: questionnaireSchema }))
+    }
+  }, [questionnaireSchema, schemaType, activeTab])
+
   // カテゴリ選択時にプレビューをスクロール
   useEffect(() => {
     if (selectedCategory && categoryRefs.current.has(selectedCategory)) {
@@ -155,6 +186,16 @@ export default function SchemaEditorPage() {
       return next
     })
   }
+
+  // セクション名更新
+  const updateSectionTitle = useCallback((sectionId: string, title: string) => {
+    setQuestionnaireSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId ? { ...section, title } : section
+      )
+    }))
+  }, [])
 
   // カテゴリ展開切り替え + プレビュースクロール
   const toggleCategory = (categoryName: string) => {
@@ -188,6 +229,99 @@ export default function SchemaEditorPage() {
             fields: section.fields.map(field =>
               field.id === fieldId ? { ...field, ...updates } : field
             )
+          }
+          : section
+      )
+    }))
+  }, [])
+
+  const ensureOptions = (type: FormFieldConfig['type'], current?: FormFieldConfig['options']) => {
+    if (type === 'radio' || type === 'checkbox' || type === 'select') {
+      return current && current.length > 0 ? current : [
+        { value: 'option_1', label: '選択肢1' },
+        { value: 'option_2', label: '選択肢2' },
+      ]
+    }
+    return undefined
+  }
+
+  const handleTypeChange = useCallback((sectionId: string, fieldId: string, newType: FormFieldConfig['type']) => {
+    setQuestionnaireSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? {
+            ...section,
+            fields: section.fields.map(field =>
+              field.id === fieldId
+                ? {
+                  ...field,
+                  type: newType,
+                  options: ensureOptions(newType, field.options)
+                }
+                : field
+            )
+          }
+          : section
+      )
+    }))
+  }, [])
+
+  const updateFieldOption = useCallback((sectionId: string, fieldId: string, index: number, label: string) => {
+    const value = label.trim() ? label.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || `option_${index + 1}` : `option_${index + 1}`
+    setQuestionnaireSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? {
+            ...section,
+            fields: section.fields.map(field => {
+              if (field.id !== fieldId) return field
+              const options = ensureOptions(field.type, field.options) || []
+              const nextOptions = options.map((opt, i) => i === index ? { value, label: label || opt.label } : opt)
+              return { ...field, options: nextOptions }
+            })
+          }
+          : section
+      )
+    }))
+  }, [])
+
+  const addFieldOption = useCallback((sectionId: string, fieldId: string) => {
+    setQuestionnaireSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? {
+            ...section,
+            fields: section.fields.map(field => {
+              if (field.id !== fieldId) return field
+              const options = ensureOptions(field.type, field.options) || []
+              const nextIndex = options.length + 1
+              return {
+                ...field,
+                options: [...options, { value: `option_${nextIndex}`, label: `選択肢${nextIndex}` }]
+              }
+            })
+          }
+          : section
+      )
+    }))
+  }, [])
+
+  const removeFieldOption = useCallback((sectionId: string, fieldId: string, index: number) => {
+    setQuestionnaireSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId
+          ? {
+            ...section,
+            fields: section.fields.map(field => {
+              if (field.id !== fieldId) return field
+              const options = ensureOptions(field.type, field.options) || []
+              const nextOptions = options.filter((_, i) => i !== index)
+              return { ...field, options: nextOptions }
+            })
           }
           : section
       )
@@ -392,6 +526,10 @@ export default function SchemaEditorPage() {
   // セクション削除
   const deleteSection = useCallback((sectionId: string) => {
     if (!confirm('このセクションを削除しますか？')) return
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sectionId)
+    if (isUuid) {
+      setHardDeleteCategoryIds(prev => Array.from(new Set([...prev, sectionId])))
+    }
     setQuestionnaireSchema(prev => ({
       ...prev,
       sections: prev.sections.filter(s => s.id !== sectionId)
@@ -401,6 +539,10 @@ export default function SchemaEditorPage() {
   // フィールド削除
   const deleteField = useCallback((sectionId: string, fieldId: string) => {
     if (!confirm('この項目を削除しますか？')) return
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fieldId)
+    if (isUuid) {
+      setHardDeleteItemIds(prev => Array.from(new Set([...prev, fieldId])))
+    }
     setQuestionnaireSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
@@ -445,6 +587,8 @@ export default function SchemaEditorPage() {
         setSaveMessage({ type: 'success', text: '診断項目を保存しました' })
       } else {
         // 問診票スキーマをAPI経由で保存
+        console.log('[UI handleSave] hardDeleteCategoryIds:', hardDeleteCategoryIds)
+        console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
         const response = await fetch('/api/admin/schemas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -452,7 +596,9 @@ export default function SchemaEditorPage() {
             schema_id: schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1',
             form_type: 'questionnaire',
             name: schemaType === 'preschooler' ? '未就学児用問診票' : '小学生以上用問診票',
-            config: questionnaireSchema
+            config: questionnaireSchema,
+            hardDeleteCategoryIds,
+            hardDeleteItemIds,
           })
         })
 
@@ -461,6 +607,10 @@ export default function SchemaEditorPage() {
         }
 
         setSaveMessage({ type: 'success', text: '問診票スキーマを保存しました' })
+        setHardDeleteCategoryIds([])
+        setHardDeleteItemIds([])
+        // キャッシュをクリアして再フェッチを促す
+        setSchemaCache(prev => ({ ...prev, [schemaType]: undefined }))
       }
     } catch (error) {
       console.error('保存エラー:', error)
@@ -721,7 +871,13 @@ export default function SchemaEditorPage() {
                         ) : (
                           <ChevronRight className="w-4 h-4 text-slate-400" />
                         )}
-                        <span className="font-medium text-slate-800">{section.title}</span>
+                        <input
+                          value={section.title}
+                          onChange={(e) => updateSectionTitle(section.id, e.target.value)}
+                          className="font-medium text-slate-800 bg-transparent border-b border-transparent focus:border-blue-400 outline-none text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="セクション名"
+                        />
                         <span className="text-xs text-slate-500">({section.fields.length}項目)</span>
                       </div>
                       <button
@@ -749,7 +905,7 @@ export default function SchemaEditorPage() {
                               >
                                 <div className="font-medium text-slate-800">{field.name}</div>
                                 <div className="text-xs text-slate-500 mt-1">
-                                  タイプ: {field.type} | {field.required ? '必須' : '任意'}
+                                  タイプ: {field.type} | {field.required ? '必須' : '任意'} | {field.isActive === false ? '非表示' : '表示'}
                                 </div>
                               </div>
                               <button
@@ -774,7 +930,7 @@ export default function SchemaEditorPage() {
                                   <label className="text-xs text-slate-600 font-medium">タイプ</label>
                                   <select
                                     value={field.type}
-                                    onChange={(e) => updateField(section.id, field.id, { type: e.target.value as FormFieldConfig['type'] })}
+                                    onChange={(e) => handleTypeChange(section.id, field.id, e.target.value as FormFieldConfig['type'])}
                                     className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white"
                                   >
                                     <option value="text">テキスト</option>
@@ -785,14 +941,70 @@ export default function SchemaEditorPage() {
                                     <option value="select">セレクト（プルダウン）</option>
                                   </select>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={field.required || false}
-                                    onChange={(e) => updateField(section.id, field.id, { required: e.target.checked })}
-                                    className="w-4 h-4"
+                                {(field.type === 'radio' || field.type === 'checkbox' || field.type === 'select') && (
+                                  <div>
+                                    <label className="text-xs text-slate-600 font-medium">選択肢</label>
+                                    {(() => {
+                                      const options = Array.isArray(field.options) ? field.options : (ensureOptions(field.type) ?? [])
+                                      return (
+                                    <div className="mt-2 space-y-2">
+                                      {options.map((opt, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                          <Input
+                                            value={opt.label}
+                                            onChange={(e) => updateFieldOption(section.id, field.id, idx, e.target.value)}
+                                            placeholder={`選択肢${idx + 1}`}
+                                            className="flex-1"
+                                          />
+                                          <button
+                                            onClick={() => removeFieldOption(section.id, field.id, idx)}
+                                            className="text-red-400 hover:text-red-600 p-2"
+                                            disabled={options.length <= 1}
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                      <button
+                                        onClick={() => addFieldOption(section.id, field.id)}
+                                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                        選択肢を追加
+                                      </button>
+                                    </div>
+                                      )
+                                    })()}
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-4 flex-wrap">
+                                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                                    <input
+                                      type="checkbox"
+                                      checked={field.required || false}
+                                      onChange={(e) => updateField(section.id, field.id, { required: e.target.checked })}
+                                      className="w-4 h-4"
+                                    />
+                                    必須項目
+                                  </label>
+                                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                                    <input
+                                      type="checkbox"
+                                      checked={field.isActive !== false}
+                                      onChange={() => toggleFieldVisibility(section.id, field.id)}
+                                      className="w-4 h-4"
+                                    />
+                                    表示する
+                                  </label>
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-600 font-medium">プレースホルダー</label>
+                                  <Input
+                                    value={field.placeholder || ''}
+                                    onChange={(e) => updateField(section.id, field.id, { placeholder: e.target.value })}
+                                    placeholder="入力例を表示したい場合に設定"
+                                    className="mt-1"
                                   />
-                                  <label className="text-sm text-slate-600">必須項目</label>
                                 </div>
                               </div>
                             )}
@@ -820,7 +1032,7 @@ export default function SchemaEditorPage() {
             ) : (
               /* 診断項目編集 */
               <>
-                {diagnosisData.categoryOrder.map((categoryName) => {
+                {Array.from(new Set(diagnosisData.categoryOrder)).map((categoryName) => {
                   const items = diagnosisData.categorized[categoryName] || []
                   const staffItems = items.filter(i => i.inputType === 'staff')
                   if (staffItems.length === 0) return null
@@ -1049,7 +1261,7 @@ export default function SchemaEditorPage() {
                         <p className="text-sm text-slate-500 mb-4">{section.description}</p>
                       )}
                       <div className="space-y-4">
-                        {section.fields.map((field) => (
+                      {section.fields.filter(f => f.isActive !== false).map((field) => (
                           <div key={field.id}>
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                               {field.name}
@@ -1058,12 +1270,15 @@ export default function SchemaEditorPage() {
                             {field.type === 'text' && <Input placeholder={field.placeholder} disabled />}
                             {field.type === 'textarea' && <Textarea placeholder={field.placeholder} rows={field.rows || 3} disabled />}
                             {field.type === 'number' && <Input type="number" placeholder={field.placeholder} disabled />}
-                            {field.type === 'radio' && field.options && (
-                              <div className="space-y-2">
+                            {field.type === 'radio' && Array.isArray(field.options) && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {field.options.map((opt) => (
-                                  <label key={opt.value} className="flex items-center gap-2">
-                                    <input type="radio" disabled />
-                                    <span className="text-sm">{opt.label}</span>
+                                  <label
+                                    key={opt.value}
+                                    className="flex items-center justify-center p-3 border rounded-lg cursor-default transition-all touch-manipulation font-medium shadow-sm border-slate-200 bg-white"
+                                  >
+                                    <input type="radio" className="sr-only" disabled />
+                                    <span className="text-sm text-slate-800">{opt.label}</span>
                                   </label>
                                 ))}
                               </div>
@@ -1078,12 +1293,13 @@ export default function SchemaEditorPage() {
                                 ))}
                               </div>
                             )}
-                            {field.type === 'select' && field.options && (
+                            {field.type === 'select' && (
                               <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-700 bg-white" disabled>
                                 <option>{field.placeholder || '選択してください'}</option>
-                                {field.options.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
+                                {Array.isArray(field.options) &&
+                                  field.options.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
                               </select>
                             )}
                           </div>
@@ -1093,7 +1309,7 @@ export default function SchemaEditorPage() {
                   ))
                 ) : (
                   <div className="space-y-6">
-                    {diagnosisData.categoryOrder.map((categoryName) => {
+                    {Array.from(new Set(diagnosisData.categoryOrder)).map((categoryName) => {
                       const items = diagnosisData.categorized[categoryName] || []
                       const visibleStaffItems = items.filter(item => item.inputType === 'staff' && item.isVisible)
                       if (visibleStaffItems.length === 0) return null

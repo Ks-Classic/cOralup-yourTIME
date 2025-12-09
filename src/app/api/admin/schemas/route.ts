@@ -81,45 +81,47 @@ const mockSchemas = [
 
 // 問診項目をスキーマ形式に変換
 async function convertQuestionnaireToSchema(supabase: any, targetAge: 'preschool' | 'elementary') {
-  // カテゴリ取得
+  // カテゴリ取得（is_activeも保持）
   const { data: categories, error: catError } = await supabase
     .from('questionnaire_categories')
     .select('*')
-    .eq('is_active', true)
     .or(`target_age.eq.${targetAge},target_age.eq.all`)
     .order('display_order')
 
   if (catError) throw catError
 
-  // 項目取得
+  // 項目取得（is_activeも保持）
   const { data: items, error: itemError } = await supabase
     .from('questionnaire_items')
     .select('*')
-    .eq('is_active', true)
     .order('display_order')
 
   if (itemError) throw itemError
 
-  // カテゴリごとにセクションを構築
-  const sections = categories.map((cat: any) => {
-    const catItems = items.filter((item: any) => item.category_id === cat.id)
-    return {
-      id: cat.id,
-      title: cat.name,
-      description: cat.description,
-      order: cat.display_order,
-      fields: catItems.map((item: any) => ({
-        id: item.id,
-        name: item.question,
-        type: item.answer_type,
-        required: item.is_required,
-        placeholder: item.placeholder,
-        helperText: item.helper_text,
-        options: item.options,
-        validation: item.validation,
-      }))
-    }
-  }).filter((section: any) => section.fields.length > 0) // 空のセクションは除外
+  // カテゴリごとにセクションを構築（管理画面用に isActive を持たせる）
+  const sections = categories
+    .map((cat: any) => {
+      const catItems = items.filter((item: any) => item.category_id === cat.id)
+      return {
+        id: cat.id,
+        title: cat.name,
+        description: cat.description,
+        order: cat.display_order,
+        isActive: cat.is_active,
+        fields: catItems.map((item: any) => ({
+          id: item.id,
+          name: item.question,
+          type: item.answer_type,
+          required: item.is_required,
+          placeholder: item.placeholder,
+          helperText: item.helper_text,
+          options: typeof item.options === 'string' ? JSON.parse(item.options) : item.options,
+          validation: item.validation,
+          isActive: item.is_active,
+        })),
+      }
+    })
+    .filter((section: any) => section.fields.length > 0)
 
   return { sections, settings: { showProgress: true, allowBackNavigation: true } }
 }
@@ -201,7 +203,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { schema_id, form_type, name, description, config } = body
+    const {
+      schema_id,
+      form_type,
+      name,
+      description,
+      config,
+      hardDeleteCategoryIds = [],
+      hardDeleteItemIds = [],
+    } = body
 
     // 必須チェック
     if (!schema_id || !form_type || !config) {
@@ -216,6 +226,8 @@ export async function POST(request: NextRequest) {
     // 問診票の更新（正規化テーブル）
     if (form_type === 'questionnaire') {
       const targetAge = schema_id.startsWith('preschooler') ? 'preschool' : 'elementary' // 'preschool', 'elementary'
+      const usedCategoryIds: string[] = []
+      const usedItemIds: string[] = []
 
       // セクション（カテゴリ）の保存
       for (const section of config.sections) {
@@ -264,10 +276,12 @@ export async function POST(request: NextRequest) {
             .eq('id', categoryId)
         }
 
+        usedCategoryIds.push(categoryId)
+
         // 項目（フィールド）の保存
         for (const field of section.fields) {
           let itemId = field.id
-          const isTempItemId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId)
+        const isTempItemId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId)
 
           const itemData = {
             category_id: categoryId,
@@ -277,7 +291,7 @@ export async function POST(request: NextRequest) {
             placeholder: field.placeholder,
             options: field.options ? JSON.stringify(field.options) : null, // JSONとして保存
             display_order: section.fields.indexOf(field) + 1,
-            is_active: true
+            is_active: field.isActive !== false
           }
 
           if (isTempItemId) {
@@ -292,7 +306,79 @@ export async function POST(request: NextRequest) {
               .update(itemData)
               .eq('id', itemId)
           }
+
+          usedItemIds.push(itemId)
         }
+      }
+
+      // 今回送信に含まれないカテゴリ/項目をsoft delete（is_active=false）
+      try {
+        const { data: existingCats } = await supabase
+          .from('questionnaire_categories')
+          .select('id')
+          .eq('target_age', targetAge)
+          .eq('is_active', true)
+
+        const existingCatIds = existingCats?.map((c: any) => c.id) || []
+        const catSoftDelete = existingCatIds.filter((id: string) => !usedCategoryIds.includes(id))
+
+        if (catSoftDelete.length > 0) {
+          await supabase
+            .from('questionnaire_categories')
+            .update({ is_active: false })
+            .in('id', catSoftDelete)
+        }
+
+        const categoryScope = Array.from(new Set([...existingCatIds, ...usedCategoryIds]))
+        if (categoryScope.length > 0) {
+          const { data: existingItems } = await supabase
+            .from('questionnaire_items')
+            .select('id')
+            .in('category_id', categoryScope)
+            .eq('is_active', true)
+
+          const existingItemIds = existingItems?.map((i: any) => i.id) || []
+          const itemSoftDelete = existingItemIds.filter((id: string) => !usedItemIds.includes(id))
+
+          if (itemSoftDelete.length > 0) {
+            await supabase
+              .from('questionnaire_items')
+              .update({ is_active: false })
+              .in('id', itemSoftDelete)
+          }
+        }
+      } catch (err) {
+        console.error('soft delete update failed:', err)
+      }
+
+      // ハード削除
+      console.log('[schemas POST] hardDeleteItemIds:', hardDeleteItemIds)
+      console.log('[schemas POST] hardDeleteCategoryIds:', hardDeleteCategoryIds)
+
+      // 1. 指定された項目を削除
+      if (hardDeleteItemIds.length > 0) {
+        const { error: delItemErr } = await supabase
+          .from('questionnaire_items')
+          .delete()
+          .in('id', hardDeleteItemIds)
+        if (delItemErr) console.error('[schemas POST] item delete error:', delItemErr)
+      }
+
+      // 2. カテゴリ削除時は、そのカテゴリ配下の全項目を先に削除（FK制約対応）
+      if (hardDeleteCategoryIds.length > 0) {
+        // カテゴリに属する全項目を削除
+        const { error: delCatItemsErr } = await supabase
+          .from('questionnaire_items')
+          .delete()
+          .in('category_id', hardDeleteCategoryIds)
+        if (delCatItemsErr) console.error('[schemas POST] category items delete error:', delCatItemsErr)
+
+        // カテゴリを削除
+        const { error: delCatErr } = await supabase
+          .from('questionnaire_categories')
+          .delete()
+          .in('id', hardDeleteCategoryIds)
+        if (delCatErr) console.error('[schemas POST] category delete error:', delCatErr)
       }
 
       return NextResponse.json({ success: true, message: '問診票データを保存しました' })
@@ -331,4 +417,7 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
+
 

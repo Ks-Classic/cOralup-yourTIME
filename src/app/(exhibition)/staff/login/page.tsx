@@ -9,18 +9,18 @@ import { useStaffAuth, type StaffMember } from '@/hooks/useStaffAuth'
 export default function StaffLoginPage() {
   const router = useRouter()
   const { session, isAuthenticated, isLoading, error, verifyPin, login, clearError } = useStaffAuth()
-  
+
   const [pin, setPin] = useState<string[]>(['', '', '', ''])
   const [step, setStep] = useState<'pin' | 'select'>('pin')
   const [staffList, setStaffList] = useState<StaffMember[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // 認証済みの場合はダッシュボードへリダイレクト
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push('/staff')
+      router.push('/')
     }
   }, [isLoading, isAuthenticated, router])
 
@@ -28,9 +28,9 @@ export default function StaffLoginPage() {
   const handlePinChange = (index: number, value: string) => {
     // 数字のみ許可
     if (value && !/^\d$/.test(value)) return
-    
+
     clearError()
-    
+
     const newPin = [...pin]
     newPin[index] = value
     setPin(newPin)
@@ -79,7 +79,7 @@ export default function StaffLoginPage() {
   const handleStaffSelect = (staff: StaffMember) => {
     const staffName = `${staff.last_name} ${staff.first_name}`
     login(staff.id, staffName)
-    router.push('/staff')
+    router.push('/')
   }
 
   // ローディング中
@@ -102,7 +102,7 @@ export default function StaffLoginPage() {
             {step === 'pin' ? 'スタッフログイン' : 'スタッフを選択'}
           </CardTitle>
           <CardDescription className="text-gray-600">
-            {step === 'pin' 
+            {step === 'pin'
               ? '4桁のPINコードを入力してください'
               : 'あなたの名前を選択してください'
             }
@@ -175,8 +175,8 @@ export default function StaffLoginPage() {
                     <div className="w-12 h-12 bg-coral-100 rounded-full flex items-center justify-center text-xl">
                       {staff.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img 
-                          src={staff.avatar_url} 
+                        <img
+                          src={staff.avatar_url}
                           alt={`${staff.last_name} ${staff.first_name}`}
                           className="w-full h-full rounded-full object-cover"
                         />

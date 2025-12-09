@@ -32,3 +32,6 @@ echo -e "${YELLOW}停止する場合は: pkill -f 'next dev'${NC}"
 wait
 
 
+
+
+

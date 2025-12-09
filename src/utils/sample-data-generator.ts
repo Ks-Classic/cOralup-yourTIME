@@ -8,18 +8,15 @@ import type { FormSchemaConfig, FormFieldConfig } from '@/types/forms'
  * フィールドタイプに応じてサンプル値を生成
  */
 function generateFieldSampleValue(field: FormFieldConfig): any {
-  // 必須でないフィールドは、ランダムに空にする（よりリアルなサンプルデータ）
-  // ただし、デモ用なので必須でないフィールドも基本的に入力する
-  if (!field.required && Math.random() < 0.2) {
-    return undefined
-  }
-
   switch (field.type) {
     case 'text':
     case 'email':
     case 'tel':
       if (field.id.includes('furigana')) {
         return 'たなか たろう'
+      }
+      if (field.id.includes('prefecture')) {
+        return '東京都'
       }
       if (field.id.includes('child_name') || field.id.includes('name')) {
         return '田中 太郎'
@@ -28,7 +25,7 @@ function generateFieldSampleValue(field: FormFieldConfig): any {
         return 'たーくん'
       }
       if (field.id.includes('phone')) {
-        return '090-1234-5678'
+        return '09012345678'
       }
       if (field.id.includes('email')) {
         return 'sample@example.com'
@@ -83,27 +80,17 @@ function generateFieldSampleValue(field: FormFieldConfig): any {
 
     case 'radio':
       if (field.options && field.options.length > 0) {
-        // 必須フィールドの場合は最初のオプションを返す
-        if (field.required) {
-          return field.options[0].value
-        }
-        // 必須でない場合は、ランダムに選択（デモ用なので基本的に入力）
-        return Math.random() < 0.8 ? field.options[0].value : undefined
+        return field.options[0].value
       }
-      return undefined
+      return ''
 
     case 'checkbox':
     case 'multi-select':
       if (field.options && field.options.length > 0) {
-        // デモ用なので、2-3個のオプションを選択
-        const selectedCount = Math.min(
-          Math.floor(Math.random() * 2) + 2, // 2-3個
-          field.options.length
-        )
-        const shuffled = [...field.options].sort(() => Math.random() - 0.5)
-        return shuffled.slice(0, selectedCount).map(opt => opt.value)
+        const pickCount = Math.min(2, field.options.length)
+        return field.options.slice(0, pickCount).map(opt => opt.value)
       }
-      return []
+      return ['sample']
 
     case 'date':
       // 日付のサンプル値（YYYY-MM-DD形式）

@@ -61,3 +61,6 @@ export interface DiagnosisSchema {
   updated_at: string
 }
 
+
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useImperativeHandle, forwardRef } from 'react'
+import { useEffect, useMemo, useImperativeHandle, forwardRef, useRef } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { SectionCard } from '@/components/ui/section-card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { FormSection } from '@/components/forms/form-section'
 import { FormFieldRenderer } from '@/components/forms/form-field-renderer'
 
@@ -164,6 +163,8 @@ export const DynamicForm = forwardRef<DynamicFormRef, DynamicFormProps>(({
     ...defaultValues,
   }), [schemaDefaults, defaultValues])
 
+  // reset多発防止のため差分があるときのみ実行
+  const prevDefaultsRef = useRef<string>('')
   const methods = useForm<Record<string, any>>({
     resolver: zodResolver(validationSchema),
     defaultValues: mergedDefaults,
@@ -171,7 +172,11 @@ export const DynamicForm = forwardRef<DynamicFormRef, DynamicFormProps>(({
   })
 
   useEffect(() => {
-    methods.reset(mergedDefaults)
+    const serialized = JSON.stringify(mergedDefaults)
+    if (prevDefaultsRef.current !== serialized) {
+      prevDefaultsRef.current = serialized
+      methods.reset(mergedDefaults)
+    }
   }, [mergedDefaults, methods])
 
   // ref経由でfillSampleDataメソッドを公開

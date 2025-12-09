@@ -737,33 +737,69 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   }
 
   // レポート生成
-  const generateReport = async () => {
-    if (!analysisResult) return
+  // 診断データをDBに保存（正規化対応）
+  const saveDiagnosisToDB = async () => {
+    if (!sessionId) return false
 
+    const payload = {
+      sessionId,
+      postureAnalysis: analysisResult?.postureAnalysis || {},
+      oralAnalysis: analysisResult?.oralAnalysis || {},
+      diagnosisItems: diagnosisValues,
+      staffNotes,
+      photos: photos.map(p => ({
+        id: p.id,
+        url: p.url,
+        type: p.type,
+        uploaded_at: p.uploaded_at,
+        customTitle: p.customTitle,
+      }))
+    }
+
+    try {
+      console.log('[StaffDiagnosis] Saving diagnosis...')
+      const res = await fetch('/api/diagnoses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('Failed to save diagnosis')
+      console.log('[StaffDiagnosis] Diagnosis saved successfully')
+      return true
+    } catch (e) {
+      console.error('Error saving diagnosis:', e)
+      alert('データの保存に失敗しました。')
+      return false
+    }
+  }
+
+  // レポート生成
+  const generateReport = async () => {
     setIsGeneratingReport(true)
     try {
-      const mockReport = {
-        summary: '保護者様のお子様の口腔・姿勢診断が完了いたしました。',
-        analysis: '今回の診断では、姿勢と口腔機能の総合的な評価を行いました。姿勢については肩のバランスと背骨のカーブに軽度の改善点が見られましたが、全体的には良好な状態です。口腔機能については、歯並びと咬合状態が良好で、口腔内の清潔度も保たれています。',
-        recommendations: [
-          '日常的に正しい姿勢を意識するよう指導してください',
-          '定期的な歯科検診を継続してください',
-          '食事の際の姿勢にも注意を払いましょう',
-          '口腔内の清潔を保つための習慣を身につけましょう'
-        ],
-        nextSteps: [
-          '3ヶ月後のフォローアップ診断を予定してください',
-          '気になる症状が出た場合は早めにご相談ください',
-          '家庭での姿勢改善エクササイズを実践してください'
-        ],
-        encouragingMessage: 'お子様の健康な成長を一緒にサポートしていきましょう。何か気になることがありましたら、いつでもご相談ください。'
+      // 1. 最新データをDBに保存
+      const saved = await saveDiagnosisToDB()
+      if (!saved) {
+        setIsGeneratingReport(false)
+        return
       }
 
+      // 2. AIレポート生成API呼び出し
+      console.log('[StaffDiagnosis] Generating report via API...')
+      const res = await fetch('/api/ai/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      })
+
+      if (!res.ok) throw new Error('AIレポート生成失敗')
+      const reportData = await res.json()
+
       setAnalysisResult(prev => ({
-        ...prev,
-        report: mockReport,
+        ...prev!,
+        report: reportData,
       }))
-      setEditableReport(mockReport)
+      setEditableReport(reportData)
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error generating report:', error)
@@ -784,7 +820,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
       markStepCompleted('report')
       // 送信成功時にローカルストレージをクリア
       clearStorage()
-      router.push('/staff')
+      router.push('/')
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
@@ -1072,7 +1108,7 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/staff')}
+                onClick={() => router.push('/')}
                 className="text-gray-600"
               >
                 戻る

@@ -77,32 +77,34 @@ export function useQuestionnaireStorage(visitId: string) {
     if (!visitId) return
 
     try {
-      const updatedData: QuestionnaireStorageData = {
-        visitId,
-        sessionId: newData.sessionId,
-        basicInfo: newData.basicInfo || data?.basicInfo || {
-          childName: '',
-          birthYear: new Date().getFullYear() - 5,
-          birthMonth: 1,
-          birthDay: 1,
-          childGender: 'male',
-          parentName: '',
-          parentPhone: '',
-        },
-        questionnaireData: newData.questionnaireData || data?.questionnaireData,
-        currentStep: newData.currentStep ?? data?.currentStep ?? 1,
-        formType: newData.formType ?? data?.formType ?? null,
-        updatedAt: new Date().toISOString(),
-      }
+      setData((prevData) => {
+        const updatedData: QuestionnaireStorageData = {
+          visitId,
+          sessionId: newData.sessionId,
+          basicInfo: newData.basicInfo || prevData?.basicInfo || {
+            childName: '',
+            birthYear: new Date().getFullYear() - 5,
+            birthMonth: 1,
+            birthDay: 1,
+            childGender: 'male',
+            parentName: '',
+            parentPhone: '',
+          },
+          questionnaireData: newData.questionnaireData || prevData?.questionnaireData,
+          currentStep: newData.currentStep ?? prevData?.currentStep ?? 1,
+          formType: newData.formType ?? prevData?.formType ?? null,
+          updatedAt: new Date().toISOString(),
+        }
 
-      localStorage.setItem(storageKey, JSON.stringify(updatedData))
-      setData(updatedData)
+        localStorage.setItem(storageKey, JSON.stringify(updatedData))
+        return updatedData
+      })
       setError(null)
     } catch (err) {
       console.error('Failed to save questionnaire data to localStorage:', err)
       setError('データの保存に失敗しました')
     }
-  }, [visitId, storageKey, data])
+  }, [visitId, storageKey])
 
   // 基本情報の保存
   const saveBasicInfo = useCallback((basicInfo: QuestionnaireStorageData['basicInfo']) => {

@@ -6,38 +6,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Smartphone, QrCode, FileText, MessageCircle } from 'lucide-react'
 
-/**
- * セッションIDを生成（UUID v4形式）
- */
-function generateSessionId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
-}
-
 export default function ParentPage() {
   const router = useRouter()
   const [isStarting, setIsStarting] = useState(false)
 
-  const handleStartSession = useCallback(async () => {
+  const handleStartSession = useCallback(() => {
     setIsStarting(true)
-    try {
-      // 新しいセッションIDを生成
-      const sessionId = generateSessionId()
-      
-      // 問診フォームへ遷移
-      router.push(`/parent/questionnaire/${sessionId}`)
-    } catch (error) {
-      console.error('Error starting session:', error)
-      alert('セッションの開始に失敗しました')
-      setIsStarting(false)
-    }
+    // デモページへ遷移
+    router.push('/parent/questionnaire/demo')
   }, [router])
   
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => router.push('/')}>
+          ホームに戻る
+        </Button>
+      </div>
       {/* フロー説明セクション */}
       <Card className="border-coral-200 bg-gradient-to-br from-coral-50 to-white">
         <CardHeader>
@@ -163,3 +148,5 @@ export default function ParentPage() {
     </div>
   )
 }
+
+

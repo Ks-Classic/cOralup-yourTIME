@@ -182,3 +182,6 @@ ORDER BY qr.session_id, qc.display_order, qi.display_order;
 
 COMMENT ON VIEW questionnaire_results_view IS '問診結果詳細ビュー（セッション×項目）';
 
+
+
+

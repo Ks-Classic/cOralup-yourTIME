@@ -102,22 +102,16 @@ export async function GET(request: NextRequest) {
           status,
           visit_date,
           child_age_months,
+          session_id,
           children (
             id,
             first_name,
             last_name,
+            first_name_kana,
+            last_name_kana,
             birthday,
-            gender
-          ),
-          profiles!visits_staff_profile_id_fkey (
-            id,
-            display_name,
-            line_user_id
-          ),
-          medical_interviews (
-            chief_complaint,
-            concerns,
-            answers
+            gender,
+            parent_profile_id
           )
         `)
         .eq('id', visitId)
@@ -130,7 +124,66 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      return NextResponse.json({ success: true, visit })
+      // 保護者プロフィールを取得
+      let parentProfile = null
+      if (visit.children?.parent_profile_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, display_name, first_name, last_name, phone_number, line_user_id')
+          .eq('id', visit.children.parent_profile_id)
+          .single()
+        parentProfile = profile
+      }
+
+      // 問診回答を取得（session_id経由）
+      let questionnaireResponses: unknown[] = []
+      if (visit.session_id) {
+        const { data: responses } = await supabase
+          .from('questionnaire_responses')
+          .select(`
+            id,
+            item_id,
+            value,
+            answered_at,
+            questionnaire_items (
+              id,
+              question,
+              answer_type,
+              options,
+              category_id,
+              questionnaire_categories (
+                id,
+                name,
+                display_order
+              )
+            )
+          `)
+          .eq('session_id', visit.session_id)
+          .order('answered_at', { ascending: true })
+
+        questionnaireResponses = responses || []
+      }
+
+      // 互換用 questionnaires テーブルからも取得
+      let legacyQuestionnaire = null
+      if (visit.session_id) {
+        const { data: legacy } = await supabase
+          .from('questionnaires')
+          .select('*')
+          .eq('session_id', visit.session_id)
+          .single()
+        legacyQuestionnaire = legacy
+      }
+
+      return NextResponse.json({
+        success: true,
+        visit: {
+          ...visit,
+          parent: parentProfile,
+          questionnaire_responses: questionnaireResponses,
+          questionnaire: legacyQuestionnaire,
+        },
+      })
     }
 
     if (code) {

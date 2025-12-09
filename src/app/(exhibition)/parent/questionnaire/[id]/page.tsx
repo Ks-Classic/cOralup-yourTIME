@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback, use } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+// Radix UI Selectは無限ループの問題があるため、ネイティブselectを使用
 import { DynamicForm, type DynamicFormRef } from '@/components/forms/dynamic-form'
 import {
   calculateAge,
@@ -19,9 +19,7 @@ import {
   generateMonthOptions,
   generateDayOptions
 } from '@/utils/age-calculator'
-import { preschoolerFormSchema as staticPreschoolerSchema } from '@/data/preschooler-form-schema'
-import { elementaryFormSchema as staticElementarySchema } from '@/data/elementary-form-schema'
-import type { FormSchemaConfig } from '@/types/forms'
+import type { FormSchemaConfig, FormFieldConfig, FormSectionConfig } from '@/types/forms'
 import { useQuestionnaireStorage } from '@/hooks/useQuestionnaireStorage'
 import { Sparkles, RotateCcw } from 'lucide-react'
 import { generateBasicInfoSampleData, generateSampleData } from '@/utils/sample-data-generator'
@@ -52,10 +50,9 @@ const basicInfoSchema = z.object({
 
 type BasicInfoForm = z.infer<typeof basicInfoSchema>
 
-export default function QuestionnairePage({ params }: { params: Promise<{ id: string }> }) {
+export default function QuestionnairePage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const resolvedParams = use(params)
-  const sessionId = resolvedParams.id || 'demo'
+  const sessionId = params.id || 'demo'
 
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
@@ -69,6 +66,68 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
   const [activeFormSchema, setActiveFormSchema] = useState<FormSchemaConfig | null>(null)
   const [isSchemaLoading, setIsSchemaLoading] = useState(false)
 
+  // DB項目をFormSchemaConfig形式に変換する関数
+  const convertToFormSchema = (apiData: {
+    categories: Array<{
+      id: string
+      name: string
+      description?: string
+      display_order: number
+      items: Array<{
+        id: string
+        question: string
+        answer_type: string
+        options?: Array<{ value: string; label: string }>
+        is_required: boolean
+        placeholder?: string
+        helper_text?: string
+        validation?: { min?: number; max?: number; minLength?: number; maxLength?: number }
+        display_order: number
+      }>
+    }>
+  }): FormSchemaConfig => {
+    const sections: FormSectionConfig[] = apiData.categories.map((category) => ({
+      id: category.id,
+      title: category.name,
+      description: category.description,
+      order: category.display_order,
+      fields: category.items.map((item): FormFieldConfig => {
+        // answer_type を FormFieldType にマッピング
+        const typeMap: Record<string, FormFieldConfig['type']> = {
+          'radio': 'radio',
+          'checkbox': 'checkbox',
+          'text': 'text',
+          'textarea': 'textarea',
+          'number': 'number',
+          'select': 'select',
+          'multi-select': 'multi-select',
+          'date': 'date',
+          'email': 'email',
+          'tel': 'tel',
+        }
+
+        return {
+          id: item.id,
+          name: item.question,
+          type: typeMap[item.answer_type] || 'text',
+          required: item.is_required,
+          placeholder: item.placeholder,
+          helperText: item.helper_text,
+          options: item.options,
+          validation: item.validation,
+        }
+      }),
+    }))
+
+    return {
+      sections,
+      settings: {
+        showProgress: true,
+        allowBackNavigation: true,
+      },
+    }
+  }
+
   // フォームタイプが変更されたらAPIからスキーマを取得
   useEffect(() => {
     if (!formType) {
@@ -79,24 +138,39 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     const fetchSchema = async () => {
       setIsSchemaLoading(true)
       try {
-        const schemaId = formType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
-        const res = await fetch(`/api/questionnaire-schema?schema_id=${schemaId}`)
+        // 新API: /api/questionnaire/items を使用
+        const targetAge = formType === 'preschooler' ? 'preschool' : 'elementary'
+        const res = await fetch(`/api/questionnaire/items?target_age=${targetAge}`)
 
         if (res.ok) {
           const json = await res.json()
-          if (json.success && json.data) {
-            setActiveFormSchema(json.data)
+          if (json.success && json.data?.categories) {
+            // DB形式からFormSchemaConfig形式に変換
+            const convertedSchema = convertToFormSchema(json.data)
+            setActiveFormSchema(prev => {
+              const changed = JSON.stringify(prev) !== JSON.stringify(convertedSchema)
+              if (changed) {
+                console.log('[問診画面] スキーマ取得成功:', {
+                  categories: json.data.categories.length,
+                  totalItems: json.data.meta?.total_items,
+                })
+                return convertedSchema
+              }
+              return prev
+            })
+            console.log('[問診画面] スキーマ取得レスポンス:', {
+              categories: json.data.categories.length,
+              totalItems: json.data.meta?.total_items,
+            })
             return
           }
         }
 
-        // APIからの取得に失敗した場合、静的データにフォールバック
-        console.warn('問診票スキーマのAPI取得に失敗、静的データを使用します')
-        setActiveFormSchema(formType === 'preschooler' ? staticPreschoolerSchema : staticElementarySchema)
+        console.error('問診票スキーマのAPI取得に失敗しました')
+        setActiveFormSchema(null)
       } catch (error) {
         console.error('スキーマ取得エラー:', error)
-        // エラー時も静的データにフォールバック
-        setActiveFormSchema(formType === 'preschooler' ? staticPreschoolerSchema : staticElementarySchema)
+        setActiveFormSchema(null)
       } finally {
         setIsSchemaLoading(false)
       }
@@ -110,12 +184,16 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     data: storedData,
     isLoading: isStorageLoading,
     canRestore,
-    saveBasicInfo,
+    saveData,
     saveQuestionnaireData,
-    saveCurrentStep,
-    saveFormType,
     clearData,
   } = useQuestionnaireStorage(sessionId)
+
+  // 問診デフォルト値を安定化（無限リセット防止）
+  const questionnaireDefaultValues = useMemo(
+    () => storedData?.questionnaireData || {},
+    [storedData]
+  )
 
   // フォームのセットアップ
   const basicInfoForm = useForm<BasicInfoForm>({
@@ -168,25 +246,35 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     setIsInitializing(false)
   }, [isStorageLoading, storedData, basicInfoForm, sessionId])
 
-  // 生年月日から年齢を自動計算
-  const watchedBirthDate = basicInfoForm.watch(['birthYear', 'birthMonth', 'birthDay'])
+  // フォーム値のwatch（レンダリング時の無限ループを防ぐため、コンポーネントのトップレベルで1回だけ呼ぶ）
+  const watchedYear = basicInfoForm.watch('birthYear')
+  const watchedMonth = basicInfoForm.watch('birthMonth')
+  const watchedDay = basicInfoForm.watch('birthDay')
+  const watchedGender = basicInfoForm.watch('childGender')
 
   useEffect(() => {
-    const [year, month, day] = watchedBirthDate
-    if (year && month && day) {
+    if (watchedYear && watchedMonth && watchedDay) {
       try {
-        const birthDate = createDateFromParts(year, month, day)
+        const birthDate = createDateFromParts(watchedYear, watchedMonth, watchedDay)
         const age = calculateAge(birthDate)
-        setCalculatedAge(age)
+
+        if (age !== calculatedAge) {
+          console.log('[basic-info] age update', { age, watchedYear, watchedMonth, watchedDay })
+          setCalculatedAge(age)
+        }
+
         const newFormType = getFormType(age)
-        setFormType(newFormType)
-        saveFormType(newFormType)
-      } catch {
-        setCalculatedAge(null)
-        setFormType(null)
+        if (newFormType !== formType) {
+          console.log('[basic-info] formType update', { newFormType })
+          setFormType(newFormType)
+        }
+      } catch (err) {
+        console.warn('[basic-info] age calc failed', err)
+        if (calculatedAge !== null) setCalculatedAge(null)
+        if (formType !== null) setFormType(null)
       }
     }
-  }, [watchedBirthDate, saveFormType])
+  }, [watchedYear, watchedMonth, watchedDay, calculatedAge, formType])
 
   // 年のオプション生成
   const yearOptions = useMemo(() => generateYearOptions(0, 18), [])
@@ -194,12 +282,11 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
 
   // 日のオプション生成（年と月に依存）
   const dayOptions = useMemo(() => {
-    const [year, month] = watchedBirthDate
-    if (year && month) {
-      return generateDayOptions(year, month)
+    if (watchedYear && watchedMonth) {
+      return generateDayOptions(watchedYear, watchedMonth)
     }
     return generateDayOptions(new Date().getFullYear(), 1)
-  }, [watchedBirthDate])
+  }, [watchedYear, watchedMonth])
 
   const handleBasicInfoSubmit = async (data: BasicInfoForm) => {
     setIsLoading(true)
@@ -208,21 +295,66 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
       const age = calculateAge(birthDate)
       const formTypeValue = getFormType(age)
 
-      // localStorageに保存
-      saveBasicInfo({
-        furigana: data.furigana,
-        childName: data.childName,
-        birthYear: data.birthYear,
-        birthMonth: data.birthMonth,
-        birthDay: data.birthDay,
-        prefecture: data.prefecture,
-        childGender: data.childGender,
-        nickname: data.nickname,
-        parentName: data.parentName,
-        parentPhone: data.parentPhone,
+      // localStorageに一括保存（複数回のstate更新を避ける）
+      saveData({
+        basicInfo: {
+          furigana: data.furigana,
+          childName: data.childName,
+          birthYear: data.birthYear,
+          birthMonth: data.birthMonth,
+          birthDay: data.birthDay,
+          prefecture: data.prefecture,
+          childGender: data.childGender,
+          nickname: data.nickname,
+          parentName: data.parentName,
+          parentPhone: data.parentPhone,
+        },
+        currentStep: 2,
+        formType: formTypeValue,
       })
-      saveCurrentStep(2)
-      saveFormType(formTypeValue)
+
+      // 基本情報をAPIに送信（profiles/children/visits に保存）
+      // 名前を姓名に分割（スペースで区切られている前提）
+      const childNameParts = data.childName.split(/\s+/)
+      const childLastName = childNameParts[0] || ''
+      const childFirstName = childNameParts.slice(1).join(' ') || ''
+      
+      const parentNameParts = data.parentName.split(/\s+/)
+      const parentLastName = parentNameParts[0] || ''
+      const parentFirstName = parentNameParts.slice(1).join(' ') || ''
+
+      const furiganaParts = data.furigana?.split(/\s+/) || []
+      const childLastNameKana = furiganaParts[0] || ''
+      const childFirstNameKana = furiganaParts.slice(1).join(' ') || ''
+
+      const res = await fetch('/api/parent/basic-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          // 保護者情報
+          parent_last_name: parentLastName,
+          parent_first_name: parentFirstName,
+          parent_phone: data.parentPhone,
+          // 子供情報
+          child_last_name: childLastName,
+          child_first_name: childFirstName,
+          child_last_name_kana: childLastNameKana,
+          child_first_name_kana: childFirstNameKana,
+          child_birthday: birthDate.toISOString().split('T')[0], // YYYY-MM-DD
+          child_gender: data.childGender,
+          prefecture: data.prefecture,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        console.error('基本情報保存エラー:', errorData)
+        // エラーでも続行（localStorageには保存済み）
+      } else {
+        const result = await res.json()
+        console.log('基本情報保存成功:', result)
+      }
 
       setSessionSummaryData({
         session_id: sessionId,
@@ -257,18 +389,48 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
       // localStorageに保存
       saveQuestionnaireData(values)
 
-      console.log('問診票送信データ:', {
+      // 回答データを item_id: value の配列形式に変換
+      const responses = Object.entries(values).map(([itemId, value]) => ({
+        item_id: itemId,
+        value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+      }))
+
+      // 基本情報を取得
+      const basicInfo = basicInfoForm.getValues()
+
+      // APIに送信
+      const res = await fetch('/api/parent/questionnaire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          responses,
+          child_info: {
+            child_name: basicInfo.childName,
+            child_age: calculatedAge,
+            child_gender: basicInfo.childGender,
+            parent_name: basicInfo.parentName,
+            parent_phone: basicInfo.parentPhone,
+          },
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || '問診票の保存に失敗しました')
+      }
+
+      console.log('問診票送信完了:', {
         sessionId: sessionId,
         formType,
-        basicInfo: basicInfoForm.getValues(),
-        questionnaire: values,
+        responsesCount: responses.length,
       })
 
       // 結果画面（QR表示）へ遷移
       router.push(`/parent/result/${sessionId}`)
     } catch (error) {
       console.error('Error saving questionnaire:', error)
-      alert('問診票の保存に失敗しました')
+      alert(error instanceof Error ? error.message : '問診票の保存に失敗しました')
     } finally {
       setIsLoading(false)
     }
@@ -405,63 +567,48 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
                   生年月日 <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Select
-                      value={basicInfoForm.watch('birthYear')?.toString() || ''}
-                      onValueChange={(value) => {
-                        basicInfoForm.setValue('birthYear', parseInt(value), { shouldValidate: true })
-                      }}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="年" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {yearOptions.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}年
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Select
-                      value={basicInfoForm.watch('birthMonth')?.toString() || ''}
-                      onValueChange={(value) => {
-                        basicInfoForm.setValue('birthMonth', parseInt(value), { shouldValidate: true })
-                      }}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="月" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {monthOptions.map((month) => (
-                          <SelectItem key={month} value={month.toString()}>
-                            {month}月
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Select
-                      value={basicInfoForm.watch('birthDay')?.toString() || ''}
-                      onValueChange={(value) => {
-                        basicInfoForm.setValue('birthDay', parseInt(value), { shouldValidate: true })
-                      }}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="日" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dayOptions.map((day) => (
-                          <SelectItem key={day} value={day.toString()}>
-                            {day}日
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <select
+                    value={watchedYear?.toString() || ''}
+                    onChange={(e) => {
+                      basicInfoForm.setValue('birthYear', parseInt(e.target.value), { shouldValidate: true })
+                    }}
+                    className="h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="">年</option>
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year.toString()}>
+                        {year}年
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={watchedMonth?.toString() || ''}
+                    onChange={(e) => {
+                      basicInfoForm.setValue('birthMonth', parseInt(e.target.value), { shouldValidate: true })
+                    }}
+                    className="h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="">月</option>
+                    {monthOptions.map((month) => (
+                      <option key={month} value={month.toString()}>
+                        {month}月
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={watchedDay?.toString() || ''}
+                    onChange={(e) => {
+                      basicInfoForm.setValue('birthDay', parseInt(e.target.value), { shouldValidate: true })
+                    }}
+                    className="h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="">日</option>
+                    {dayOptions.map((day) => (
+                      <option key={day} value={day.toString()}>
+                        {day}日
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 {calculatedAge !== null && (
                   <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -504,7 +651,7 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
                       key={gender.value}
                       className={`
                         flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all
-                        ${basicInfoForm.watch('childGender') === gender.value
+                        ${watchedGender === gender.value
                           ? 'border-coral-500 bg-coral-50 text-coral-700'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
                       `}
@@ -655,11 +802,11 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
               onSubmit={handleQuestionnaireSubmit}
               onBack={() => {
                 setCurrentStep(1)
-                saveCurrentStep(1)
+                saveData({ currentStep: 1 })
               }}
               isSubmitting={isLoading}
               submitLabel="送信する"
-              defaultValues={storedData?.questionnaireData || {}}
+              defaultValues={questionnaireDefaultValues}
             />
           ) : (
             <div className="py-12 text-center text-gray-500">
@@ -671,3 +818,5 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     </div>
   )
 }
+
+
