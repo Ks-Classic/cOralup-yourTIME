@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup.vercel.app'
+
+// Supabase クライアント (Service Role)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 interface SendReportRequest {
   lineUserId: string
   reportUuid: string
   childName: string
   eventName?: string
+  visitId?: string
+  sessionId?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SendReportRequest = await request.json()
-    const { lineUserId, reportUuid, childName, eventName } = body
+    const { lineUserId, reportUuid, childName, eventName, visitId, sessionId } = body
 
     if (!lineUserId || !reportUuid) {
       return NextResponse.json(
@@ -121,13 +130,61 @@ export async function POST(request: NextRequest) {
       })
     })
 
+    const responseData = await response.json().catch(() => ({}))
+    const sentAt = new Date().toISOString()
+
     if (!response.ok) {
-      const errorText = await response.text()
+      const errorText = JSON.stringify(responseData)
       console.error('LINE API error:', errorText)
+
+      // 失敗ログを記録
+      await supabase.from('line_message_logs').insert({
+        visit_id: visitId || null,
+        session_id: sessionId || null,
+        line_user_id: lineUserId,
+        message_type: 'report',
+        message_content: flexMessage,
+        status: 'failed',
+        response: responseData,
+        error_message: errorText,
+        sent_at: sentAt,
+      })
+
       return NextResponse.json(
         { error: 'LINE通知の送信に失敗しました', details: errorText },
         { status: 500 }
       )
+    }
+
+    // 成功ログを記録
+    await supabase.from('line_message_logs').insert({
+      visit_id: visitId || null,
+      session_id: sessionId || null,
+      line_user_id: lineUserId,
+      message_type: 'report',
+      message_content: flexMessage,
+      status: 'success',
+      response: responseData,
+      sent_at: sentAt,
+    })
+
+    // visits.status と report_sent_at を更新
+    if (visitId) {
+      await supabase
+        .from('visits')
+        .update({
+          status: 'report_sent',
+          report_sent_at: sentAt,
+        })
+        .eq('id', visitId)
+    } else if (sessionId) {
+      await supabase
+        .from('visits')
+        .update({
+          status: 'report_sent',
+          report_sent_at: sentAt,
+        })
+        .eq('session_id', sessionId)
     }
 
     return NextResponse.json({

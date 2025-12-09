@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 // Gemini APIの初期化
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
+// Supabase クライアント (Service Role)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     const body = await request.json()
-    const { sessionId, questionnaire, postureAnalysis, oralAnalysis, staffNotes } = body
+    const { sessionId, visitId, questionnaire, postureAnalysis, oralAnalysis, staffNotes } = body
 
     let dataForPrompt = {
       childName: '',
@@ -174,6 +182,42 @@ ${dataForPrompt.diagnosisDetails}
         !Array.isArray(reportResult.nextSteps) ||
         !reportResult.encouragingMessage) {
         throw new Error('レスポンスの形式が不正です')
+      }
+
+      const processingTime = Date.now() - startTime
+
+      // ai_analysis_resultsテーブルに保存
+      if (sessionId || visitId) {
+        const { data: analysisRecord, error: dbError } = await supabase
+          .from('ai_analysis_results')
+          .upsert(
+            {
+              visit_id: visitId || null,
+              session_id: sessionId || null,
+              summary: reportResult.summary,
+              detailed_analysis: { analysis: reportResult.analysis },
+              improvement_suggestions: reportResult.recommendations,
+              next_steps: reportResult.nextSteps,
+              encouragement_message: reportResult.encouragingMessage,
+              model_version: 'gemini-pro',
+              prompt_version: 'v1.0',
+              processing_time_ms: processingTime,
+              status: 'completed',
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: sessionId ? 'session_id' : 'visit_id',
+            }
+          )
+          .select()
+          .single()
+
+        if (dbError) {
+          console.error('[AI Report] DB save error:', dbError)
+          // DBエラーでも結果は返す
+        } else {
+          console.log('[AI Report] Saved to ai_analysis_results:', analysisRecord?.id)
+        }
       }
 
       return NextResponse.json(reportResult)
