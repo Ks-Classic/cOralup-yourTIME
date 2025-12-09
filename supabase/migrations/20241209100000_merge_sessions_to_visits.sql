@@ -11,21 +11,30 @@ ADD COLUMN IF NOT EXISTS parent_name VARCHAR(100),
 ADD COLUMN IF NOT EXISTS parent_phone VARCHAR(20);
 
 -- 2. visits.session_id を UNIQUE NOT NULL に変更（既存データがある場合は慎重に）
--- まず既存のNULLをチェック（エラーになる可能性があるので条件付き）
 DO $$
 BEGIN
-    -- session_idがNULLのレコードがある場合はエラー
-    IF EXISTS (SELECT 1 FROM visits WHERE session_id IS NULL) THEN
-        RAISE EXCEPTION 'visitsテーブルにsession_idがNULLのレコードがあります。先にデータを修正してください。';
+    -- visitsテーブルが存在する場合のみ実行
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visits') THEN
+        -- session_idがNULLのレコードがある場合はエラー
+        IF EXISTS (SELECT 1 FROM visits WHERE session_id IS NULL) THEN
+            RAISE EXCEPTION 'visitsテーブルにsession_idがNULLのレコードがあります。先にデータを修正してください。';
+        END IF;
+        
+        -- session_idをNOT NULLに変更（既にNOT NULLの場合はスキップ）
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'visits' 
+            AND column_name = 'session_id' 
+            AND is_nullable = 'YES'
+        ) THEN
+            ALTER TABLE visits ALTER COLUMN session_id SET NOT NULL;
+        END IF;
+        
+        -- UNIQUE制約を追加（既存の制約を削除してから）
+        ALTER TABLE visits DROP CONSTRAINT IF EXISTS visits_session_id_key;
+        ALTER TABLE visits DROP CONSTRAINT IF EXISTS visits_session_id_unique;
+        ALTER TABLE visits ADD CONSTRAINT visits_session_id_unique UNIQUE (session_id);
     END IF;
-    
-    -- session_idをNOT NULLに変更
-    ALTER TABLE visits ALTER COLUMN session_id SET NOT NULL;
-    
-    -- UNIQUE制約を追加（既存の制約を削除してから）
-    ALTER TABLE visits DROP CONSTRAINT IF EXISTS visits_session_id_key;
-    ALTER TABLE visits DROP CONSTRAINT IF EXISTS visits_session_id_unique;
-    ALTER TABLE visits ADD CONSTRAINT visits_session_id_unique UNIQUE (session_id);
 END $$;
 
 -- 3. sessions テーブルから visits にデータを移行（既存データがある場合）
