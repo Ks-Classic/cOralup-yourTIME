@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient, isMockMode } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import { isMockMode } from '@/lib/supabase'
 import { preschoolerFormSchema } from '@/data/preschooler-form-schema'
 import { elementaryFormSchema } from '@/data/elementary-form-schema'
 import { diagnosisItems, categoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const adminApiKey = process.env.ADMIN_API_KEY
+
+const getAdminSupabase = () => {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Supabase環境変数が設定されていません')
+  }
+  return createClient(supabaseUrl, supabaseServiceKey)
+}
+
+const assertAdminAuthorized = (request: NextRequest) => {
+  if (isMockMode) return
+  if (!adminApiKey) return
+
+  const authHeader = request.headers.get('authorization') || ''
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const headerKey = request.headers.get('x-admin-key')
+  if (bearer === adminApiKey || headerKey === adminApiKey) return
+  throw new Error('unauthorized')
+}
 
 // 診断項目をスキーマ形式に変換
 function convertDiagnosisItemsToSchema(items: DiagnosisItem[]) {
@@ -129,12 +152,13 @@ async function convertQuestionnaireToSchema(supabase: any, targetAge: 'preschool
 // GET: スキーマ一覧取得
 export async function GET(request: NextRequest) {
   try {
+    assertAdminAuthorized(request)
     const { searchParams } = new URL(request.url)
     const formType = searchParams.get('form_type')
     const schemaId = searchParams.get('schema_id')
 
     // Supabase接続
-    const supabase = createServerSupabaseClient()
+    const supabase = getAdminSupabase()
 
     // 問診票の正規化テーブルからデータ取得する場合
     if (schemaId && (schemaId.startsWith('preschooler') || schemaId.startsWith('elementary'))) {
@@ -190,6 +214,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data, error: null })
   } catch (error) {
+    if ((error as Error).message === 'unauthorized') {
+      return NextResponse.json({ data: null, error: 'unauthorized' }, { status: 401 })
+    }
     console.error('Schema fetch error:', error)
     return NextResponse.json(
       { data: null, error: 'スキーマの取得に失敗しました' },
@@ -202,6 +229,7 @@ export async function GET(request: NextRequest) {
 // POST: スキーマ保存（正規化テーブルへの反映）
 export async function POST(request: NextRequest) {
   try {
+    assertAdminAuthorized(request)
     const body = await request.json()
     const {
       schema_id,
@@ -221,7 +249,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = getAdminSupabase()
 
     // 問診票の更新（正規化テーブル）
     if (form_type === 'questionnaire') {
@@ -410,6 +438,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data, error: null })
   } catch (error) {
+    if ((error as Error).message === 'unauthorized') {
+      return NextResponse.json({ data: null, error: 'unauthorized' }, { status: 401 })
+    }
     console.error('Schema create error:', error)
     return NextResponse.json(
       { data: null, error: 'スキーマの作成に失敗しました' },

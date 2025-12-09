@@ -160,7 +160,7 @@ sequenceDiagram
     participant Staff as スタッフ
     participant LINE as LINE公式
     participant App as Vercel App
-    participant DB as Supabase
+    participant DB as Supabase（RLS ON・Service Role前提。クライアントからの直接CRUD禁止、必ずサーバーAPI経由）
 
     Staff->>LINE: 友だち追加
     LINE->>App: Webhook (follow event)

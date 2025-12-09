@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { supabase } from '@/lib/supabase'
 
 interface SessionData {
   id: string
@@ -53,14 +52,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
     const fetchData = async () => {
       try {
-        // セッションデータを取得
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('id', sessionId)
-          .single()
-
-        if (sessionError) throw sessionError
+        // セッションデータをAPI経由で取得
+        const res = await fetch(`/api/staff/report?sessionId=${sessionId}`)
+        if (!res.ok) throw new Error('セッションの取得に失敗しました')
+        const { session: sessionData } = await res.json()
+        if (!sessionData) throw new Error('セッションが見つかりません')
         setSession(sessionData)
 
         // レポートデータを取得（実際にはAI分析結果から取得）
@@ -132,13 +128,16 @@ ${session.parent_name}様
       })
 
       if (response.ok) {
-        // レポート送信済みとしてマーク
-        await supabase
-          .from('reports')
-          .insert([{
-            session_id: session.session_id,
-            status: 'sent',
-          }])
+        // レポート送信済みとしてマーク（API経由）
+        const reportRes = await fetch('/api/staff/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: session.session_id }),
+        })
+
+        if (!reportRes.ok) {
+          console.error('レポート保存に失敗しました')
+        }
 
         alert('診断レポートが送信されました')
         router.push('/staff')

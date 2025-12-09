@@ -324,3 +324,78 @@ Supabase (縦持ち) ──→ Edge Function (変換) ──→ Lark Base (横�
                           │
                           └── SQLビューで横持ちも提供可能
 ```
+
+---
+
+## 11. リアルタイム同期アーキテクチャ
+
+### 11.1 データフロー
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│ 保護者/スタッフ │ ──→ │  API Route   │ ──→ │   Supabase   │ ──→ │  Lark Base   │
+│     UI       │     │ (Service Role)│     │  DB Trigger  │     │ (リアルタイム) │
+└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+                                               │
+                                               ↓
+                                    ┌──────────────────┐
+                                    │  Edge Function   │
+                                    │  (lark-sync)     │
+                                    └──────────────────┘
+```
+
+### 11.2 トリガー方式（採用）
+
+**方式**: DB Trigger + Edge Function
+
+1. アプリがAPI Route経由でSupabaseにINSERT/UPDATE
+2. `visits`テーブルのTrigger (`trigger_lark_sync_visits`) が発火
+3. `notify_lark_sync()` 関数が `pg_net` でEdge Functionを非同期呼び出し
+4. Edge Function (`lark-sync`) がLark Base APIにUpsert
+5. Lark Baseダッシュボードに即反映
+
+**メリット**:
+- アプリ側の実装変更不要
+- 非同期処理でレスポンス遅延なし
+- 失敗してもDBトランザクションは継続
+
+### 11.3 必要な設定
+
+#### Supabase側
+
+1. **pg_net拡張**: マイグレーションで有効化済み
+2. **Webhook URL設定**: Supabase Dashboard > Settings > Database > App Settings
+   ```sql
+   ALTER DATABASE postgres SET app.settings.lark_webhook_url = 'https://<project-ref>.supabase.co/functions/v1/lark-sync';
+   ```
+3. **Edge Function デプロイ**:
+   ```bash
+   supabase functions deploy lark-sync
+   ```
+
+#### 環境変数（Edge Function用）
+
+| 変数名 | 説明 |
+|--------|------|
+| `SUPABASE_URL` | Supabase プロジェクトURL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service Roleキー（RLSバイパス用） |
+| `LARK_APP_ID` | Lark アプリID |
+| `LARK_APP_SECRET` | Lark アプリシークレット |
+| `LARK_BASE_APP_TOKEN` | Lark Base アプリトークン |
+| `LARK_BASE_TABLE_ID` | 来場者ログテーブルID |
+| `LARK_STATS_TABLE_ID` | リアルタイム集計テーブルID |
+| `LARK_ALERTS_TABLE_ID` | 異常検知アラートテーブルID |
+
+### 11.4 同期対象イベント
+
+| テーブル | イベント | 同期内容 |
+|---------|---------|---------|
+| `visits` | INSERT | 新規来場者をLarkに追加 |
+| `visits` | UPDATE | ステータス変更（待機→診断中→完了）を反映 |
+| `visits` | UPDATE | 担当スタッフ割り当てを反映 |
+
+### 11.5 セキュリティ
+
+- Edge FunctionはSupabase内部からのみ呼び出し可能（Webhook URL非公開）
+- Lark APIアクセスはEdge Function内でService Roleキーを使用
+- クライアント（保護者/スタッフUI）はLark認証情報を一切持たない

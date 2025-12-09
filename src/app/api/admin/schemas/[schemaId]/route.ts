@@ -1,5 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient, isMockMode } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import { isMockMode } from '@/lib/supabase'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const adminApiKey = process.env.ADMIN_API_KEY
+
+const getAdminSupabase = () => {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Supabase環境変数が設定されていません')
+  }
+  return createClient(supabaseUrl, supabaseServiceKey)
+}
+
+const assertAdminAuthorized = (request: NextRequest) => {
+  if (isMockMode) return
+  if (!adminApiKey) return
+
+  const authHeader = request.headers.get('authorization') || ''
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const headerKey = request.headers.get('x-admin-key')
+  if (bearer === adminApiKey || headerKey === adminApiKey) return
+  throw new Error('unauthorized')
+}
 
 // GET: 特定スキーマ取得
 export async function GET(
@@ -7,6 +30,7 @@ export async function GET(
   { params }: { params: Promise<{ schemaId: string }> }
 ) {
   try {
+    assertAdminAuthorized(request)
     const { schemaId } = await params
 
     if (isMockMode) {
@@ -20,7 +44,7 @@ export async function GET(
       return NextResponse.json({ data: schema, error: null })
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = getAdminSupabase()
     const { data, error } = await supabase
       .from('form_schemas')
       .select('*')
@@ -33,6 +57,9 @@ export async function GET(
 
     return NextResponse.json({ data, error: null })
   } catch (error) {
+    if ((error as Error).message === 'unauthorized') {
+      return NextResponse.json({ data: null, error: 'unauthorized' }, { status: 401 })
+    }
     console.error('Schema fetch error:', error)
     return NextResponse.json(
       { data: null, error: 'スキーマの取得に失敗しました' },
@@ -47,6 +74,7 @@ export async function PUT(
   { params }: { params: Promise<{ schemaId: string }> }
 ) {
   try {
+    assertAdminAuthorized(request)
     const { schemaId } = await params
     const body = await request.json()
     const { name, description, config, version } = body
@@ -65,7 +93,7 @@ export async function PUT(
       })
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = getAdminSupabase()
 
     // バージョン履歴を保存
     if (version) {
@@ -105,6 +133,9 @@ export async function PUT(
 
     return NextResponse.json({ data, error: null })
   } catch (error) {
+    if ((error as Error).message === 'unauthorized') {
+      return NextResponse.json({ data: null, error: 'unauthorized' }, { status: 401 })
+    }
     console.error('Schema update error:', error)
     return NextResponse.json(
       { data: null, error: 'スキーマの更新に失敗しました' },
@@ -119,13 +150,14 @@ export async function DELETE(
   { params }: { params: Promise<{ schemaId: string }> }
 ) {
   try {
+    assertAdminAuthorized(request)
     const { schemaId } = await params
 
     if (isMockMode) {
       return NextResponse.json({ data: { deleted: true }, error: null })
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = getAdminSupabase()
     const { error } = await supabase
       .from('form_schemas')
       .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -137,6 +169,9 @@ export async function DELETE(
 
     return NextResponse.json({ data: { deleted: true }, error: null })
   } catch (error) {
+    if ((error as Error).message === 'unauthorized') {
+      return NextResponse.json({ data: null, error: 'unauthorized' }, { status: 401 })
+    }
     console.error('Schema delete error:', error)
     return NextResponse.json(
       { data: null, error: 'スキーマの削除に失敗しました' },

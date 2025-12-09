@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { supabase } from '@/lib/supabase'
 
 interface SessionData {
   id: string
@@ -100,35 +99,20 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
 
     const fetchData = async () => {
       try {
-        // セッションデータを取得
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('id', sessionId)
-          .single()
-
-        if (sessionError) throw sessionError
+        // API経由でデータを取得
+        const res = await fetch(`/api/staff/analysis-data?sessionId=${sessionId}`)
+        if (!res.ok) throw new Error('データの取得に失敗しました')
+        
+        const { session: sessionData, questionnaire: questionnaireData, diagnosis: diagnosisData } = await res.json()
+        
+        if (!sessionData) throw new Error('セッションが見つかりません')
         setSession(sessionData)
 
-        // 問診票データを取得
-        const { data: questionnaireData, error: questionnaireError } = await supabase
-          .from('questionnaires')
-          .select('*')
-          .eq('session_id', sessionData.session_id)
-          .single()
-
-        if (!questionnaireError && questionnaireData) {
+        if (questionnaireData) {
           setQuestionnaire(questionnaireData)
         }
 
-        // 診断データを取得
-        const { data: diagnosisData, error: diagnosisError } = await supabase
-          .from('diagnoses')
-          .select('*')
-          .eq('session_id', sessionData.session_id)
-          .single()
-
-        if (!diagnosisError && diagnosisData) {
+        if (diagnosisData) {
           setDiagnosis(diagnosisData)
         }
 
@@ -240,22 +224,17 @@ export default function AnalysisPage({ params }: { params: Promise<{ id: string 
     if (!session || !editableReport) return
 
     try {
-      // レポートを保存
-      const { error } = await supabase
-        .from('reports')
-        .insert([{
+      // レポートを保存 + セッションステータス更新（API経由）
+      const res = await fetch('/api/staff/analysis-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionId,
           session_id: session.session_id,
-          pdf_url: '', // PDF生成後に更新
-          status: 'sent',
-        }])
+        }),
+      })
 
-      if (error) throw error
-
-      // セッションステータスを更新
-      await supabase
-        .from('sessions')
-        .update({ status: 'completed' })
-        .eq('id', sessionId)
+      if (!res.ok) throw new Error('レポートの保存に失敗しました')
 
       // LINE通知
       await sendLineNotification()

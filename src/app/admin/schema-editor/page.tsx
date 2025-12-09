@@ -34,6 +34,9 @@ interface ExtendedDiagnosisItem extends DiagnosisItem {
   isVisible: boolean
 }
 
+const adminApiKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY
+const adminAuthHeader = adminApiKey ? { Authorization: `Bearer ${adminApiKey}` } : {}
+
 // デフォルトの空スキーマ
 const defaultSchema: FormSchemaConfig = {
   sections: [],
@@ -107,7 +110,11 @@ export default function SchemaEditorPage() {
 
           setIsLoading(true)
           const schemaId = schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
-          const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`)
+          const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`, {
+            headers: {
+              ...adminAuthHeader,
+            },
+          })
 
           if (!res.ok) {
             throw new Error(`API Error: ${res.status} ${res.statusText}`)
@@ -121,7 +128,11 @@ export default function SchemaEditorPage() {
         } else {
           setIsLoading(true)
           // 診断項目取得
-          const diagnosisRes = await fetch('/api/admin/diagnosis-schema')
+          const diagnosisRes = await fetch('/api/admin/diagnosis-schema', {
+            headers: {
+              ...adminAuthHeader,
+            },
+          })
 
           if (!diagnosisRes.ok) {
             throw new Error(`API Error: ${diagnosisRes.status} ${diagnosisRes.statusText}`)
@@ -563,7 +574,10 @@ export default function SchemaEditorPage() {
         // 診断項目をAPI経由で保存
         const response = await fetch('/api/admin/diagnosis-schema', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...adminAuthHeader,
+          },
           body: JSON.stringify({
             categoryOrder: diagnosisData.categoryOrder,
             items: Object.values(diagnosisData.categorized).flat().map(item => ({
@@ -591,7 +605,10 @@ export default function SchemaEditorPage() {
         console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
         const response = await fetch('/api/admin/schemas', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...adminAuthHeader,
+          },
           body: JSON.stringify({
             schema_id: schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1',
             form_type: 'questionnaire',
