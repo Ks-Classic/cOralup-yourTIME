@@ -2,34 +2,58 @@
 export type Database = {
   public: {
     Tables: {
-      sessions: {
+      visits: {
         Row: {
           id: string
+          organization_id?: string
+          event_id?: string
+          child_id?: string
+          staff_profile_id?: string
           session_id: string
+          visit_date?: string
+          child_age_months?: number
+          status: string
+          reception_number?: string
           line_user_id?: string
           parent_name?: string
           parent_phone?: string
-          status: string
+          report_sent_at?: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
+          organization_id?: string
+          event_id?: string
+          child_id?: string
+          staff_profile_id?: string
           session_id: string
+          visit_date?: string
+          child_age_months?: number
+          status?: string
+          reception_number?: string
           line_user_id?: string
           parent_name?: string
           parent_phone?: string
-          status?: string
+          report_sent_at?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
+          organization_id?: string
+          event_id?: string
+          child_id?: string
+          staff_profile_id?: string
           session_id?: string
+          visit_date?: string
+          child_age_months?: number
+          status?: string
+          reception_number?: string
           line_user_id?: string
           parent_name?: string
           parent_phone?: string
-          status?: string
+          report_sent_at?: string
           created_at?: string
           updated_at?: string
         }

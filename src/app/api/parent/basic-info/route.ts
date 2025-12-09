@@ -145,9 +145,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 4. sessions テーブルも更新（互換用）
-    const { error: sessionError } = await supabase
-      .from('sessions')
+    // 4. visits テーブルを更新（親御さん情報）
+    const { error: visitUpdateError } = await supabase
+      .from('visits')
       .update({
         parent_name: `${parent_last_name} ${parent_first_name}`,
         parent_phone: parent_phone,
@@ -155,9 +155,9 @@ export async function POST(request: NextRequest) {
       })
       .eq('session_id', session_id)
 
-    if (sessionError) {
-      console.error('Error updating session:', sessionError)
-      // 互換テーブルなので続行
+    if (visitUpdateError) {
+      console.error('Error updating visit:', visitUpdateError)
+      // 続行可能
     }
 
     console.log('Basic info saved:', {

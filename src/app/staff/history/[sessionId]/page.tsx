@@ -24,7 +24,7 @@ export default async function StaffHistoryDetailPage({ params }: PageProps) {
 
   // セッション情報取得
   const { data: sessionData, error: sessionError } = await supabase
-    .from('sessions')
+    .from('visits')
     .select('*')
     .eq('session_id', sessionId)
     .single()

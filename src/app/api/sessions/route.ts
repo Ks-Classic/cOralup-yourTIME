@@ -6,7 +6,7 @@ export async function GET() {
   try {
     // 実際の実装では認証チェックを入れる
     const { data: sessions, error } = await supabase
-      .from('sessions')
+      .from('visits')
       .select(`
         *,
         questionnaires (
@@ -42,13 +42,14 @@ export async function POST(request: NextRequest) {
     // セッションID生成（カスタムIDが指定されていない場合）
     const sessionId = customSessionId || generateSessionId()
 
-    // セッション作成
+    // セッション作成（visitsテーブルに作成）
     const { data: session, error: sessionError } = await supabase
-      .from('sessions')
+      .from('visits')
       .insert([
         {
           session_id: sessionId,
           status: 'active',
+          visit_date: new Date().toISOString(),
         }
       ])
       .select()
@@ -62,15 +63,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 親御さん情報をセッションに紐づける（実際は別テーブルにする方が良い）
-    // ここでは簡易的にsessionに直接保存
+    // 親御さん情報をセッションに紐づける
     const { error: updateError } = await supabase
-      .from('sessions')
+      .from('visits')
       .update({
         parent_name: parentName,
         parent_phone: parentPhone,
       })
-      .eq('id', session.id)
+      .eq('session_id', sessionId)
 
     if (updateError) {
       console.error('Error updating session:', updateError)

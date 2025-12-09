@@ -32,7 +32,7 @@ export const createServerSupabaseClient = () => {
 
 // データベースヘルパー関数
 export const dbHelpers = {
-  // セッション管理
+  // セッション管理（visitsテーブルに統合）
   sessions: {
     async create(data: {
       sessionId: string
@@ -40,15 +40,20 @@ export const dbHelpers = {
       status?: string
     }) {
       return await supabase
-        .from('sessions')
-        .insert([data])
+        .from('visits')
+        .insert([{
+          session_id: data.sessionId,
+          line_user_id: data.lineUserId,
+          status: data.status || 'active',
+          visit_date: new Date().toISOString(),
+        }])
         .select()
         .single()
     },
 
     async findBySessionId(sessionId: string) {
       return await supabase
-        .from('sessions')
+        .from('visits')
         .select('*')
         .eq('session_id', sessionId)
         .single()
@@ -56,7 +61,7 @@ export const dbHelpers = {
 
     async update(id: string, data: any) {
       return await supabase
-        .from('sessions')
+        .from('visits')
         .update({ ...data, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()

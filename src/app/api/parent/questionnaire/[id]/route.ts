@@ -17,7 +17,7 @@ export async function GET(
 
     // セッションデータを取得
     const { data: session, error: sessionError } = await supabase
-      .from('sessions')
+      .from('visits')
       .select('*')
       .eq('session_id', sessionId)
       .single()

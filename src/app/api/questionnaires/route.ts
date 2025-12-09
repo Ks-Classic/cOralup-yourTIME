@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // セッションのステータスを更新
     await supabase
-      .from('sessions')
+      .from('visits')
       .update({ status: 'questionnaire_completed' })
       .eq('session_id', sessionId)
 

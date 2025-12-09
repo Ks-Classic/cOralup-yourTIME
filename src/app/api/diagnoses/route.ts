@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
 
     // セッションのステータスを更新
     await supabase
-      .from('sessions')
-      .update({ status: 'diagnosis_completed' })
+      .from('visits')
+      .update({ status: 'completed' })
       .eq('session_id', sessionId)
 
     return NextResponse.json(diagnosis, { status: 201 })

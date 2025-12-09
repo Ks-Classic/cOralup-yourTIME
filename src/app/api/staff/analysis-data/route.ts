@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     // セッションデータを取得
     const { data: session, error: sessionError } = await supabase
-      .from('sessions')
+      .from('visits')
       .select('*')
       .eq('id', sessionId)
       .single()
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // セッションステータスを更新
     const { error: sessionError } = await supabase
-      .from('sessions')
+      .from('visits')
       .update({ status: 'completed' })
       .eq('id', sessionId)
 
