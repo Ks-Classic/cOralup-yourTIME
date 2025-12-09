@@ -71,7 +71,7 @@ export default function StaffLayout({
                   </Button>
                 )}
                 <Button asChild size="sm" variant="outline" className="text-xs px-2 py-1 h-7">
-                  <Link href="/staff/diagnosis">診断開始</Link>
+                  <Link href="/staff/scan">QRスキャン</Link>
                 </Button>
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function StaffLayout({
                 <span>ステータス: <span className="text-green-600 font-medium">稼働中</span></span>
               </div>
               <Button asChild size="sm" variant="outline">
-                <Link href="/staff/diagnosis">診断開始</Link>
+                <Link href="/staff/scan">QRスキャン</Link>
               </Button>
             </div>
           </div>

@@ -79,8 +79,8 @@ export default function StaffScanPage() {
   // 診断開始
   const handleStartDiagnosis = () => {
     if (visitData) {
-      // session_idがあればそれを使用、なければvisit.idを使用
-      const diagnosisId = visitData.session_id || visitData.id
+      // visitIdを使用（APIはvisitIdで検索するため）
+      const diagnosisId = visitData.id
       router.push(`/staff/diagnosis/${diagnosisId}`)
     }
   }

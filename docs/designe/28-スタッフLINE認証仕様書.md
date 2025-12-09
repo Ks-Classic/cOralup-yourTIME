@@ -21,10 +21,11 @@ LIFFは初回ログイン時のみ使用し、以降は通常Webアプリ（Verc
 | 案 | チャネル数 | 初回UX | 実装コスト |
 |----|-----------|--------|-----------|
 | Messaging + LINEログイン | 2つ | OAuth認可画面あり | 中 |
-| **Messaging + LIFF（初回のみ）** | **1つ** | **自動（許可不要）** | **低** |
+| **Messaging + LIFF（初回のみ）** | **2つ** | **自動（許可不要）** | **低** ✅採用 |
 
-- **チャネル1つで完結**（Messaging APIにLIFFを追加するだけ）
-- OAuth認証画面なし（ユーザーは「許可」ボタン押さなくていい）
+- **Messaging API（友だち管理）+ LINE Login（LIFF認証）の2チャネル構成**
+- LIFFはLINE Loginチャネル内で作成（Messaging APIチャネルでは不可）
+- OAuth認証画面なし（LIFF内で自動認証）
 - 2回目以降はCookieで認識（LIFFは初回のみ）
 
 ### 1.3 全体構成
@@ -87,13 +88,40 @@ LIFFは初回ログイン時のみ使用し、以降は通常Webアプリ（Verc
 
 ## 2. LINE Developers 設定
 
-### 2.1 必要なチャネル
+### 2.1 必要なチャネル（2つの選択肢）
+
+#### 選択肢A: LINEミニアプリ（推奨・1チャネル構成）
 
 | チャネル | 種類 | 用途 |
 |----------|------|------|
-| cOralupスタッフ | Messaging API | 友だち管理、通知送信、LIFF |
+| cOralupスタッフ | LINEミニアプリ | 友だち管理、通知送信、Webhook、認証（LIFF機能内蔵） |
 
-**1チャネルのみで完結。** LINEログインチャネルは不要。
+**✅ メリット:**
+- **1チャネルで完結**（Messaging API + LIFF機能を統合）
+- 友だち追加不要で利用開始可能
+- LINEアプリ内の「サービス一覧」に表示される
+- 審査通過後は公式アプリとして位置付け
+
+**⚠️ 注意点:**
+- LINE社の審査が必要（申請から審査完了まで1〜2週間）
+- 審査通過前は開発・テスト用の限定公開のみ可能
+
+#### 選択肢B: Messaging API + LINE Login（2チャネル構成）
+
+| チャネル | 種類 | 用途 |
+|----------|------|------|
+| cOralupスタッフ | Messaging API | 友だち管理、通知送信、Webhook |
+| cOralupスタッフ（ログイン用） | LINE Login | LIFFアプリ、認証 |
+
+**✅ メリット:**
+- 審査不要で即座に利用開始可能
+- 既存のLIFF実装をそのまま利用可能
+
+**⚠️ 注意点:**
+- 2チャネル管理が必要
+- 友だち追加が必須
+
+**📌 推奨**: YourTIMEイベント（2024/12）まで時間がない場合は**選択肢B**を採用。将来的には**選択肢A（LINEミニアプリ）**への移行を検討。
 
 ### 2.2 Messaging API チャネル設定
 
@@ -107,7 +135,18 @@ Webhook利用: ON
 応答メッセージ: OFF（または適切なメッセージ設定）
 ```
 
-### 2.3 LIFF設定（同じチャネル内）
+### 2.3 LINE Login チャネル設定
+
+```yaml
+チャネル名: cOralupスタッフ（ログイン用）
+チャネルタイプ: LINE Login
+プロバイダー: cOralup
+
+コールバックURL: https://your-app.vercel.app/staff/liff-login
+スコープ: profile（プロフィール取得のみ）
+```
+
+### 2.4 LIFF設定（LINE Loginチャネル内）
 
 ```yaml
 LIFFアプリ名: スタッフログイン
@@ -116,6 +155,8 @@ LIFFアプリ名: スタッフログイン
 Scope: profile（プロフィール取得のみ）
 ボットリンク機能: On (normal)
 ```
+
+**注**: LIFFはLINE Loginチャネル内で作成します。
 
 ### 2.4 リッチメニュー設定
 
@@ -134,12 +175,16 @@ Scope: profile（プロフィール取得のみ）
 ## 3. 環境変数
 
 ```env
-# スタッフ用LINE Messaging API
+# スタッフ用LINE Messaging API（友だち管理・Webhook用）
 LINE_STAFF_CHANNEL_ID=xxxxx
 LINE_STAFF_CHANNEL_SECRET=xxxxx
 LINE_STAFF_CHANNEL_ACCESS_TOKEN=xxxxx
 
-# LIFF ID（Messaging APIチャネル内で発行）
+# スタッフ用LINE Login（LIFF認証用）
+LINE_STAFF_LOGIN_CHANNEL_ID=xxxxx
+LINE_STAFF_LOGIN_CHANNEL_SECRET=xxxxx
+
+# LIFF ID（LINE Loginチャネル内で発行）
 NEXT_PUBLIC_STAFF_LIFF_ID=xxxxx-xxxxx
 
 # セッション暗号化キー

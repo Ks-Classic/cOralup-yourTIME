@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, Plus, Loader2 } from 'lucide-react'
+import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, Plus, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/utils'
 import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-generator'
 import { generateQRCode } from '@/utils'
@@ -146,6 +146,8 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
   const [staffNotes, setStaffNotes] = useState('')
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [editableReport, setEditableReport] = useState<any>(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(false)
+  const [sessionError, setSessionError] = useState<string | null>(null)
 
   // スキーマデータ（動的取得）
   const [diagnosisItems, setDiagnosisItems] = useState<DiagnosisItem[]>([])
@@ -266,32 +268,133 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     })
   }, [sessionId, isStorageLoaded, diagnosisValues, staffNotes, photos, saveToStorage])
 
-  // ... (mock session data effect)
+  // セッションデータ取得（DBから）
   useEffect(() => {
     if (!sessionId) return
-    // ... (mock data setup)
-    const mockSession: SessionData = {
-      id: sessionId,
-      session_id: sessionId,
-      status: 'questionnaire_completed',
-      parent_name: '保護者 太郎',
-      parent_phone: '090-1234-5678',
-      child_name: 'お子様 花子',
-      child_age: 8,
-      child_gender: 'female',
-      created_at: new Date().toISOString(),
+
+    const fetchSessionData = async () => {
+      setIsLoadingSession(true)
+      setSessionError(null)
+
+      try {
+        // sessionIdがUUID形式（visitId）かどうかを判定
+        // UUID形式: 8-4-4-4-12文字のハイフン区切り
+        const isVisitId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)
+        
+        const apiUrl = isVisitId
+          ? `/api/staff/session?visitId=${encodeURIComponent(sessionId)}`
+          : `/api/staff/session?code=${encodeURIComponent(sessionId.slice(0, 8))}`
+        
+        const response = await fetch(apiUrl)
+        const data = await response.json()
+
+        if (!data.success || !data.visit) {
+          throw new Error(data.message || 'セッションデータの取得に失敗しました')
+        }
+
+        const visit = data.visit
+        const child = visit.children
+
+        // SessionData形式に変換
+        const sessionData: SessionData = {
+          id: visit.id,
+          session_id: visit.session_id || visit.id,
+          status: visit.status || 'questionnaire_completed',
+          parent_name: visit.parent
+            ? (visit.parent.last_name && visit.parent.first_name
+                ? `${visit.parent.last_name} ${visit.parent.first_name}`
+                : visit.parent.display_name)
+            : undefined,
+          parent_phone: visit.parent?.phone_number,
+          child_name: child
+            ? `${child.last_name || ''} ${child.first_name || ''}`.trim()
+            : undefined,
+          child_age: visit.child_age_months
+            ? Math.floor(visit.child_age_months / 12)
+            : undefined,
+          child_gender: child?.gender,
+          created_at: visit.visit_date || new Date().toISOString(),
+        }
+
+        // QuestionnaireData形式に変換
+        // questionnaire_responsesから必要な情報を抽出
+        const responses = visit.questionnaire_responses || []
+        const questionnaireData: QuestionnaireData = {
+          child_name: child
+            ? `${child.last_name || ''} ${child.first_name || ''}`.trim()
+            : 'お子様',
+          child_age: visit.child_age_months
+            ? Math.floor(visit.child_age_months / 12)
+            : 0,
+          child_gender: child?.gender || 'other',
+          medical_history: [],
+          concerns: [],
+          ideal_goals: [],
+          notes: '',
+        }
+
+        // questionnaire_responsesから情報を抽出（必要に応じて）
+        // 実際の問診項目に応じてマッピングを調整
+        responses.forEach((resp: any) => {
+          const item = resp.questionnaire_items
+          if (!item) return
+
+          // カテゴリや質問内容に応じて分類
+          // ここは実際の問診項目の構造に合わせて調整が必要
+          if (item.question?.includes('既往歴') || item.question?.includes('アレルギー')) {
+            if (resp.value && resp.value !== 'no' && resp.value !== 'いいえ') {
+              questionnaireData.medical_history.push(resp.value)
+            }
+          }
+          if (item.question?.includes('気になる') || item.question?.includes('心配')) {
+            if (resp.value && resp.value !== 'no' && resp.value !== 'いいえ') {
+              questionnaireData.concerns.push(resp.value)
+            }
+          }
+          if (item.question?.includes('理想') || item.question?.includes('目標')) {
+            if (resp.value && resp.value !== 'no' && resp.value !== 'いいえ') {
+              questionnaireData.ideal_goals.push(resp.value)
+            }
+          }
+        })
+
+        // 互換用questionnaireテーブルのデータも確認
+        if (visit.questionnaire) {
+          const legacy = visit.questionnaire
+          if (legacy.concerns) {
+            questionnaireData.concerns = Array.isArray(legacy.concerns)
+              ? legacy.concerns
+              : []
+          }
+          if (legacy.ideal_goals) {
+            questionnaireData.ideal_goals = Array.isArray(legacy.ideal_goals)
+              ? legacy.ideal_goals
+              : []
+          }
+          if (legacy.medical_history) {
+            questionnaireData.medical_history = Array.isArray(legacy.medical_history)
+              ? legacy.medical_history
+              : []
+          }
+          if (legacy.notes) {
+            questionnaireData.notes = legacy.notes
+          }
+        }
+
+        setSession(sessionData)
+        setQuestionnaire(questionnaireData)
+      } catch (error) {
+        console.error('セッションデータ取得エラー:', error)
+        setSessionError(error instanceof Error ? error.message : 'データの取得に失敗しました')
+        // エラー時は空のデータを設定（画面は表示されるがデータなし）
+        setSession(null)
+        setQuestionnaire(null)
+      } finally {
+        setIsLoadingSession(false)
+      }
     }
-    const mockQuestionnaire: QuestionnaireData = {
-      child_name: 'お子様 花子',
-      child_age: 8,
-      child_gender: 'female',
-      medical_history: ['アレルギー'],
-      concerns: ['歯並びが気になる', '口呼吸をしている'],
-      ideal_goals: ['きれいな歯並びになりたい', '正しい姿勢を身につけたい'],
-      notes: '特に気になることはありません。',
-    }
-    setSession(mockSession)
-    setQuestionnaire(mockQuestionnaire)
+
+    fetchSessionData()
   }, [sessionId])
 
   // ... (url hash sync)
@@ -1066,12 +1169,63 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     report: !!analysisResult,
   }), [questionnaire, photos, diagnosisProgressPercentage, analysisResult])
 
-  if (!session || !questionnaire || isSchemaLoading) {
+  // ローディング状態
+  if (isLoadingSession || isSchemaLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral-500 mx-auto"></div>
+          <Loader2 className="w-12 h-12 mx-auto text-coral-500 animate-spin" />
           <p className="text-gray-600">データを読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // エラー状態
+  if (sessionError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4 max-w-md mx-auto px-4">
+          <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
+          <h2 className="text-lg font-semibold text-gray-900">エラーが発生しました</h2>
+          <p className="text-sm text-gray-600">{sessionError}</p>
+          <div className="flex gap-2 justify-center">
+            <Button
+              onClick={() => router.push('/staff/scan')}
+              variant="outline"
+            >
+              QRスキャンに戻る
+            </Button>
+            <Button
+              onClick={() => {
+                setSessionError(null)
+                if (sessionId) {
+                  // 再試行
+                  window.location.reload()
+                }
+              }}
+            >
+              再試行
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // データ未取得状態
+  if (!session || !questionnaire) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-12 h-12 mx-auto text-yellow-500" />
+          <p className="text-gray-600">セッションデータが見つかりません</p>
+          <Button
+            onClick={() => router.push('/staff/scan')}
+            variant="outline"
+          >
+            QRスキャンに戻る
+          </Button>
         </div>
       </div>
     )
