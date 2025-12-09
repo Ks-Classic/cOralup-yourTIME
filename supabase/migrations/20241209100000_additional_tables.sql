@@ -6,10 +6,14 @@
 -- ============================================
 -- 1. visit_photos (写真管理)
 -- ============================================
-CREATE TABLE IF NOT EXISTS visit_photos (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
-    session_id VARCHAR(10) REFERENCES sessions(session_id),
+-- visitsテーブルが存在する場合のみ外部キー制約を追加
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visits') THEN
+        CREATE TABLE IF NOT EXISTS visit_photos (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
+            session_id VARCHAR(10),
     photo_type VARCHAR(50) NOT NULL, -- posture_front, posture_side, oral_front, oral_side, oral_closeup
     storage_path TEXT NOT NULL,
     public_url TEXT,
@@ -18,10 +22,37 @@ CREATE TABLE IF NOT EXISTS visit_photos (
     width INTEGER,
     height INTEGER,
     metadata JSONB DEFAULT '{}',
-    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+            uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        -- sessionsテーブルが存在する場合のみ外部キー制約を追加
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sessions') THEN
+            ALTER TABLE visit_photos 
+            ADD CONSTRAINT IF NOT EXISTS visit_photos_session_id_fkey 
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id);
+        END IF;
+    ELSE
+        -- visitsテーブルが存在しない場合は外部キーなしで作成
+        CREATE TABLE IF NOT EXISTS visit_photos (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            visit_id UUID,
+            session_id VARCHAR(10),
+            photo_type VARCHAR(50) NOT NULL,
+            storage_path TEXT NOT NULL,
+            public_url TEXT,
+            file_size INTEGER,
+            mime_type VARCHAR(50),
+            width INTEGER,
+            height INTEGER,
+            metadata JSONB DEFAULT '{}',
+            uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    END IF;
+END $$;
 
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_visit_photos_visit_id ON visit_photos(visit_id);
@@ -43,10 +74,13 @@ COMMENT ON COLUMN visit_photos.photo_type IS '写真種別: posture_front, postu
 -- ============================================
 -- 2. ai_analysis_results (AI分析結果)
 -- ============================================
-CREATE TABLE IF NOT EXISTS ai_analysis_results (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
-    session_id VARCHAR(10) REFERENCES sessions(session_id),
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visits') THEN
+        CREATE TABLE IF NOT EXISTS ai_analysis_results (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
+            session_id VARCHAR(10),
     
     -- AI生成コンテンツ
     summary TEXT, -- 総合サマリー
@@ -71,9 +105,40 @@ CREATE TABLE IF NOT EXISTS ai_analysis_results (
     status VARCHAR(20) DEFAULT 'pending', -- pending, processing, completed, failed
     error_message TEXT,
     
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sessions') THEN
+            ALTER TABLE ai_analysis_results 
+            ADD CONSTRAINT IF NOT EXISTS ai_analysis_results_session_id_fkey 
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id);
+        END IF;
+    ELSE
+        CREATE TABLE IF NOT EXISTS ai_analysis_results (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            visit_id UUID,
+            session_id VARCHAR(10),
+            summary TEXT,
+            detailed_analysis JSONB DEFAULT '{}',
+            improvement_suggestions JSONB DEFAULT '[]',
+            next_steps JSONB DEFAULT '[]',
+            encouragement_message TEXT,
+            staff_edited BOOLEAN DEFAULT FALSE,
+            staff_edited_summary TEXT,
+            staff_edited_at TIMESTAMP WITH TIME ZONE,
+            staff_profile_id UUID,
+            model_version VARCHAR(50),
+            prompt_version VARCHAR(50),
+            tokens_used INTEGER,
+            processing_time_ms INTEGER,
+            status VARCHAR(20) DEFAULT 'pending',
+            error_message TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    END IF;
+END $$;
 
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_ai_analysis_results_visit_id ON ai_analysis_results(visit_id);
@@ -95,10 +160,13 @@ COMMENT ON COLUMN ai_analysis_results.staff_edited IS 'スタッフが編集し�
 -- ============================================
 -- 3. line_message_logs (LINE送信ログ)
 -- ============================================
-CREATE TABLE IF NOT EXISTS line_message_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    visit_id UUID REFERENCES visits(id) ON DELETE SET NULL,
-    session_id VARCHAR(10) REFERENCES sessions(session_id),
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visits') THEN
+        CREATE TABLE IF NOT EXISTS line_message_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            visit_id UUID REFERENCES visits(id) ON DELETE SET NULL,
+            session_id VARCHAR(10),
     line_user_id VARCHAR(255) NOT NULL,
     
     -- メッセージ情報
@@ -111,9 +179,31 @@ CREATE TABLE IF NOT EXISTS line_message_logs (
     error_message TEXT,
     
     -- タイムスタンプ
-    sent_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+            sent_at TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sessions') THEN
+            ALTER TABLE line_message_logs 
+            ADD CONSTRAINT IF NOT EXISTS line_message_logs_session_id_fkey 
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id);
+        END IF;
+    ELSE
+        CREATE TABLE IF NOT EXISTS line_message_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            visit_id UUID,
+            session_id VARCHAR(10),
+            line_user_id VARCHAR(255) NOT NULL,
+            message_type VARCHAR(50) NOT NULL,
+            message_content JSONB,
+            status VARCHAR(20) DEFAULT 'pending',
+            response JSONB,
+            error_message TEXT,
+            sent_at TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    END IF;
+END $$;
 
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_line_message_logs_visit_id ON line_message_logs(visit_id);
@@ -137,19 +227,29 @@ COMMENT ON COLUMN line_message_logs.message_type IS 'メッセージ種別: welc
 -- ============================================
 -- 4. visits テーブルに report_sent_at カラム追加
 -- ============================================
-ALTER TABLE visits 
-ADD COLUMN IF NOT EXISTS report_sent_at TIMESTAMP WITH TIME ZONE;
-
-COMMENT ON COLUMN visits.report_sent_at IS 'レポートLINE送信日時';
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visits') THEN
+        ALTER TABLE visits 
+        ADD COLUMN IF NOT EXISTS report_sent_at TIMESTAMP WITH TIME ZONE;
+        
+        COMMENT ON COLUMN visits.report_sent_at IS 'レポートLINE送信日時';
+    END IF;
+END $$;
 
 -- ============================================
 -- 5. profiles テーブルに is_active カラム追加（なければ）
 -- ============================================
-ALTER TABLE profiles 
-ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-
-CREATE INDEX IF NOT EXISTS idx_profiles_line_user_id_role 
-ON profiles(line_user_id, role);
-
-COMMENT ON COLUMN profiles.is_active IS 'アカウント有効フラグ';
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles') THEN
+        ALTER TABLE profiles 
+        ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+        
+        CREATE INDEX IF NOT EXISTS idx_profiles_line_user_id_role 
+        ON profiles(line_user_id, role);
+        
+        COMMENT ON COLUMN profiles.is_active IS 'アカウント有効フラグ';
+    END IF;
+END $$;
 
