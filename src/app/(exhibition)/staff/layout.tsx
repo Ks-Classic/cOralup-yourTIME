@@ -15,10 +15,16 @@ const navigation = [
     description: 'トップページに戻る'
   },
   {
+    href: '/staff/scan',
+    label: 'QRスキャン',
+    icon: '📷',
+    description: '親御さんのQRコードを読み取り'
+  },
+  {
     href: '/staff/diagnosis',
     label: '診断開始',
     icon: '📝',
-    description: 'QR読み取り・診断実施'
+    description: 'セッションID入力・診断実施'
   },
   {
     href: '/staff/settings',
