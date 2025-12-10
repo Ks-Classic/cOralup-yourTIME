@@ -151,8 +151,8 @@ export default function AITestPage() {
         }
 
         // 問診項目を整形
-        if (questData.data) {
-          setQuestionnaireCategories(questData.data.map((cat: any) => ({
+        if (questData.data?.categories) {
+          setQuestionnaireCategories(questData.data.categories.map((cat: any) => ({
             id: cat.id,
             name: cat.name,
             display_order: cat.display_order,
