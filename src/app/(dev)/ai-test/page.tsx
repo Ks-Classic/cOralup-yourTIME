@@ -133,6 +133,28 @@ export default function AITestPage() {
         if (!questRes.ok) throw new Error('問診項目の取得に失敗')
         const questData = await questRes.json()
 
+        // optionsを正規化するヘルパー
+        const normalizeOptions = (options: any): { value: string; label: string }[] => {
+          if (!options) return []
+          if (Array.isArray(options)) {
+            return options.map(opt => {
+              if (typeof opt === 'string') {
+                return { value: opt, label: opt }
+              }
+              return { value: opt.value || opt, label: opt.label || opt.value || opt }
+            })
+          }
+          if (typeof options === 'string') {
+            try {
+              const parsed = JSON.parse(options)
+              return normalizeOptions(parsed)
+            } catch {
+              return []
+            }
+          }
+          return []
+        }
+
         // 診断項目を整形
         if (diagData.categories) {
           setDiagnosisCategories(diagData.categories.map((cat: any) => ({
@@ -143,7 +165,7 @@ export default function AITestPage() {
               id: item.id,
               question: item.question,
               answer_type: item.answer_type,
-              options: item.options || [],
+              options: normalizeOptions(item.options),
               is_required: item.is_required,
               input_type: item.input_type,
             })) || []
@@ -160,7 +182,7 @@ export default function AITestPage() {
               id: item.id,
               question: item.question,
               answer_type: item.answer_type,
-              options: item.options || [],
+              options: normalizeOptions(item.options),
               is_required: item.is_required,
             })) || []
           })))
