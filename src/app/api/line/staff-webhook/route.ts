@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
         case 'unfollow':
           await handleUnfollowEvent(event)
           break
+        case 'message':
+          await handleMessageEvent(event)
+          break
         default:
           console.log('[Staff Webhook] Unhandled event type:', event.type)
       }
@@ -134,10 +137,10 @@ async function handleFollowEvent(event: any) {
 
       console.log('[Staff Webhook] Staff created:', newStaff.id)
 
-      // 登録完了メッセージ送信
+        // 登録完了メッセージ送信（名前入力案内）
       await sendLineMessage(
         lineUserId,
-        `${displayName}さん、cOralupスタッフとして登録されました！🎉\n\n下のメニューから「アプリを開く」をタップしてログインしてください。`
+        `${displayName}さん、cOralupスタッフとして登録されました！🎉\n\n次に、お名前を登録してください。\n「姓 名」の形式で送信してください。\n例: 山田 太郎\n\n※スペースなしでも登録できます（例: 山田太郎）`
       )
     }
   } catch (error) {
@@ -164,6 +167,90 @@ async function handleUnfollowEvent(event: any) {
     }
   } catch (error) {
     console.error('[Staff Webhook] handleUnfollowEvent error:', error)
+  }
+}
+
+async function handleMessageEvent(event: any) {
+  const lineUserId = event.source.userId
+  const message = event.message
+
+  if (message.type !== 'text') {
+    return
+  }
+
+  const text = message.text.trim()
+  console.log('[Staff Webhook] Message received:', { lineUserId, text })
+
+  try {
+    // スタッフプロフィール取得
+    const { data: staff } = await supabase
+      .from('profiles')
+      .select('id, display_name, first_name, last_name')
+      .eq('line_user_id', lineUserId)
+      .eq('role', 'staff')
+      .single()
+
+    if (!staff) {
+      await sendLineMessage(
+        lineUserId,
+        'スタッフとして登録されていません。\n先に友だち追加してください。'
+      )
+      return
+    }
+
+    // 名前のパース（「姓 名」または「姓名」形式を想定）
+    const nameParts = text.split(/\s+/)
+    let lastName = ''
+    let firstName = ''
+
+    if (nameParts.length >= 2) {
+      // 「姓 名」形式
+      lastName = nameParts[0]
+      firstName = nameParts.slice(1).join(' ')
+    } else if (text.length >= 2) {
+      // 「姓名」形式（2文字以上）
+      // 簡易的に最初の1文字を姓、残りを名とする
+      lastName = text.substring(0, 1)
+      firstName = text.substring(1)
+    } else {
+      // 1文字の場合は姓として扱う
+      lastName = text
+      firstName = ''
+    }
+
+    // プロフィール更新
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        last_name: lastName,
+        first_name: firstName,
+        display_name: `${lastName} ${firstName}`.trim() || text,
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq('id', staff.id)
+
+    if (error) {
+      console.error('[Staff Webhook] Error updating profile:', error)
+      await sendLineMessage(
+        lineUserId,
+        '名前の登録に失敗しました。もう一度お試しください。'
+      )
+      return
+    }
+
+    console.log('[Staff Webhook] Profile updated:', {
+      lineUserId,
+      lastName,
+      firstName,
+    })
+
+    // 登録完了メッセージ
+    await sendLineMessage(
+      lineUserId,
+      `名前を登録しました！\n\n姓: ${lastName}\n名: ${firstName}\n\n診断アプリはこちらからアクセスできます:\nhttps://your-app.vercel.app/staff/login`
+    )
+  } catch (error) {
+    console.error('[Staff Webhook] handleMessageEvent error:', error)
   }
 }
 

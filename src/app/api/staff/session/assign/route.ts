@@ -10,59 +10,27 @@ const supabase = createClient(
 
 /**
  * POST: QRスキャン時にスタッフを診断セッションに紐付け
- * Body: { visitId: string, lineUserId?: string } または { sessionId: string, lineUserId?: string }
+ * Body: { visitId: string } または { sessionId: string }
  * 
- * 認証方法:
- * - lineUserIdが提供された場合: line_user_idから直接staff_profile_idを取得（LIFF経由）
- * - lineUserIdがない場合: Cookie認証（既存の方法）
+ * 認証方法: Cookie認証（事前にログイン済みであること）
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { visitId, sessionId, lineUserId } = body
+    // Cookie認証でスタッフ識別
+    const session = await getStaffSession()
 
-    let staffId: string | null = null
-    let staffName: string | null = null
-
-    // LIFF経由（lineUserId提供）の場合
-    if (lineUserId) {
-      const { data: staff } = await supabase
-        .from('profiles')
-        .select('id, display_name, first_name, last_name, role, is_active')
-        .eq('line_user_id', lineUserId)
-        .eq('role', 'staff')
-        .single()
-
-      if (!staff || !staff.is_active) {
-        return NextResponse.json(
-          { error: 'Staff not found or inactive' },
-          { status: 404 }
-        )
-      }
-
-      staffId = staff.id
-      staffName = staff.display_name || `${staff.last_name || ''}${staff.first_name || ''}`.trim() || 'スタッフ'
-    } else {
-      // Cookie認証（既存の方法）
-      const session = await getStaffSession()
-
-      if (!session) {
-        return NextResponse.json(
-          { error: 'Unauthorized: Staff session or lineUserId required' },
-          { status: 401 }
-        )
-      }
-
-      staffId = session.staffId
-      staffName = session.staffName
-    }
-
-    if (!staffId) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Staff identification failed' },
+        { error: 'Unauthorized: Staff session required' },
         { status: 401 }
       )
     }
+
+    const staffId = session.staffId
+    const staffName = session.staffName
+
+    const body = await request.json()
+    const { visitId, sessionId } = body
 
     if (!visitId && !sessionId) {
       return NextResponse.json(
@@ -133,7 +101,6 @@ export async function POST(request: NextRequest) {
       visitId: targetVisitId,
       staffId,
       staffName,
-      method: lineUserId ? 'LIFF' : 'Cookie',
     })
 
     return NextResponse.json({

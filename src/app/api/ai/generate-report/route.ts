@@ -16,11 +16,12 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json()
-    const { sessionId, visitId, questionnaire, postureAnalysis, oralAnalysis, staffNotes } = body
+    const { sessionId, visitId, questionnaire, postureAnalysis, oralAnalysis, staffNotes, testMode, testData } = body
 
     let dataForPrompt = {
       childName: '',
       childAge: '',
+      childAgeMonths: 0,
       childGender: '',
       medicalHistory: '',
       concerns: '',
@@ -32,7 +33,33 @@ export async function POST(request: NextRequest) {
       diagnosisDetails: ''
     }
 
-    if (sessionId) {
+    // テストモード: 直接データを使用
+    if (testMode && testData) {
+      dataForPrompt.childName = testData.childName || 'テスト太郎'
+      dataForPrompt.childAge = String(testData.childAge || 5)
+      dataForPrompt.childAgeMonths = testData.childAgeMonths || 0
+      dataForPrompt.childGender = testData.childGender || '男'
+      dataForPrompt.postureScore = String(testData.postureScore || 5)
+      dataForPrompt.oralScore = String(testData.oralScore || 5)
+      dataForPrompt.postureIssues = testData.postureIssues?.join(', ') || 'なし'
+      dataForPrompt.oralIssues = testData.oralIssues?.join(', ') || 'なし'
+      dataForPrompt.staffNotes = testData.staffNotes || ''
+      
+      // 問診・診断データをフォーマット
+      const details: string[] = []
+      if (testData.questionnaire) {
+        for (const [key, value] of Object.entries(testData.questionnaire)) {
+          details.push(`[問診] ${key}: ${value}`)
+        }
+      }
+      if (testData.diagnosis) {
+        for (const [key, value] of Object.entries(testData.diagnosis)) {
+          details.push(`[診断] ${key}: ${value}`)
+        }
+      }
+      dataForPrompt.diagnosisDetails = details.join('\n')
+      
+    } else if (sessionId) {
       // 1. DBからデータを取得
       const { data: qData, error: qError } = await supabase
         .from('questionnaires')
@@ -128,15 +155,41 @@ export async function POST(request: NextRequest) {
     // Gemini APIでレポート生成
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
 
+    // 年齢表示の構築
+    const ageDisplay = dataForPrompt.childAgeMonths > 0 
+      ? `${dataForPrompt.childAge}歳${dataForPrompt.childAgeMonths}ヶ月`
+      : `${dataForPrompt.childAge}歳`
+    
+    // 年齢に応じた注意事項
+    const ageNum = parseInt(dataForPrompt.childAge) || 5
+    const ageConsiderations = []
+    if (ageNum <= 2) {
+      ageConsiderations.push('乳児期のため、発達段階を考慮した評価が必要です')
+      ageConsiderations.push('足の形状（扁平足など）は発達途上であり、経過観察が基本です')
+    } else if (ageNum <= 4) {
+      ageConsiderations.push('幼児期のため、一部の評価項目は参考程度としてください')
+      ageConsiderations.push('習癖（指しゃぶり等）はこの年齢では一般的な場合があります')
+    } else if (ageNum <= 6) {
+      ageConsiderations.push('乳歯から永久歯への生え変わり時期を考慮してください')
+    }
+
     const prompt = `
 あなたは口腔育成の専門家として、診断結果から親御さん向けのレポートを生成してください。
 
+【重要な指示】
+- 専門用語は避け、親御さんにわかりやすい表現を使ってください
+- ポジティブな点も必ず言及してください
+- 問題点は深刻になりすぎない表現で伝えてください
+- 「です・ます」調で統一してください
+
 対象のお子様情報:
 - お名前: ${dataForPrompt.childName}
-- 年齢: ${dataForPrompt.childAge}歳
+- 年齢: ${ageDisplay}
 - 性別: ${dataForPrompt.childGender}
-- 既往歴: ${dataForPrompt.medicalHistory}
-- 気になる症状: ${dataForPrompt.concerns}
+- 既往歴: ${dataForPrompt.medicalHistory || 'なし'}
+- 気になる症状: ${dataForPrompt.concerns || 'なし'}
+
+${ageConsiderations.length > 0 ? `【年齢に関する考慮事項】\n${ageConsiderations.join('\n')}\n` : ''}
 
 姿勢分析結果:
 - 全体評価: ${dataForPrompt.postureScore}/10
@@ -146,18 +199,18 @@ export async function POST(request: NextRequest) {
 - 全体評価: ${dataForPrompt.oralScore}/10
 - 問題点: ${dataForPrompt.oralIssues}
 
-スタッフの所見: ${dataForPrompt.staffNotes}
+スタッフの所見: ${dataForPrompt.staffNotes || 'なし'}
 
 詳細診断項目:
-${dataForPrompt.diagnosisDetails}
+${dataForPrompt.diagnosisDetails || 'なし'}
 
 以下の形式でJSONとしてレポートを出力してください:
 {
-  "summary": "全体の要約（200文字程度）",
-  "analysis": "詳細な分析内容（各部位の状態と関連性）",
-  "recommendations": ["具体的な改善提案1", "具体的な改善提案2", ...],
-  "nextSteps": ["次のステップ1", "次のステップ2", ...],
-  "encouragingMessage": "親御さんへの励ましのメッセージ"
+  "summary": "全体の要約（150-200文字程度、ポジティブな点から始める）",
+  "analysis": "詳細な分析内容（姿勢と口腔の相関関係を含む、300文字程度）",
+  "recommendations": ["具体的で実践しやすい改善提案1", "改善提案2", "改善提案3"],
+  "nextSteps": ["次のステップ1", "次のステップ2"],
+  "encouragingMessage": "親御さんへの温かい励ましのメッセージ（50-100文字）"
 }
     `.trim()
 

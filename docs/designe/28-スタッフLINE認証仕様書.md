@@ -4,8 +4,8 @@
 
 ## 1. 概要
 
-スタッフの識別・認証にLINE公式アカウント（Messaging API）+ LIFF（最小構成）を採用。
-LIFFは初回ログイン時のみ使用し、以降は通常Webアプリ（Vercel）をブラウザで利用。
+スタッフの識別・認証にLINE公式アカウント（Messaging API）+ Cookie認証を採用。
+事前に友だち追加で自動登録、当日はブラウザで直接アクセスしてPIN認証でログイン。
 
 ### 1.1 採用理由
 
@@ -16,18 +16,18 @@ LIFFは初回ログイン時のみ使用し、以降は通常Webアプリ（Verc
 | スタッフ追加 | 友だち追加で自動 | 手動でDB登録必要 |
 | 運用コスト | 低い | 増減時に手動管理 |
 
-### 1.2 なぜLIFF最小構成か
+### 1.2 なぜこの構成か
 
 | 案 | チャネル数 | 初回UX | 実装コスト | 審査 |
 |----|-----------|--------|-----------|------|
-| Messaging + LINEログイン | 2つ | OAuth認可画面あり | 中 | 不要 |
-| **Messaging + LIFF（初回のみ）** | **2つ** | **自動（許可不要）** | **低** ✅採用 | **不要** |
+| **Messaging API + Cookie認証** | **1つ** | **PIN認証** | **低** ✅採用 | **不要** |
+| Messaging + LINE Login | 2つ | OAuth認可画面あり | 中 | 不要 |
 | LINEミニアプリ | 1つ | 自動 | 低 | 必要（1-2週間） |
 
-- **Messaging API（友だち管理）+ LINE Login（LIFF認証）の2チャネル構成**
-- LIFFはLINE Loginチャネル内で作成（Messaging APIチャネルでは不可）
-- OAuth認証画面なし（LIFF内で自動認証）
-- 2回目以降はCookieで認識（LIFFは初回のみ）
+- **Messaging APIチャネル1つのみ**（シンプル構成）
+- 事前に友だち追加で自動登録（Webhook）
+- 当日はブラウザで直接アクセス、PIN認証でログイン
+- Cookie認証でスタッフ識別、QRスキャン時に自動紐付け
 - **審査不要で即座に利用可能**（YourTIMEイベント対応に最適）
 
 ### 1.3 全体構成
@@ -94,12 +94,15 @@ LIFFは初回ログイン時のみ使用し、以降は通常Webアプリ（Verc
 
 | チャネル | 種類 | 用途 |
 |----------|------|------|
-| cOralupスタッフ | Messaging API | 友だち管理、通知送信、Webhook |
-| cOralupスタッフ（ログイン用） | LINE Login | LIFFアプリ、認証 |
+| cOralupスタッフ | Messaging API | 友だち管理、通知送信、Webhook、リッチメニュー |
 
-**📌 採用理由**: YourTIMEイベント（2024/12/21）まで時間がないため、審査不要で即座に利用可能な2チャネル構成を採用。将来的にはLINEミニアプリ（1チャネル構成）への移行を検討。
+**📌 採用理由**: YourTIMEイベント（2024/12/21）まで時間がないため、審査不要で即座に利用可能な1チャネル構成を採用。ブラウザ想定のためLIFF不要。
 
-**⚠️ 重要**: LINEの仕様変更（2019/11/11）により、Messaging APIチャネルではLIFFアプリを追加できません。LINE Loginチャネルを別途作成する必要があります。
+**✅ メリット:**
+- チャネル1つのみで完結
+- LIFF不要（ブラウザで直接アクセス）
+- 実装がシンプル
+- 当日はPIN認証でログイン、Cookie認証で識別
 
 ### 2.2 Messaging API チャネル設定
 
@@ -113,40 +116,23 @@ Webhook利用: ON
 応答メッセージ: OFF（または適切なメッセージ設定）
 ```
 
-### 2.3 LINE Login チャネル設定
-
-```yaml
-チャネル名: cOralupスタッフ（ログイン用）
-チャネルタイプ: LINE Login
-プロバイダー: cOralup
-
-コールバックURL: https://your-app.vercel.app/staff/liff-login
-スコープ: profile（プロフィール取得のみ）
-```
-
-### 2.4 LIFF設定（LINE Loginチャネル内）
-
-```yaml
-LIFFアプリ名: スタッフログイン
-エンドポイントURL: https://your-app.vercel.app/staff/liff-login
-サイズ: Full（全画面）
-Scope: profile（プロフィール取得のみ）
-ボットリンク機能: On (normal)
-```
-
-**注**: LIFFはLINE Loginチャネル内で作成します。
-
-### 2.4 リッチメニュー設定
+### 2.3 リッチメニュー設定（開発余裕があれば）
 
 ```yaml
 メニュー名: スタッフメニュー
 ボタン:
-  - 名前: 「アプリを開く」
+  - 名前: 「診断アプリを開く」
     アクション: URI
-    URI: https://liff.line.me/{LIFF_ID}  ← LIFF URLを設定
+    URI: https://your-app.vercel.app/staff/scan
+  - 名前: 「対応履歴」
+    アクション: URI
+    URI: https://your-app.vercel.app/staff/history
+  - 名前: 「QA・困ったとき」
+    アクション: URI
+    URI: https://your-app.vercel.app/staff/help
 ```
 
-**注**: 初回はLIFFで開く。2回目以降はブックマークからも可。
+**注**: 開発余裕があれば実装。必須ではない。
 
 ---
 
@@ -158,14 +144,6 @@ LINE_STAFF_CHANNEL_ID=xxxxx
 LINE_STAFF_CHANNEL_SECRET=xxxxx
 LINE_STAFF_CHANNEL_ACCESS_TOKEN=xxxxx
 
-# スタッフ用LINE Login（LIFF認証用）
-# 注意: LINE Loginチャネルは別途作成が必要（Messaging APIチャネルとは別）
-LINE_STAFF_LOGIN_CHANNEL_ID=xxxxx
-LINE_STAFF_LOGIN_CHANNEL_SECRET=xxxxx
-
-# LIFF ID（LINE Loginチャネル内でLIFFアプリ作成時に発行）
-NEXT_PUBLIC_STAFF_LIFF_ID=xxxxx-xxxxx
-
 # セッション暗号化キー（JWT署名用）
 STAFF_SESSION_SECRET=your-random-secret-key
 
@@ -175,10 +153,10 @@ CORALUP_ORG_ID=xxxxx
 
 **環境変数設定手順:**
 1. LINE Developers ConsoleでMessaging APIチャネル作成 → `LINE_STAFF_CHANNEL_*` を取得
-2. LINE Developers ConsoleでLINE Loginチャネル作成 → `LINE_STAFF_LOGIN_CHANNEL_*` を取得
-3. LINE Loginチャネル内でLIFFアプリ作成 → `NEXT_PUBLIC_STAFF_LIFF_ID` を取得
-4. `STAFF_SESSION_SECRET` は `openssl rand -hex 32` で生成
-5. Vercel環境変数とローカル `.env.local` に設定
+2. `STAFF_SESSION_SECRET` は `openssl rand -hex 32` で生成
+3. Vercel環境変数とローカル `.env.local` に設定
+
+**⚠️ LINE Loginチャネル関連の環境変数は不要**（ブラウザ想定のため）
 
 ---
 
@@ -203,48 +181,44 @@ sequenceDiagram
     LINE->>Staff: 「登録完了」メッセージ送信
 ```
 
-### 4.2 初回ログインフロー（LIFF）
+### 4.2 当日ログインフロー（ブラウザ）
 
 ```mermaid
 sequenceDiagram
     participant Staff as スタッフ
-    participant LINE as LINEアプリ
-    participant LIFF as LIFF画面
+    participant Browser as ブラウザ
     participant App as Vercel App
     participant DB as Supabase
 
-    Staff->>LINE: リッチメニュー「アプリを開く」
-    LINE->>LIFF: LIFF起動（LINEアプリ内）
-    LIFF->>LIFF: liff.init()
-    LIFF->>LIFF: liff.getProfile()
-    Note over LIFF: line_user_id 自動取得（許可不要）
-    LIFF->>App: POST /api/auth/staff-session {lineUserId}
-    App->>DB: profiles WHERE line_user_id = ?
+    Staff->>Browser: /staff/login にアクセス
+    Browser->>App: GET /staff/login
+    App->>Staff: PIN認証画面表示
+    Staff->>App: PIN入力
+    App->>DB: profiles WHERE PIN = ? AND role = 'staff'
     
     alt スタッフ登録済み
         DB-->>App: staff profile
         App->>App: セッションCookie発行
-        App-->>LIFF: Set-Cookie + {success: true}
-        LIFF->>Staff: /staff/home へリダイレクト
-        Note over Staff: 以降は通常ブラウザで動作
+        App-->>Browser: Set-Cookie + /staff/scan へリダイレクト
+        Browser->>Staff: QRスキャン画面表示
     else 未登録
-        App-->>LIFF: {error: 'not_registered'}
-        LIFF->>Staff: エラー表示
+        App-->>Browser: {error: 'not_registered'}
+        Browser->>Staff: エラー表示
     end
 ```
 
-### 4.3 2回目以降のアクセス
+### 4.3 QRスキャン〜診断開始
 
 ```
-ブックマーク or URL直接
+/staff/scan にアクセス
     ↓
-/staff/home
+Cookie認証でスタッフ識別
     ↓
-Cookie有効? → Yes → そのまま表示
-    ↓ No
-/staff/login へリダイレクト
+QRスキャン → visitId取得
     ↓
-「LINEアプリでログイン」案内
+スタッフ自動紐付け（Cookie → staff_profile_id）
+    ↓
+診断開始 → /staff/diagnosis/[visitId]
 ```
 
 ---

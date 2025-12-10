@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,51 +39,9 @@ export default function StaffScanPage() {
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [manualCode, setManualCode] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
-  const [lineUserId, setLineUserId] = useState<string | null>(null)
-  const [isLiffReady, setIsLiffReady] = useState(false)
-
-  // LIFF初期化（LINEアプリ内で開いた場合のみ）
-  useEffect(() => {
-    const initLiff = async () => {
-      try {
-        // LIFF SDKを動的インポート
-        const liff = (await import('@line/liff')).default
-        const liffId = process.env.NEXT_PUBLIC_STAFF_LIFF_ID
-
-        if (!liffId) {
-          console.log('[Scan] LIFF ID not configured, using cookie auth')
-          setIsLiffReady(true)
-          return
-        }
-
-        await liff.init({ liffId })
-
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile()
-          setLineUserId(profile.userId)
-          console.log('[Scan] LIFF initialized, lineUserId:', profile.userId)
-        } else {
-          // LINEアプリ内でない場合はCookie認証にフォールバック
-          console.log('[Scan] Not in LINE app, using cookie auth')
-        }
-        setIsLiffReady(true)
-      } catch (error) {
-        console.error('[Scan] LIFF init error:', error)
-        // エラー時はCookie認証にフォールバック
-        setIsLiffReady(true)
-      }
-    }
-
-    initLiff()
-  }, [])
 
   // QRスキャン成功時
   const handleScan = useCallback(async (visitId: string) => {
-    if (!isLiffReady) {
-      setErrorMessage('初期化中です。しばらくお待ちください。')
-      return
-    }
-
     setScanState('loading')
     setErrorMessage('')
 
@@ -98,14 +56,11 @@ export default function StaffScanPage() {
         return
       }
 
-      // 2. スタッフ紐付け（LIFFで開いた場合はlineUserIdを送信、それ以外はCookie認証）
+      // 2. スタッフ紐付け（Cookie認証で自動識別）
       const assignResponse = await fetch('/api/staff/session/assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitId,
-          lineUserId: lineUserId || undefined, // LIFFで取得した場合は送信
-        }),
+        body: JSON.stringify({ visitId }),
       })
 
       const assignData = await assignResponse.json()
@@ -122,7 +77,7 @@ export default function StaffScanPage() {
       setScanState('error')
       setErrorMessage('データの取得に失敗しました')
     }
-  }, [isLiffReady, lineUserId])
+  }, [])
 
   // QRスキャンエラー時
   const handleScanError = useCallback((error: string) => {
