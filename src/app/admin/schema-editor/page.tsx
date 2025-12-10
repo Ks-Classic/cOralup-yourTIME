@@ -59,6 +59,8 @@ export default function SchemaEditorPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
+  const [editingCategoryNameState, setEditingCategoryNameState] = useState<string | null>(null)
+  const [tempCategoryNameState, setTempCategoryNameState] = useState('')
 
 
 
@@ -418,6 +420,103 @@ export default function SchemaEditorPage() {
       return { ...prev, categorized: newCategorized }
     })
   }, [])
+
+  // カテゴリ追加
+  const addDiagnosisCategory = useCallback(() => {
+    const newCategoryName = `新しいカテゴリ_${Date.now()}`
+    setDiagnosisData(prev => ({
+      ...prev,
+      categoryOrder: [...prev.categoryOrder, newCategoryName],
+      categorized: {
+        ...prev.categorized,
+        [newCategoryName]: []
+      }
+    }))
+    setExpandedCategories(prev => new Set([...prev, newCategoryName]))
+  }, [])
+
+  // カテゴリ名変更
+  const renameDiagnosisCategory = useCallback((oldName: string, newName: string) => {
+    if (oldName === newName || !newName.trim()) return
+    setDiagnosisData(prev => {
+      const newCategorized = { ...prev.categorized }
+      const items = newCategorized[oldName] || []
+      delete newCategorized[oldName]
+      // 項目のcategoryも更新
+      newCategorized[newName] = items.map(item => ({ ...item, category: newName }))
+      const newOrder = prev.categoryOrder.map(c => c === oldName ? newName : c)
+      return { categoryOrder: newOrder, categorized: newCategorized }
+    })
+    // expandedCategoriesも更新
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(oldName)) {
+        next.delete(oldName)
+        next.add(newName)
+      }
+      return next
+    })
+    if (selectedCategory === oldName) setSelectedCategory(newName)
+  }, [selectedCategory])
+
+  // カテゴリ削除
+  const deleteDiagnosisCategory = useCallback((categoryName: string) => {
+    if (!confirm(`カテゴリ「${categoryName}」とその項目をすべて削除しますか？`)) return
+    setDiagnosisData(prev => {
+      const newCategorized = { ...prev.categorized }
+      delete newCategorized[categoryName]
+      return {
+        categoryOrder: prev.categoryOrder.filter(c => c !== categoryName),
+        categorized: newCategorized
+      }
+    })
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      next.delete(categoryName)
+      return next
+    })
+    if (selectedCategory === categoryName) setSelectedCategory(null)
+  }, [selectedCategory])
+
+  // 診断項目追加
+  const addDiagnosisItem = useCallback((categoryName: string) => {
+    const newItem: ExtendedDiagnosisItem = {
+      id: `new_${Date.now()}`,
+      category: categoryName,
+      question: '新しい質問',
+      answerType: 'radio',
+      options: [
+        { value: 'yes', label: 'はい' },
+        { value: 'no', label: 'いいえ' }
+      ],
+      required: false,
+      inputType: 'staff',
+      isVisible: true
+    }
+    setDiagnosisData(prev => ({
+      ...prev,
+      categorized: {
+        ...prev.categorized,
+        [categoryName]: [...(prev.categorized[categoryName] || []), newItem]
+      }
+    }))
+    setEditingDiagnosisItem(newItem.id)
+    setSelectedItem(newItem.id)
+  }, [])
+
+  // 診断項目削除
+  const deleteDiagnosisItem = useCallback((itemId: string, categoryName: string) => {
+    if (!confirm('この項目を削除しますか？')) return
+    setDiagnosisData(prev => ({
+      ...prev,
+      categorized: {
+        ...prev.categorized,
+        [categoryName]: prev.categorized[categoryName].filter(item => item.id !== itemId)
+      }
+    }))
+    if (editingDiagnosisItem === itemId) setEditingDiagnosisItem(null)
+    if (selectedItem === itemId) setSelectedItem(null)
+  }, [editingDiagnosisItem, selectedItem])
 
   // ドラッグ＆ドロップの状態管理（カテゴリ）
   const [draggedCategory, setDraggedCategory] = useState<string | null>(null)
@@ -1053,13 +1152,13 @@ export default function SchemaEditorPage() {
                 {Array.from(new Set(diagnosisData.categoryOrder)).map((categoryName) => {
                   const items = diagnosisData.categorized[categoryName] || []
                   const staffItems = items.filter(i => i.inputType === 'staff')
-                  if (staffItems.length === 0) return null
 
                   const isExpanded = expandedCategories.has(categoryName)
                   const visibleCount = staffItems.filter(i => i.isVisible).length
                   const isDragging = draggedCategory === categoryName
                   const isDragOver = dragOverCategory === categoryName
                   const isSelected = selectedCategory === categoryName
+                  const isEditingThisCategory = editingCategoryNameState === categoryName
 
                   return (
                     <div
@@ -1086,9 +1185,49 @@ export default function SchemaEditorPage() {
                           ) : (
                             <ChevronRight className="w-4 h-4 text-slate-400" />
                           )}
-                          <span className="font-medium text-slate-800">{categoryName}</span>
+                          {isEditingThisCategory ? (
+                            <input
+                              value={tempCategoryNameState}
+                              onChange={(e) => setTempCategoryNameState(e.target.value)}
+                              onBlur={() => {
+                                renameDiagnosisCategory(categoryName, tempCategoryNameState)
+                                setEditingCategoryNameState(null)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  renameDiagnosisCategory(categoryName, tempCategoryNameState)
+                                  setEditingCategoryNameState(null)
+                                }
+                                if (e.key === 'Escape') {
+                                  setTempCategoryNameState(categoryName)
+                                  setEditingCategoryNameState(null)
+                                }
+                              }}
+                              className="font-medium text-slate-800 bg-white border border-blue-400 rounded px-2 py-0.5 outline-none text-sm"
+                              onClick={(e) => e.stopPropagation()}
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className="font-medium text-slate-800 hover:underline"
+                              onDoubleClick={(e) => {
+                                e.stopPropagation()
+                                setEditingCategoryNameState(categoryName)
+                                setTempCategoryNameState(categoryName)
+                              }}
+                            >
+                              {categoryName}
+                            </span>
+                          )}
                           <span className="text-xs text-slate-500">({visibleCount}/{staffItems.length}項目表示)</span>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteDiagnosisCategory(categoryName) }}
+                          className="text-red-400 hover:text-red-600 p-1"
+                          title="カテゴリを削除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
 
                       {isExpanded && (
@@ -1227,16 +1366,39 @@ export default function SchemaEditorPage() {
                                         className="mt-1"
                                       />
                                     </div>
+                                    <div className="pt-2 border-t border-slate-200">
+                                      <button
+                                        onClick={() => deleteDiagnosisItem(item.id, categoryName)}
+                                        className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                        この項目を削除
+                                      </button>
+                                    </div>
                                   </div>
                                 )}
                               </div>
                             )
                           })}
+                          <button
+                            onClick={() => addDiagnosisItem(categoryName)}
+                            className="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-colors text-sm flex items-center justify-center gap-1"
+                          >
+                            <Plus className="w-4 h-4" />
+                            項目を追加
+                          </button>
                         </div>
                       )}
                     </div>
                   )
                 })}
+                <button
+                  onClick={addDiagnosisCategory}
+                  className="w-full py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  カテゴリを追加
+                </button>
               </>
             )}
           </div>
