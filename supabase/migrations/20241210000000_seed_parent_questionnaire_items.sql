@@ -13,21 +13,21 @@ DELETE FROM questionnaire_categories;
 -- ============================================================================
 -- カテゴリマスタ投入
 -- ============================================================================
-INSERT INTO questionnaire_categories (name, target_age, display_order, description) VALUES
+INSERT INTO questionnaire_categories (name, code, target_age, display_order, description) VALUES
 -- 共通カテゴリ
-('基本情報', 'all', 1, 'お子様の基本情報'),
-('睡眠の様子', 'all', 2, '睡眠中の状態'),
-('睡眠時間', 'all', 3, '就寝時間・起床パターン'),
-('習い事', 'all', 4, '習い事について'),
-('同意事項', 'all', 99, '学会発表等への同意'),
+('基本情報', 'basic_info', 'all', 1, 'お子様の基本情報'),
+('睡眠の様子', 'sleep_status', 'all', 2, '睡眠中の状態'),
+('睡眠時間', 'sleep_time', 'all', 3, '就寝時間・起床パターン'),
+('習い事', 'lessons', 'all', 4, '習い事について'),
+('同意事項', 'consent', 'all', 99, '学会発表等への同意'),
 -- 未就学児専用
-('きょうだい', 'preschool', 5, 'きょうだいの有無'),
-('スマホ・タブレット・TV視聴', 'preschool', 6, '視聴頻度と時間'),
-('食事について', 'preschool', 7, '食事の様子・問題'),
-('食べ物の好み', 'preschool', 8, '好き嫌い'),
+('きょうだい', 'siblings', 'preschool', 5, 'きょうだいの有無'),
+('スマホ・タブレット・TV視聴', 'screen_time_preschool', 'preschool', 6, '視聴頻度と時間'),
+('食事について', 'eating', 'preschool', 7, '食事の様子・問題'),
+('食べ物の好み', 'food_preference', 'preschool', 8, '好き嫌い'),
 -- 小学生以上専用
-('ゲーム・スマホ・タブレット・TV視聴', 'elementary', 6, '視聴頻度と時間'),
-('気になること', 'elementary', 7, '保護者が気になる点');
+('ゲーム・スマホ・タブレット・TV視聴', 'screen_time_elementary', 'elementary', 6, '視聴頻度と時間'),
+('気になること', 'concerns', 'elementary', 7, '保護者が気になる点');
 
 -- ============================================================================
 -- 問診項目マスタ投入
