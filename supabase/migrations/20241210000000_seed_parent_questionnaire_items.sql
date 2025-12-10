@@ -1,0 +1,282 @@
+-- ============================================================================
+-- 親御さん問診票（未就学児・小学生以上）マスターデータ
+-- ============================================================================
+-- 作成日: 2024-12-10
+-- 説明: カウンセリングシートの全項目を投入
+-- ============================================================================
+
+-- 既存の問診項目をクリア（再投入のため）
+DELETE FROM questionnaire_responses WHERE item_id IN (SELECT id FROM questionnaire_items);
+DELETE FROM questionnaire_items;
+DELETE FROM questionnaire_categories;
+
+-- ============================================================================
+-- カテゴリマスタ投入
+-- ============================================================================
+INSERT INTO questionnaire_categories (id, name, target_age, display_order, description) VALUES
+-- 共通カテゴリ
+('11111111-0001-0001-0001-000000000001', '基本情報', 'all', 1, 'お子様の基本情報'),
+('11111111-0001-0001-0001-000000000002', '睡眠の様子', 'all', 2, '睡眠中の状態'),
+('11111111-0001-0001-0001-000000000003', '睡眠時間', 'all', 3, '就寝時間・起床パターン'),
+('11111111-0001-0001-0001-000000000004', '習い事', 'all', 4, '習い事について'),
+('11111111-0001-0001-0001-000000000005', '同意事項', 'all', 99, '学会発表等への同意'),
+
+-- 未就学児専用
+('11111111-0001-0001-0002-000000000001', 'きょうだい', 'preschool', 5, 'きょうだいの有無'),
+('11111111-0001-0001-0002-000000000002', 'スマホ・タブレット・TV視聴', 'preschool', 6, '視聴頻度と時間'),
+('11111111-0001-0001-0002-000000000003', '食事について', 'preschool', 7, '食事の様子・問題'),
+('11111111-0001-0001-0002-000000000004', '食べ物の好み', 'preschool', 8, '好き嫌い'),
+
+-- 小学生以上専用
+('11111111-0001-0001-0003-000000000001', 'ゲーム・スマホ・タブレット・TV視聴', 'elementary', 6, '視聴頻度と時間'),
+('11111111-0001-0001-0003-000000000002', '気になること', 'elementary', 7, '保護者が気になる点');
+
+-- ============================================================================
+-- 問診項目マスタ投入
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 【共通】基本情報
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, placeholder, display_order) VALUES
+('11111111-0001-0001-0001-000000000001', 'ふりがな', 'text', NULL, true, 'やまだ たろう', 1),
+('11111111-0001-0001-0001-000000000001', 'お名前', 'text', NULL, true, '山田 太郎', 2),
+('11111111-0001-0001-0001-000000000001', '生年月日', 'text', NULL, true, '2018年4月1日', 3),
+('11111111-0001-0001-0001-000000000001', 'お住まいの都道府県', 'select', '[
+  {"value": "hokkaido", "label": "北海道"},
+  {"value": "aomori", "label": "青森県"},
+  {"value": "iwate", "label": "岩手県"},
+  {"value": "miyagi", "label": "宮城県"},
+  {"value": "akita", "label": "秋田県"},
+  {"value": "yamagata", "label": "山形県"},
+  {"value": "fukushima", "label": "福島県"},
+  {"value": "ibaraki", "label": "茨城県"},
+  {"value": "tochigi", "label": "栃木県"},
+  {"value": "gunma", "label": "群馬県"},
+  {"value": "saitama", "label": "埼玉県"},
+  {"value": "chiba", "label": "千葉県"},
+  {"value": "tokyo", "label": "東京都"},
+  {"value": "kanagawa", "label": "神奈川県"},
+  {"value": "niigata", "label": "新潟県"},
+  {"value": "toyama", "label": "富山県"},
+  {"value": "ishikawa", "label": "石川県"},
+  {"value": "fukui", "label": "福井県"},
+  {"value": "yamanashi", "label": "山梨県"},
+  {"value": "nagano", "label": "長野県"},
+  {"value": "gifu", "label": "岐阜県"},
+  {"value": "shizuoka", "label": "静岡県"},
+  {"value": "aichi", "label": "愛知県"},
+  {"value": "mie", "label": "三重県"},
+  {"value": "shiga", "label": "滋賀県"},
+  {"value": "kyoto", "label": "京都府"},
+  {"value": "osaka", "label": "大阪府"},
+  {"value": "hyogo", "label": "兵庫県"},
+  {"value": "nara", "label": "奈良県"},
+  {"value": "wakayama", "label": "和歌山県"},
+  {"value": "tottori", "label": "鳥取県"},
+  {"value": "shimane", "label": "島根県"},
+  {"value": "okayama", "label": "岡山県"},
+  {"value": "hiroshima", "label": "広島県"},
+  {"value": "yamaguchi", "label": "山口県"},
+  {"value": "tokushima", "label": "徳島県"},
+  {"value": "kagawa", "label": "香川県"},
+  {"value": "ehime", "label": "愛媛県"},
+  {"value": "kochi", "label": "高知県"},
+  {"value": "fukuoka", "label": "福岡県"},
+  {"value": "saga", "label": "佐賀県"},
+  {"value": "nagasaki", "label": "長崎県"},
+  {"value": "kumamoto", "label": "熊本県"},
+  {"value": "oita", "label": "大分県"},
+  {"value": "miyazaki", "label": "宮崎県"},
+  {"value": "kagoshima", "label": "鹿児島県"},
+  {"value": "okinawa", "label": "沖縄県"}
+]'::jsonb, true, NULL, 4),
+('11111111-0001-0001-0001-000000000001', '性別', 'radio', '[
+  {"value": "male", "label": "男"},
+  {"value": "female", "label": "女"}
+]'::jsonb, true, NULL, 5),
+('11111111-0001-0001-0001-000000000001', '年齢', 'number', NULL, true, NULL, 6),
+('11111111-0001-0001-0001-000000000001', 'ニックネーム', 'text', NULL, false, NULL, 7);
+
+-- 小学生専用: 年生
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0001-000000000001', '年生', 'select', '[
+  {"value": "1", "label": "1年生"},
+  {"value": "2", "label": "2年生"},
+  {"value": "3", "label": "3年生"},
+  {"value": "4", "label": "4年生"},
+  {"value": "5", "label": "5年生"},
+  {"value": "6", "label": "6年生"}
+]'::jsonb, false, 8);
+
+-- ----------------------------------------------------------------------------
+-- 【共通】睡眠の様子
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0001-000000000002', '睡眠の様子', 'checkbox', '[
+  {"value": "snoring", "label": "いびき"},
+  {"value": "fussy_sleep", "label": "寝ぐずり"},
+  {"value": "fussy_wake", "label": "起きぐずり"},
+  {"value": "frequent_waking", "label": "頻回起き"},
+  {"value": "prone", "label": "うつ伏せ寝"},
+  {"value": "supine", "label": "仰向け"},
+  {"value": "side", "label": "横向き寝"}
+]'::jsonb, false, 1);
+
+-- 未就学児追加項目
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, helper_text, display_order) VALUES
+('11111111-0001-0001-0001-000000000002', '睡眠の様子（未就学児追加）', 'checkbox', '[
+  {"value": "night_crying", "label": "夜泣き"},
+  {"value": "other", "label": "その他"}
+]'::jsonb, false, '未就学児のみ表示', 2),
+('11111111-0001-0001-0001-000000000002', '睡眠の様子その他', 'text', NULL, false, 'その他を選択した場合', 3);
+
+-- ----------------------------------------------------------------------------
+-- 【共通】睡眠時間
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0001-000000000003', '就寝時間', 'select', '[
+  {"value": "19", "label": "19時"},
+  {"value": "20", "label": "20時"},
+  {"value": "21", "label": "21時"},
+  {"value": "22", "label": "22時"},
+  {"value": "23", "label": "23時"},
+  {"value": "undecided", "label": "決まっていない"}
+]'::jsonb, false, 1),
+('11111111-0001-0001-0001-000000000003', '規則正しい', 'radio', '[
+  {"value": "yes", "label": "はい"},
+  {"value": "no", "label": "いいえ"}
+]'::jsonb, false, 2);
+
+-- 未就学児追加: 昼寝関連
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, helper_text, display_order) VALUES
+('11111111-0001-0001-0001-000000000003', '昼寝の状況', 'checkbox', '[
+  {"value": "morning_nap", "label": "朝寝"},
+  {"value": "afternoon_nap", "label": "昼寝"},
+  {"value": "evening_nap", "label": "夕寝"}
+]'::jsonb, false, '未就学児のみ', 3);
+
+-- ----------------------------------------------------------------------------
+-- 【共通】習い事
+-- ----------------------------------------------------------------------------
+-- 未就学児用（選択式）
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, helper_text, display_order) VALUES
+('11111111-0001-0001-0001-000000000004', '習い事（未就学児）', 'checkbox', '[
+  {"value": "swimming", "label": "スイミング"},
+  {"value": "gymnastics", "label": "体操"},
+  {"value": "soccer", "label": "サッカー"},
+  {"value": "baseball", "label": "野球"},
+  {"value": "english", "label": "英語"},
+  {"value": "other", "label": "その他"}
+]'::jsonb, false, '未就学児用', 1),
+('11111111-0001-0001-0001-000000000004', '習い事その他（未就学児）', 'text', NULL, false, 'その他を選んだ場合', 2);
+
+-- 小学生用（自由記述）
+INSERT INTO questionnaire_items (category_id, question, answer_type, is_required, helper_text, display_order) VALUES
+('11111111-0001-0001-0001-000000000004', '習い事（小学生以上）', 'text', false, '小学生以上用・自由記述', 3);
+
+-- ----------------------------------------------------------------------------
+-- 【未就学児】きょうだい
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0002-000000000001', 'きょうだいの有無', 'radio', '[
+  {"value": "none", "label": "いない"},
+  {"value": "has", "label": "いる"}
+]'::jsonb, false, 1),
+('11111111-0001-0001-0002-000000000001', '何人目', 'number', NULL, false, 2);
+
+-- ----------------------------------------------------------------------------
+-- 【未就学児】スマホ・タブレット・TV視聴
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0002-000000000002', 'スマホ・タブレット・TVを見る頻度と時間', 'radio', '[
+  {"value": "rarely", "label": "ほぼ見ない"},
+  {"value": "under_30min", "label": "30分以内"},
+  {"value": "under_1hour", "label": "1時間以内"},
+  {"value": "over_1hour", "label": "それ以上"}
+]'::jsonb, false, 1),
+('11111111-0001-0001-0002-000000000002', '視聴時間（それ以上の場合）', 'number', NULL, false, 2);
+
+-- ----------------------------------------------------------------------------
+-- 【未就学児】食事について
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0002-000000000003', '食事について', 'checkbox', '[
+  {"value": "picky", "label": "偏食"},
+  {"value": "no_chewing", "label": "噛まない"},
+  {"value": "cant_swallow", "label": "飲み込めない（吐き出す）"},
+  {"value": "gulp", "label": "丸呑み食べ"},
+  {"value": "large_bites", "label": "一口量が多い"},
+  {"value": "fast_eating", "label": "食べるのが早い"},
+  {"value": "slow_eating", "label": "食べるのが遅い"},
+  {"value": "other", "label": "その他"}
+]'::jsonb, false, 1),
+('11111111-0001-0001-0002-000000000003', '食事についてその他', 'text', NULL, false, 2);
+
+-- ----------------------------------------------------------------------------
+-- 【未就学児】食べ物の好み
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, is_required, placeholder, display_order) VALUES
+('11111111-0001-0001-0002-000000000004', '嫌いな食べ物', 'textarea', false, '自由記述', 1),
+('11111111-0001-0001-0002-000000000004', '好きな食べ物', 'textarea', false, '自由記述', 2);
+
+-- ----------------------------------------------------------------------------
+-- 【小学生以上】ゲーム・スマホ・タブレット・TV視聴
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0003-000000000001', 'ゲーム・スマホ・タブレット・TVを見る頻度と時間', 'radio', '[
+  {"value": "rarely", "label": "ほぼ見ない"},
+  {"value": "under_30min", "label": "30分以内"},
+  {"value": "under_1hour", "label": "1時間以内"},
+  {"value": "over_1hour", "label": "それ以上"}
+]'::jsonb, false, 1),
+('11111111-0001-0001-0003-000000000001', '視聴時間（それ以上の場合）', 'number', NULL, false, 2);
+
+-- ----------------------------------------------------------------------------
+-- 【小学生以上】気になること
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, display_order) VALUES
+('11111111-0001-0001-0003-000000000002', '気になること', 'checkbox', '[
+  {"value": "mouth_open", "label": "お口がポカンと開いていることがある"},
+  {"value": "teeth_worry", "label": "将来歯並びや噛み合わせが良くなるか不安"},
+  {"value": "articulation", "label": "滑舌が悪いと感じることがある"},
+  {"value": "posture", "label": "姿勢が悪いと感じる"},
+  {"value": "sleep_position", "label": "ママとお子様の寝る位置が決まっている"},
+  {"value": "night_waking", "label": "夜中に起きることがある"},
+  {"value": "bedwetting", "label": "おねしょをする"},
+  {"value": "tired_easily", "label": "すぐ「疲れた」と言う（体力がない）"},
+  {"value": "restless", "label": "落ち着きがない"},
+  {"value": "fast_eating", "label": "食べるのが早い（あまり噛んでいない）"},
+  {"value": "large_bites", "label": "一口量が多かったり詰め込みたべをする"},
+  {"value": "cant_sit_still", "label": "食事中じっとしていない"},
+  {"value": "drink_during_meal", "label": "食事中よく水分をとる"},
+  {"value": "tv_during_meal", "label": "食事中テレビがついている"},
+  {"value": "picky_eater", "label": "好き嫌いが多い"},
+  {"value": "w_sitting", "label": "割座（お姉さん座り）をする"},
+  {"value": "often_sick", "label": "よく体調を崩す"},
+  {"value": "other", "label": "その他"}
+]'::jsonb, false, 1),
+('11111111-0001-0001-0003-000000000002', '気になることその他', 'text', NULL, false, 2);
+
+-- ----------------------------------------------------------------------------
+-- 【共通】同意事項
+-- ----------------------------------------------------------------------------
+INSERT INTO questionnaire_items (category_id, question, answer_type, options, is_required, helper_text, display_order) VALUES
+('11111111-0001-0001-0001-000000000005', '学会発表や資料作成のために症例写真の使用にご協力いただけますか？', 'radio', '[
+  {"value": "yes", "label": "YES"},
+  {"value": "no", "label": "NO"}
+]'::jsonb, true, '※目元は隠し個人が特定されることはありません。', 1);
+
+-- ============================================================================
+-- 確認用クエリ
+-- ============================================================================
+-- SELECT 
+--   qc.name as category,
+--   qc.target_age,
+--   qi.question,
+--   qi.answer_type,
+--   qi.display_order
+-- FROM questionnaire_items qi
+-- JOIN questionnaire_categories qc ON qi.category_id = qc.id
+-- ORDER BY qc.display_order, qi.display_order;
+
