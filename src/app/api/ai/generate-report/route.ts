@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json()
-    const { sessionId, visitId, questionnaire, postureAnalysis, oralAnalysis, staffNotes, testMode, testData } = body
+    const { sessionId, visitId, questionnaire, postureAnalysis, oralAnalysis, staffNotes, testMode, testData, customPrompt } = body
 
     let dataForPrompt = {
       childName: '',
@@ -185,7 +185,27 @@ export async function POST(request: NextRequest) {
       ageConsiderations.push('乳歯から永久歯への生え変わり時期を考慮してください')
     }
 
-    const prompt = `
+    // プロンプト構築（カスタムプロンプトがある場合は変数を置換）
+    let prompt: string
+    
+    if (customPrompt) {
+      // カスタムプロンプトの変数を置換
+      prompt = customPrompt
+        .replace(/\{\{childName\}\}/g, dataForPrompt.childName)
+        .replace(/\{\{ageDisplay\}\}/g, ageDisplay)
+        .replace(/\{\{childGender\}\}/g, dataForPrompt.childGender)
+        .replace(/\{\{postureScore\}\}/g, dataForPrompt.postureScore)
+        .replace(/\{\{oralScore\}\}/g, dataForPrompt.oralScore)
+        .replace(/\{\{postureIssues\}\}/g, dataForPrompt.postureIssues)
+        .replace(/\{\{oralIssues\}\}/g, dataForPrompt.oralIssues)
+        .replace(/\{\{staffNotes\}\}/g, dataForPrompt.staffNotes || 'なし')
+        .replace(/\{\{diagnosisDetails\}\}/g, dataForPrompt.diagnosisDetails || 'なし')
+        .replace(/\{\{ageConsiderations\}\}/g, ageConsiderations.length > 0 
+          ? `【年齢に関する考慮事項】\n${ageConsiderations.join('\n')}`
+          : '')
+    } else {
+      // デフォルトプロンプト
+      prompt = `
 あなたは口腔育成の専門家として、診断結果から親御さん向けのレポートを生成してください。
 
 【重要な指示】
@@ -224,7 +244,8 @@ ${dataForPrompt.diagnosisDetails || 'なし'}
   "nextSteps": ["次のステップ1", "次のステップ2"],
   "encouragingMessage": "親御さんへの温かい励ましのメッセージ（50-100文字）"
 }
-    `.trim()
+      `.trim()
+    }
 
     const result = await model.generateContent(prompt)
     const response = await result.response

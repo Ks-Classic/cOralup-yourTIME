@@ -3,10 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
   generateMockData,
-  formatForAPI,
   PRESETS,
-  DIAGNOSIS_CATEGORIES,
-  QUESTIONNAIRE_CATEGORIES,
   type PresetType,
   type MockTestData,
   type MockChildInfo,
@@ -20,6 +17,7 @@ interface AIReportResult {
   nextSteps: string[]
   encouragingMessage: string
   processingTimeMs?: number
+  error?: string
 }
 
 interface HistoryItem {
@@ -27,7 +25,63 @@ interface HistoryItem {
   timestamp: Date
   input: MockTestData
   output: AIReportResult
+  prompt?: string
 }
+
+// DB項目の型定義
+interface DBCategory {
+  id: string
+  name: string
+  display_order: number
+  items: DBItem[]
+}
+
+interface DBItem {
+  id: string
+  question: string
+  answer_type: string
+  options: { value: string; label: string }[]
+  is_required: boolean
+  input_type?: string
+}
+
+// デフォルトプロンプトテンプレート
+const DEFAULT_PROMPT = `あなたは口腔育成の専門家として、診断結果から親御さん向けのレポートを生成してください。
+
+【重要な指示】
+- 専門用語は避け、親御さんにわかりやすい表現を使ってください
+- ポジティブな点も必ず言及してください
+- 問題点は深刻になりすぎない表現で伝えてください
+- 「です・ます」調で統一してください
+
+対象のお子様情報:
+- お名前: {{childName}}
+- 年齢: {{ageDisplay}}
+- 性別: {{childGender}}
+
+{{ageConsiderations}}
+
+姿勢分析結果:
+- 全体評価: {{postureScore}}/10
+- 問題点: {{postureIssues}}
+
+口腔分析結果:
+- 全体評価: {{oralScore}}/10
+- 問題点: {{oralIssues}}
+
+スタッフの所見: {{staffNotes}}
+
+詳細診断項目:
+{{diagnosisDetails}}
+
+以下の形式でJSONとしてレポートを出力してください:
+{
+  "summary": "全体の要約（150-200文字程度、ポジティブな点から始める）",
+  "analysis": "詳細な分析内容（姿勢と口腔の相関関係を含む、300文字程度）",
+  "recommendations": ["具体的で実践しやすい改善提案1", "改善提案2", "改善提案3"],
+  "nextSteps": ["次のステップ1", "次のステップ2"],
+  "encouragingMessage": "親御さんへの温かい励ましのメッセージ（50-100文字）"
+}`
 
 // 初期データ（SSR用の固定値）
 const INITIAL_DATA: MockTestData = {
@@ -39,9 +93,89 @@ const INITIAL_DATA: MockTestData = {
 }
 
 export default function AITestPage() {
-  // 入力データ（初期値は固定、クライアントでランダム生成）
+  // DB項目
+  const [diagnosisCategories, setDiagnosisCategories] = useState<DBCategory[]>([])
+  const [questionnaireCategories, setQuestionnaireCategories] = useState<DBCategory[]>([])
+  const [isLoadingSchema, setIsLoadingSchema] = useState(true)
+  const [schemaError, setSchemaError] = useState<string | null>(null)
+
+  // 入力データ
   const [testData, setTestData] = useState<MockTestData>(INITIAL_DATA)
   const [isInitialized, setIsInitialized] = useState(false)
+
+  // プロンプト
+  const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPT)
+  const [showPromptEditor, setShowPromptEditor] = useState(false)
+
+  // AI結果
+  const [result, setResult] = useState<AIReportResult | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 履歴
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [selectedPreset, setSelectedPreset] = useState<PresetType>('random')
+
+  // DBから項目を取得
+  useEffect(() => {
+    const fetchSchemas = async () => {
+      setIsLoadingSchema(true)
+      setSchemaError(null)
+
+      try {
+        // 診断項目取得
+        const diagRes = await fetch('/api/diagnosis-schema')
+        if (!diagRes.ok) throw new Error('診断項目の取得に失敗')
+        const diagData = await diagRes.json()
+
+        // 問診項目取得
+        const questRes = await fetch('/api/questionnaire/items?target_age=all')
+        if (!questRes.ok) throw new Error('問診項目の取得に失敗')
+        const questData = await questRes.json()
+
+        // 診断項目を整形
+        if (diagData.categories) {
+          setDiagnosisCategories(diagData.categories.map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            display_order: cat.display_order,
+            items: cat.items?.map((item: any) => ({
+              id: item.id,
+              question: item.question,
+              answer_type: item.answer_type,
+              options: item.options || [],
+              is_required: item.is_required,
+              input_type: item.input_type,
+            })) || []
+          })))
+        }
+
+        // 問診項目を整形
+        if (questData.data) {
+          setQuestionnaireCategories(questData.data.map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            display_order: cat.display_order,
+            items: cat.items?.map((item: any) => ({
+              id: item.id,
+              question: item.question,
+              answer_type: item.answer_type,
+              options: item.options || [],
+              is_required: item.is_required,
+            })) || []
+          })))
+        }
+
+      } catch (err) {
+        console.error('Schema fetch error:', err)
+        setSchemaError(err instanceof Error ? err.message : 'スキーマ取得エラー')
+      } finally {
+        setIsLoadingSchema(false)
+      }
+    }
+
+    fetchSchemas()
+  }, [])
 
   // クライアント側でのみランダムデータを生成
   useEffect(() => {
@@ -50,15 +184,6 @@ export default function AITestPage() {
       setIsInitialized(true)
     }
   }, [isInitialized])
-  
-  // AI結果
-  const [result, setResult] = useState<AIReportResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  
-  // 履歴
-  const [history, setHistory] = useState<HistoryItem[]>([])
-  const [selectedPreset, setSelectedPreset] = useState<PresetType>('random')
 
   // プリセット適用
   const applyPreset = useCallback((preset: PresetType) => {
@@ -84,28 +209,28 @@ export default function AITestPage() {
     }))
   }, [])
 
-  // 診断項目更新
-  const updateDiagnosis = useCallback((category: string, itemId: string, value: string) => {
+  // 診断項目更新（DB項目用）
+  const updateDiagnosisDB = useCallback((categoryId: string, itemId: string, value: string) => {
     setTestData(prev => ({
       ...prev,
       diagnosis: {
         ...prev.diagnosis,
-        [category]: {
-          ...prev.diagnosis[category],
+        [categoryId]: {
+          ...(prev.diagnosis[categoryId] || {}),
           [itemId]: value,
         },
       },
     }))
   }, [])
 
-  // 問診項目更新
-  const updateQuestionnaire = useCallback((category: string, itemId: string, value: string) => {
+  // 問診項目更新（DB項目用）
+  const updateQuestionnaireDB = useCallback((categoryId: string, itemId: string, value: string) => {
     setTestData(prev => ({
       ...prev,
       questionnaire: {
         ...prev.questionnaire,
-        [category]: {
-          ...prev.questionnaire[category],
+        [categoryId]: {
+          ...(prev.questionnaire[categoryId] || {}),
           [itemId]: value,
         },
       },
@@ -117,6 +242,71 @@ export default function AITestPage() {
     setTestData(prev => ({ ...prev, staffNotes: value }))
   }, [])
 
+  // プロンプトをリセット
+  const resetPrompt = useCallback(() => {
+    setCustomPrompt(DEFAULT_PROMPT)
+  }, [])
+
+  // API用データ整形
+  const formatForAPI = useCallback(() => {
+    // 問診データをフラット化
+    const flatQuestionnaire: Record<string, string> = {}
+    for (const [catId, items] of Object.entries(testData.questionnaire)) {
+      for (const [itemId, value] of Object.entries(items as Record<string, string>)) {
+        // カテゴリ名と項目名を取得
+        const cat = questionnaireCategories.find(c => c.id === catId)
+        const item = cat?.items.find(i => i.id === itemId)
+        if (item) {
+          flatQuestionnaire[`${cat?.name || catId}_${item.question}`] = value
+        }
+      }
+    }
+
+    // 診断データをフラット化
+    const flatDiagnosis: Record<string, string> = {}
+    const postureIssues: string[] = []
+    const oralIssues: string[] = []
+
+    for (const [catId, items] of Object.entries(testData.diagnosis)) {
+      const cat = diagnosisCategories.find(c => c.id === catId)
+      for (const [itemId, value] of Object.entries(items as Record<string, string>)) {
+        const item = cat?.items.find(i => i.id === itemId)
+        if (item) {
+          flatDiagnosis[`${cat?.name || catId}_${item.question}`] = value
+
+          // 問題点を抽出
+          const isIssue = value === '有' || value === '不可' || value === '困難' || value === '口呼吸'
+          if (isIssue) {
+            const catName = cat?.name || ''
+            if (['姿勢', '足', '全身'].includes(catName)) {
+              postureIssues.push(`${item.question}: ${value}`)
+            } else {
+              oralIssues.push(`${item.question}: ${value}`)
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      testMode: true,
+      testData: {
+        childName: testData.childInfo.name,
+        childAge: testData.childInfo.age,
+        childAgeMonths: testData.childInfo.ageMonths,
+        childGender: testData.childInfo.gender,
+        questionnaire: flatQuestionnaire,
+        diagnosis: flatDiagnosis,
+        postureScore: testData.scores.postureScore,
+        oralScore: testData.scores.oralScore,
+        postureIssues,
+        oralIssues,
+        staffNotes: testData.staffNotes,
+      },
+      customPrompt: customPrompt !== DEFAULT_PROMPT ? customPrompt : undefined,
+    }
+  }, [testData, diagnosisCategories, questionnaireCategories, customPrompt])
+
   // AI生成実行
   const generateReport = useCallback(async () => {
     setIsLoading(true)
@@ -124,19 +314,20 @@ export default function AITestPage() {
     const startTime = Date.now()
 
     try {
-      const apiData = formatForAPI(testData)
-      
+      const apiData = formatForAPI()
+
       const response = await fetch('/api/ai/generate-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(apiData),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(data.error || `API error: ${response.status}`)
       }
 
-      const data = await response.json()
       const processingTimeMs = Date.now() - startTime
 
       const resultWithTime: AIReportResult = {
@@ -152,6 +343,7 @@ export default function AITestPage() {
         timestamp: new Date(),
         input: { ...testData },
         output: resultWithTime,
+        prompt: customPrompt !== DEFAULT_PROMPT ? customPrompt : undefined,
       }
       setHistory(prev => [historyItem, ...prev].slice(0, 10))
 
@@ -160,13 +352,22 @@ export default function AITestPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [testData])
+  }, [testData, formatForAPI, customPrompt])
 
   // 履歴から復元
   const restoreFromHistory = useCallback((item: HistoryItem) => {
     setTestData(item.input)
     setResult(item.output)
+    if (item.prompt) {
+      setCustomPrompt(item.prompt)
+    }
   }, [])
+
+  // 選択肢の表示値を取得
+  const getOptionLabel = (options: { value: string; label: string }[], value: string) => {
+    const opt = options.find(o => o.value === value)
+    return opt?.label || value
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
@@ -177,13 +378,60 @@ export default function AITestPage() {
             <h1 className="text-2xl font-bold text-cyan-400">AI分析テストツール</h1>
             <p className="text-sm text-gray-400 mt-1">問診・診断データからAIコメントをテスト</p>
           </div>
-          <div className="text-xs text-gray-500">
-            開発環境専用
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowPromptEditor(!showPromptEditor)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                showPromptEditor ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              📝 プロンプト編集
+            </button>
+            <div className="text-xs text-gray-500">開発環境専用</div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* プロンプトエディター */}
+        {showPromptEditor && (
+          <section className="mb-8 bg-purple-900/30 rounded-xl p-6 border border-purple-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-purple-300">プロンプトテンプレート</h2>
+              <button
+                onClick={resetPrompt}
+                className="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300"
+              >
+                リセット
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              変数: {'{{childName}}'}, {'{{ageDisplay}}'}, {'{{childGender}}'}, {'{{postureScore}}'}, {'{{oralScore}}'}, {'{{postureIssues}}'}, {'{{oralIssues}}'}, {'{{staffNotes}}'}, {'{{diagnosisDetails}}'}, {'{{ageConsiderations}}'}
+            </p>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              className="w-full h-64 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-sm text-white font-mono resize-y"
+              placeholder="プロンプトを入力..."
+            />
+          </section>
+        )}
+
+        {/* スキーマ読み込み状態 */}
+        {isLoadingSchema && (
+          <div className="mb-8 bg-gray-800 rounded-xl p-6 border border-gray-700 text-center">
+            <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-gray-400">DBから項目を読み込み中...</p>
+          </div>
+        )}
+
+        {schemaError && (
+          <div className="mb-8 bg-red-900/50 border border-red-500 rounded-xl p-4 text-red-300">
+            <h3 className="font-bold mb-1">スキーマ読み込みエラー</h3>
+            <p className="text-sm">{schemaError}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* 左カラム: 入力 */}
           <div className="space-y-6">
@@ -306,63 +554,81 @@ export default function AITestPage() {
               </div>
             </section>
 
-            {/* 問診項目（折りたたみ） */}
+            {/* 問診項目（DBから取得） */}
             <details className="bg-gray-800 rounded-xl border border-gray-700">
               <summary className="p-6 cursor-pointer text-lg font-semibold text-cyan-300 hover:bg-gray-750">
                 問診項目（保護者入力）
+                <span className="ml-2 text-xs text-gray-500">
+                  {questionnaireCategories.length}カテゴリ / {questionnaireCategories.reduce((sum, c) => sum + c.items.length, 0)}項目
+                </span>
               </summary>
-              <div className="px-6 pb-6 space-y-4">
-                {Object.entries(QUESTIONNAIRE_CATEGORIES).map(([catKey, category]) => (
-                  <div key={catKey} className="border-t border-gray-700 pt-4">
+              <div className="px-6 pb-6 space-y-4 max-h-96 overflow-y-auto">
+                {questionnaireCategories.map((category) => (
+                  <div key={category.id} className="border-t border-gray-700 pt-4">
                     <h3 className="text-sm font-medium text-gray-300 mb-2">{category.name}</h3>
                     <div className="grid grid-cols-2 gap-2">
                       {category.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-2">
                           <select
-                            value={testData.questionnaire[catKey]?.[item.id] || item.options[1]}
-                            onChange={(e) => updateQuestionnaire(catKey, item.id, e.target.value)}
+                            value={testData.questionnaire[category.id]?.[item.id] || ''}
+                            onChange={(e) => updateQuestionnaireDB(category.id, item.id, e.target.value)}
                             className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white"
                           >
+                            <option value="">--</option>
                             {item.options.map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
-                          <span className="text-xs text-gray-400 truncate max-w-[80px]">{item.question}</span>
+                          <span className="text-xs text-gray-400 truncate max-w-[100px]" title={item.question}>
+                            {item.question}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ))}
+                {questionnaireCategories.length === 0 && !isLoadingSchema && (
+                  <p className="text-gray-500 text-sm">問診項目がありません</p>
+                )}
               </div>
             </details>
 
-            {/* 診断項目（折りたたみ） */}
+            {/* 診断項目（DBから取得） */}
             <details className="bg-gray-800 rounded-xl border border-gray-700">
               <summary className="p-6 cursor-pointer text-lg font-semibold text-cyan-300 hover:bg-gray-750">
                 診断項目（スタッフ入力）
+                <span className="ml-2 text-xs text-gray-500">
+                  {diagnosisCategories.length}カテゴリ / {diagnosisCategories.reduce((sum, c) => sum + c.items.length, 0)}項目
+                </span>
               </summary>
-              <div className="px-6 pb-6 space-y-4">
-                {Object.entries(DIAGNOSIS_CATEGORIES).map(([catKey, category]) => (
-                  <div key={catKey} className="border-t border-gray-700 pt-4">
+              <div className="px-6 pb-6 space-y-4 max-h-96 overflow-y-auto">
+                {diagnosisCategories.map((category) => (
+                  <div key={category.id} className="border-t border-gray-700 pt-4">
                     <h3 className="text-sm font-medium text-gray-300 mb-2">{category.name}</h3>
                     <div className="grid grid-cols-2 gap-2">
                       {category.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-2">
                           <select
-                            value={testData.diagnosis[catKey]?.[item.id] || item.options[0]}
-                            onChange={(e) => updateDiagnosis(catKey, item.id, e.target.value)}
+                            value={testData.diagnosis[category.id]?.[item.id] || ''}
+                            onChange={(e) => updateDiagnosisDB(category.id, item.id, e.target.value)}
                             className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white"
                           >
+                            <option value="">--</option>
                             {item.options.map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
-                          <span className="text-xs text-gray-400 truncate max-w-[80px]">{item.question}</span>
+                          <span className="text-xs text-gray-400 truncate max-w-[100px]" title={item.question}>
+                            {item.question}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ))}
+                {diagnosisCategories.length === 0 && !isLoadingSchema && (
+                  <p className="text-gray-500 text-sm">診断項目がありません</p>
+                )}
               </div>
             </details>
 
@@ -412,7 +678,7 @@ export default function AITestPage() {
             )}
 
             {/* 結果表示 */}
-            {result && (
+            {result && !result.error && (
               <div className="space-y-4">
                 {/* サマリー */}
                 <section className="bg-gradient-to-br from-cyan-900/50 to-blue-900/50 rounded-xl p-6 border border-cyan-700">
@@ -437,7 +703,7 @@ export default function AITestPage() {
                 <section className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                   <h2 className="text-lg font-semibold mb-3 text-cyan-300">改善提案</h2>
                   <ul className="space-y-2">
-                    {result.recommendations.map((rec, i) => (
+                    {result.recommendations?.map((rec, i) => (
                       <li key={i} className="flex items-start gap-2 text-gray-300">
                         <span className="text-cyan-400 mt-1">•</span>
                         <span>{rec}</span>
@@ -450,7 +716,7 @@ export default function AITestPage() {
                 <section className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                   <h2 className="text-lg font-semibold mb-3 text-cyan-300">次のステップ</h2>
                   <ol className="space-y-2">
-                    {result.nextSteps.map((step, i) => (
+                    {result.nextSteps?.map((step, i) => (
                       <li key={i} className="flex items-start gap-2 text-gray-300">
                         <span className="text-cyan-400 font-bold">{i + 1}.</span>
                         <span>{step}</span>
@@ -499,6 +765,7 @@ export default function AITestPage() {
                       </div>
                       <div className="text-xs text-gray-400 mt-1 truncate">
                         姿勢:{item.input.scores.postureScore} 口腔:{item.input.scores.oralScore}
+                        {item.prompt && ' 📝カスタムプロンプト'}
                       </div>
                     </button>
                   ))}
@@ -511,4 +778,3 @@ export default function AITestPage() {
     </div>
   )
 }
-
