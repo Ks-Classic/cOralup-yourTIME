@@ -3,13 +3,16 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 
 // Gemini APIの初期化
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = process.env.GEMINI_API_KEY 
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null
 
 // Supabase クライアント (Service Role)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -150,6 +153,15 @@ export async function POST(request: NextRequest) {
       dataForPrompt.oralScore = oralAnalysis.overall_score || oralAnalysis.overallScore
       dataForPrompt.oralIssues = oralAnalysis.issues?.join(', ') || 'なし'
       dataForPrompt.staffNotes = staffNotes || 'なし'
+    }
+
+    // APIキーがない場合はエラーを返す
+    if (!genAI) {
+      console.error('[AI Report] GEMINI_API_KEY is not configured')
+      return NextResponse.json(
+        { error: 'GEMINI_API_KEYが設定されていません。環境変数を確認してください。' },
+        { status: 500 }
+      )
     }
 
     // Gemini APIでレポート生成

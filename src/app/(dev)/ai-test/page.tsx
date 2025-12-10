@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   generateMockData,
   formatForAPI,
@@ -29,9 +29,27 @@ interface HistoryItem {
   output: AIReportResult
 }
 
+// 初期データ（SSR用の固定値）
+const INITIAL_DATA: MockTestData = {
+  childInfo: { name: 'テスト太郎', age: 5, ageMonths: 0, gender: '男' },
+  questionnaire: {},
+  diagnosis: {},
+  scores: { postureScore: 5, oralScore: 5 },
+  staffNotes: '',
+}
+
 export default function AITestPage() {
-  // 入力データ
-  const [testData, setTestData] = useState<MockTestData>(() => generateMockData('random'))
+  // 入力データ（初期値は固定、クライアントでランダム生成）
+  const [testData, setTestData] = useState<MockTestData>(INITIAL_DATA)
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // クライアント側でのみランダムデータを生成
+  useEffect(() => {
+    if (!isInitialized) {
+      setTestData(generateMockData('random'))
+      setIsInitialized(true)
+    }
+  }, [isInitialized])
   
   // AI結果
   const [result, setResult] = useState<AIReportResult | null>(null)
@@ -130,7 +148,7 @@ export default function AITestPage() {
 
       // 履歴に追加
       const historyItem: HistoryItem = {
-        id: crypto.randomUUID(),
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         timestamp: new Date(),
         input: { ...testData },
         output: resultWithTime,
