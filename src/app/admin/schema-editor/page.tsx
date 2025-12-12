@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Edit2, Save, X, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
 
 type SchemaType = 'preschooler' | 'elementary' | 'diagnosis'
+type QuestionnaireSubTab = 'basic_info' | 'questionnaire'
 type ViewMode = 'mobile' | 'tablet' | 'desktop'
 
 // 診断項目の型定義（APIレスポンスに合わせて調整）
@@ -49,6 +50,7 @@ const defaultSchema: FormSchemaConfig = {
 
 export default function SchemaEditorPage() {
   const [activeTab, setActiveTab] = useState<'questionnaire' | 'diagnosis'>('questionnaire')
+  const [questionnaireSubTab, setQuestionnaireSubTab] = useState<QuestionnaireSubTab>('basic_info')
   const [schemaType, setSchemaType] = useState<SchemaType>('preschooler')
   const [viewMode, setViewMode] = useState<ViewMode>('mobile')
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -79,7 +81,8 @@ export default function SchemaEditorPage() {
   const [hardDeleteCategoryIds, setHardDeleteCategoryIds] = useState<string[]>([])
   const [hardDeleteItemIds, setHardDeleteItemIds] = useState<string[]>([])
   const toggleFieldVisibility = useCallback((sectionId: string, fieldId: string) => {
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -92,8 +95,10 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
   const [schemaCache, setSchemaCache] = useState<{ preschooler?: FormSchemaConfig; elementary?: FormSchemaConfig }>({})
+  const [basicInfoSchemaCache, setBasicInfoSchemaCache] = useState<{ preschooler?: FormSchemaConfig; elementary?: FormSchemaConfig }>({})
+  const [basicInfoSchema, setBasicInfoSchema] = useState<FormSchemaConfig>(defaultSchema)
   const [diagnosisData, setDiagnosisData] = useState<{ categorized: Record<string, ExtendedDiagnosisItem[]>; categoryOrder: string[] }>({
     categorized: {},
     categoryOrder: []
@@ -103,31 +108,53 @@ export default function SchemaEditorPage() {
     const fetchData = async () => {
       try {
         if (activeTab === 'questionnaire') {
-          const cached = schemaCache[schemaType]
-          if (cached) {
-            // キャッシュがあればロード表示を挟まず即復元
-            setQuestionnaireSchema(cached)
-            setIsLoading(false)
-            return
+          // 基本情報タブの場合
+          if (questionnaireSubTab === 'basic_info') {
+            const cachedBasic = basicInfoSchemaCache[schemaType]
+            if (cachedBasic) {
+              setBasicInfoSchema(cachedBasic)
+              setIsLoading(false)
+              return
+            }
+
+            setIsLoading(true)
+            const schemaId = schemaType === 'preschooler' ? 'basic_info_preschooler_v1' : 'basic_info_elementary_v1'
+            const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`, {
+              headers: { ...adminAuthHeader },
+            })
+
+            if (!res.ok) {
+              throw new Error(`API Error: ${res.status} ${res.statusText}`)
+            }
+
+            const json = await res.json()
+            const nextSchema = (json.data && json.data.length > 0) ? json.data[0].config : defaultSchema
+            setBasicInfoSchema(nextSchema)
+            setBasicInfoSchemaCache(prev => ({ ...prev, [schemaType]: nextSchema }))
+          } else {
+            // 問診タブの場合
+            const cached = schemaCache[schemaType]
+            if (cached) {
+              setQuestionnaireSchema(cached)
+              setIsLoading(false)
+              return
+            }
+
+            setIsLoading(true)
+            const schemaId = schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
+            const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`, {
+              headers: { ...adminAuthHeader },
+            })
+
+            if (!res.ok) {
+              throw new Error(`API Error: ${res.status} ${res.statusText}`)
+            }
+
+            const json = await res.json()
+            const nextSchema = (json.data && json.data.length > 0) ? json.data[0].config : defaultSchema
+            setQuestionnaireSchema(nextSchema)
+            setSchemaCache(prev => ({ ...prev, [schemaType]: nextSchema }))
           }
-
-          setIsLoading(true)
-          const schemaId = schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1'
-          const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`, {
-            headers: {
-              ...adminAuthHeader,
-            },
-          })
-
-          if (!res.ok) {
-            throw new Error(`API Error: ${res.status} ${res.statusText}`)
-          }
-
-          const json = await res.json()
-
-          const nextSchema = (json.data && json.data.length > 0) ? json.data[0].config : defaultSchema
-          setQuestionnaireSchema(nextSchema)
-          setSchemaCache(prev => ({ ...prev, [schemaType]: nextSchema }))
         } else {
           setIsLoading(true)
           // 診断項目取得
@@ -163,14 +190,18 @@ export default function SchemaEditorPage() {
     }
 
     fetchData()
-  }, [schemaType, activeTab])
+  }, [schemaType, activeTab, questionnaireSubTab])
 
   // フォーム編集内容をタブ跨ぎでも保持するためキャッシュへ同期
   useEffect(() => {
     if (activeTab === 'questionnaire') {
-      setSchemaCache(prev => ({ ...prev, [schemaType]: questionnaireSchema }))
+      if (questionnaireSubTab === 'basic_info') {
+        setBasicInfoSchemaCache(prev => ({ ...prev, [schemaType]: basicInfoSchema }))
+      } else {
+        setSchemaCache(prev => ({ ...prev, [schemaType]: questionnaireSchema }))
+      }
     }
-  }, [questionnaireSchema, schemaType, activeTab])
+  }, [questionnaireSchema, basicInfoSchema, schemaType, activeTab, questionnaireSubTab])
 
   // カテゴリ選択時にプレビューをスクロール
   useEffect(() => {
@@ -203,13 +234,14 @@ export default function SchemaEditorPage() {
 
   // セクション名更新
   const updateSectionTitle = useCallback((sectionId: string, title: string) => {
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId ? { ...section, title } : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   // カテゴリ展開切り替え + プレビュースクロール
   const toggleCategory = (categoryName: string) => {
@@ -234,7 +266,8 @@ export default function SchemaEditorPage() {
 
   // フィールド更新
   const updateField = useCallback((sectionId: string, fieldId: string, updates: Partial<FormFieldConfig>) => {
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -247,7 +280,7 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   const ensureOptions = (type: FormFieldConfig['type'], current?: FormFieldConfig['options']) => {
     if (type === 'radio' || type === 'checkbox' || type === 'select') {
@@ -260,7 +293,8 @@ export default function SchemaEditorPage() {
   }
 
   const handleTypeChange = useCallback((sectionId: string, fieldId: string, newType: FormFieldConfig['type']) => {
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -279,11 +313,12 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   const updateFieldOption = useCallback((sectionId: string, fieldId: string, index: number, label: string) => {
     const value = label.trim() ? label.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || `option_${index + 1}` : `option_${index + 1}`
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -299,10 +334,11 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   const addFieldOption = useCallback((sectionId: string, fieldId: string) => {
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -321,10 +357,11 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   const removeFieldOption = useCallback((sectionId: string, fieldId: string, index: number) => {
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -340,7 +377,7 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   // 診断項目更新
   const updateDiagnosisItem = useCallback((itemId: string, updates: Partial<ExtendedDiagnosisItem>) => {
@@ -600,22 +637,25 @@ export default function SchemaEditorPage() {
 
   // セクション追加
   const addSection = useCallback(() => {
+    const currentSchema = questionnaireSubTab === 'basic_info' ? basicInfoSchema : questionnaireSchema
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
     const newSection: FormSectionConfig = {
       id: `section_${Date.now()}`,
       title: '新しいセクション',
       description: '',
-      order: questionnaireSchema.sections.length + 1,
+      order: currentSchema.sections.length + 1,
       fields: []
     }
-    setQuestionnaireSchema(prev => ({
+    setSchema(prev => ({
       ...prev,
       sections: [...prev.sections, newSection]
     }))
     setExpandedSections(prev => new Set([...prev, newSection.id]))
-  }, [questionnaireSchema.sections.length])
+  }, [questionnaireSubTab, basicInfoSchema.sections.length, questionnaireSchema.sections.length])
 
   // フィールド追加
   const addField = useCallback((sectionId: string) => {
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
     const newField: FormFieldConfig = {
       id: `field_${Date.now()}`,
       name: '新しい項目',
@@ -623,7 +663,7 @@ export default function SchemaEditorPage() {
       required: false,
       placeholder: ''
     }
-    setQuestionnaireSchema(prev => ({
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -632,7 +672,7 @@ export default function SchemaEditorPage() {
       )
     }))
     setEditingField(newField.id)
-  }, [])
+  }, [questionnaireSubTab])
 
   // セクション削除
   const deleteSection = useCallback((sectionId: string) => {
@@ -641,11 +681,12 @@ export default function SchemaEditorPage() {
     if (isUuid) {
       setHardDeleteCategoryIds(prev => Array.from(new Set([...prev, sectionId])))
     }
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.filter(s => s.id !== sectionId)
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   // フィールド削除
   const deleteField = useCallback((sectionId: string, fieldId: string) => {
@@ -654,7 +695,8 @@ export default function SchemaEditorPage() {
     if (isUuid) {
       setHardDeleteItemIds(prev => Array.from(new Set([...prev, fieldId])))
     }
-    setQuestionnaireSchema(prev => ({
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId
@@ -662,7 +704,7 @@ export default function SchemaEditorPage() {
           : section
       )
     }))
-  }, [])
+  }, [questionnaireSubTab])
 
   // 保存（DB連携）
   const handleSave = async () => {
@@ -703,31 +745,59 @@ export default function SchemaEditorPage() {
         // 問診票スキーマをAPI経由で保存
         console.log('[UI handleSave] hardDeleteCategoryIds:', hardDeleteCategoryIds)
         console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
-        const response = await fetch('/api/admin/schemas', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...adminAuthHeader,
-          },
-          body: JSON.stringify({
-            schema_id: schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1',
-            form_type: 'questionnaire',
-            name: schemaType === 'preschooler' ? '未就学児用問診票' : '小学生以上用問診票',
-            config: questionnaireSchema,
-            hardDeleteCategoryIds,
-            hardDeleteItemIds,
+        
+        if (questionnaireSubTab === 'basic_info') {
+          // 基本情報スキーマの保存
+          const response = await fetch('/api/admin/schemas', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...adminAuthHeader,
+            },
+            body: JSON.stringify({
+              schema_id: schemaType === 'preschooler' ? 'basic_info_preschooler_v1' : 'basic_info_elementary_v1',
+              form_type: 'basic_info',
+              name: schemaType === 'preschooler' ? '未就学児用基本情報' : '小学生以上用基本情報',
+              config: basicInfoSchema,
+              hardDeleteCategoryIds,
+              hardDeleteItemIds,
+            })
           })
-        })
 
-        if (!response.ok) {
-          throw new Error('保存に失敗しました')
+          if (!response.ok) {
+            throw new Error('保存に失敗しました')
+          }
+
+          setSaveMessage({ type: 'success', text: '基本情報スキーマを保存しました' })
+          setBasicInfoSchemaCache(prev => ({ ...prev, [schemaType]: undefined }))
+        } else {
+          // 問診スキーマの保存
+          const response = await fetch('/api/admin/schemas', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...adminAuthHeader,
+            },
+            body: JSON.stringify({
+              schema_id: schemaType === 'preschooler' ? 'preschooler_v1' : 'elementary_v1',
+              form_type: 'questionnaire',
+              name: schemaType === 'preschooler' ? '未就学児用問診票' : '小学生以上用問診票',
+              config: questionnaireSchema,
+              hardDeleteCategoryIds,
+              hardDeleteItemIds,
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error('保存に失敗しました')
+          }
+
+          setSaveMessage({ type: 'success', text: '問診票スキーマを保存しました' })
+          setSchemaCache(prev => ({ ...prev, [schemaType]: undefined }))
         }
-
-        setSaveMessage({ type: 'success', text: '問診票スキーマを保存しました' })
+        
         setHardDeleteCategoryIds([])
         setHardDeleteItemIds([])
-        // キャッシュをクリアして再フェッチを促す
-        setSchemaCache(prev => ({ ...prev, [schemaType]: undefined }))
       }
     } catch (error) {
       console.error('保存エラー:', error)
@@ -941,25 +1011,54 @@ export default function SchemaEditorPage() {
 
       {/* サブタブ（問診票の場合） */}
       {activeTab === 'questionnaire' && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSchemaType('preschooler')}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'preschooler'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-          >
-            未就学児
-          </button>
-          <button
-            onClick={() => setSchemaType('elementary')}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'elementary'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-          >
-            小学生以上
-          </button>
+        <div className="space-y-3">
+          {/* 年齢区分 */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSchemaType('preschooler')}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'preschooler'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+            >
+              未就学児
+            </button>
+            <button
+              onClick={() => setSchemaType('elementary')}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'elementary'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+            >
+              小学生以上
+            </button>
+          </div>
+          {/* ページ種別（基本情報/問診） */}
+          <div className="flex gap-2 border-b border-slate-200 pb-2">
+            <button
+              onClick={() => setQuestionnaireSubTab('basic_info')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${questionnaireSubTab === 'basic_info'
+                ? 'bg-coral-100 text-coral-700 border-b-2 border-coral-500'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+            >
+              📝 基本情報ページ
+            </button>
+            <button
+              onClick={() => setQuestionnaireSubTab('questionnaire')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${questionnaireSubTab === 'questionnaire'
+                ? 'bg-coral-100 text-coral-700 border-b-2 border-coral-500'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+            >
+              📋 問診ページ
+            </button>
+          </div>
+          <p className="text-xs text-slate-500">
+            {questionnaireSubTab === 'basic_info' 
+              ? '※ 基本情報入力後「次へ」でDB保存 → 問診ページへ遷移'
+              : '※ 問診入力後「次へ：QR表示」でDB保存 → QRコード表示'}
+          </p>
         </div>
       )}
 
@@ -976,7 +1075,7 @@ export default function SchemaEditorPage() {
           <div className="p-4 max-h-[700px] overflow-y-auto space-y-3">
             {activeTab === 'questionnaire' ? (
               <>
-                {questionnaireSchema.sections.map((section) => (
+                {(questionnaireSubTab === 'basic_info' ? basicInfoSchema : questionnaireSchema).sections.map((section) => (
                   <div key={section.id} className="border border-slate-200 rounded-lg overflow-hidden">
                     <div
                       className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer hover:bg-slate-100"
@@ -1434,7 +1533,7 @@ export default function SchemaEditorPage() {
             >
               <div className="p-4 max-h-[650px] overflow-y-auto">
                 {activeTab === 'questionnaire' ? (
-                  questionnaireSchema.sections.map((section) => (
+                  (questionnaireSubTab === 'basic_info' ? basicInfoSchema : questionnaireSchema).sections.map((section) => (
                     <div key={section.id} className="mb-6">
                       <h3 className="text-lg font-bold text-slate-800 mb-2">{section.title}</h3>
                       {section.description && (

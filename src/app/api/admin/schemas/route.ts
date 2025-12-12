@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { isMockMode } from '@/lib/supabase'
 import { preschoolerFormSchema } from '@/data/preschooler-form-schema'
 import { elementaryFormSchema } from '@/data/elementary-form-schema'
+import { basicInfoFormSchema, basicInfoElementaryFormSchema } from '@/data/basic-info-schema'
 import { diagnosisItems, categoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
 
@@ -165,6 +166,25 @@ export async function GET(request: NextRequest) {
 
     // Supabase接続
     const supabase = getAdminSupabase()
+
+    // 基本情報スキーマの場合（静的ファイルから返す）
+    if (schemaId && schemaId.startsWith('basic_info')) {
+      const isElementary = schemaId.includes('elementary')
+      const config = isElementary ? basicInfoElementaryFormSchema : basicInfoFormSchema
+      const schemaData = {
+        id: schemaId,
+        schema_id: schemaId,
+        form_type: 'basic_info',
+        name: isElementary ? '小学生以上用基本情報' : '未就学児用基本情報',
+        description: '親御さんが最初に入力する基本情報',
+        version: '1.0',
+        is_active: true,
+        config,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      return NextResponse.json({ data: [schemaData], error: null })
+    }
 
     // 問診票の正規化テーブルからデータ取得する場合
     if (schemaId && (schemaId.startsWith('preschooler') || schemaId.startsWith('elementary'))) {
