@@ -474,13 +474,14 @@ export default function LiffQuestionnairePage() {
   // ============================================================================
 
   const handleAutoSave = useCallback(async (fieldId: string, value: unknown) => {
-    if (!visitData?.sessionId) return
+    if (!visitData?.id && !visitData?.sessionId) return
 
     try {
       await fetch('/api/parent/questionnaire/autosave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          visitId: visitData.id,
           sessionId: visitData.sessionId,
           itemId: fieldId,
           value: String(value),
@@ -490,7 +491,7 @@ export default function LiffQuestionnairePage() {
       // 自動保存エラーは無視（次回保存で上書き）
       console.warn('[LIFF] Auto save error:', error)
     }
-  }, [visitData?.sessionId])
+  }, [visitData?.id, visitData?.sessionId])
 
   // ============================================================================
   // Render: LIFF状態別
