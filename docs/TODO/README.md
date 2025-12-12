@@ -80,7 +80,7 @@
 | 2.6 | 旧テーブル互換保存 | `sessions`, `questionnaires` にも並行保存（互換用） | ✅ | |
 | 2.7 | スタッフ側引き継ぎAPI | `GET /api/staff/session?visit_id=xxx` → 子供・保護者・問診データ取得 | ✅ | |
 
-#### 02-parent-liff: 親御さんLIFF問診 🆕 **← 優先実装**
+#### 02-parent-liff: 親御さんLIFF問診 ✅ コード実装完了
 
 **詳細**: [02-06-親御さんLIFF実装.md](./02-parent/02-06-親御さんLIFF実装.md)
 **仕様書**: [32-LIFF実装の前提条件と手順.md](../designe/32-LIFF実装の前提条件と手順.md)
@@ -89,13 +89,13 @@
 |---|--------|------|------|------|
 | 2.8 | LINE Loginチャネル作成 | 既存プロバイダー内に作成 | 📋 | 手動設定 |
 | 2.9 | LIFFアプリ作成 | LINE Loginチャネル内で作成 | 📋 | 手動設定 |
-| 2.10 | @line/liff追加 | `pnpm add @line/liff` | 📋 | |
-| 2.11 | LIFF問診ページ作成 | `/parent/questionnaire/liff` | 📋 | |
-| 2.12 | LIFF初期化処理 | `liff.init()` + エラーハンドリング | 📋 | |
-| 2.13 | 既存visit復元API | `GET /api/parent/visit?line_user_id=xxx` | 📋 | |
-| 2.14 | 問診データ自動保存 | 入力ごとにDB保存（離脱対策） | 📋 | |
-| 2.15 | 外部ブラウザフォールバック | LINEアプリへ誘導 | 📋 | |
-| 2.16 | ウェルカムメッセージ更新 | ボタンをLIFF URLに変更 | 📋 | |
+| 2.10 | @line/liff追加 | `pnpm add @line/liff` | ✅ | |
+| 2.11 | LIFF問診ページ作成 | `/parent/questionnaire/liff` | ✅ | |
+| 2.12 | LIFF初期化処理 | `liff.init()` + エラーハンドリング | ✅ | |
+| 2.13 | 既存visit復元API | `GET /api/parent/visit?line_user_id=xxx` | ✅ | |
+| 2.14 | 問診データ自動保存 | 入力ごとにDB保存（離脱対策） | ✅ | |
+| 2.15 | 外部ブラウザフォールバック | LINEアプリへ誘導 | ✅ | |
+| 2.16 | ウェルカムメッセージ更新 | ボタンをLIFF URLに変更 | ✅ | |
 | 2.17 | 環境変数設定 | `NEXT_PUBLIC_PARENT_LIFF_ID` 等 | 📋 | 手動設定 |
 | 2.18 | LIFF E2Eテスト | 起動→問診→離脱復元→QR表示 | 📋 | LINE設定後 |
 
@@ -230,22 +230,28 @@ src/
     └── staff-auth.ts                   ✅ JWT認証ユーティリティ
 ```
 
-### 親御さんLIFF関連（実装予定）
+### 親御さんLIFF関連 ✅ コード実装完了
 
 ```
 src/
 ├── app/
 │   ├── api/
 │   │   ├── line/
-│   │   │   └── webhook/route.ts        ✅ 友だち追加Webhook（既存）
-│   │   └── parent/
-│   │       └── visit/route.ts          📋 既存visit復元API（新規）
+│   │   │   └── webhook/route.ts        ✅ 友だち追加Webhook（LIFF URL対応）
+│   │   ├── parent/
+│   │   │   ├── visit/route.ts          ✅ 既存visit復元API
+│   │   │   ├── basic-info/route.ts     ✅ 基本情報保存API
+│   │   │   └── questionnaire/
+│   │   │       ├── route.ts            ✅ 問診回答保存API
+│   │   │       └── autosave/route.ts   ✅ 自動保存API
+│   │   └── diagnosis/
+│   │       └── complete/route.ts       ✅ 診断完了統合API（レポート作成+LINE送信）
 │   └── (exhibition)/
 │       └── parent/
 │           └── questionnaire/
-│               └── liff/page.tsx       📋 LIFF問診ページ（新規）
+│               └── liff/page.tsx       ✅ LIFF問診ページ
 └── lib/
-    └── liff-utils.ts                   📋 LIFF初期化ユーティリティ（新規）
+    └── liff-utils.ts                   ✅ LIFF初期化ユーティリティ
 ```
 
 ---
