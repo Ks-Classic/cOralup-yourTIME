@@ -201,7 +201,7 @@ async function sendHelpMessage(userId: string) {
 
   const helpMessage = {
     type: 'text',
-    text: 'Coralup口腔育成診断システムです。\n\n' +
+    text: 'cOralup口腔育成診断システムです。\n\n' +
           '以下のキーワードで操作できます：\n' +
           '• 診断結果: 最新の診断結果を確認\n' +
           '• ヘルプ: このメッセージを表示\n\n' +
@@ -217,7 +217,7 @@ async function sendDefaultMessage(userId: string) {
 
   const defaultMessage = {
     type: 'text',
-    text: 'Coralup口腔育成診断システムをご利用いただきありがとうございます。\n\n' +
+    text: 'cOralup口腔育成診断システムをご利用いただきありがとうございます。\n\n' +
           '「ヘルプ」と入力すると、操作方法をご案内します。'
   }
 
