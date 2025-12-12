@@ -295,6 +295,48 @@ export default function QuestionnairePageDemo() {
             saveCurrentStep(2)
             saveFormType(formTypeValue)
 
+            // 名前を分割
+            const nameParts = data.childName.split(/\s+/)
+            const childLastName = nameParts[0] || ''
+            const childFirstName = nameParts.slice(1).join(' ') || ''
+            const parentNameParts = data.parentName.split(/\s+/)
+            const parentLastName = parentNameParts[0] || ''
+            const parentFirstName = parentNameParts.slice(1).join(' ') || ''
+            const furiganaParts = data.furigana?.split(/\s+/) || []
+            const childLastNameKana = furiganaParts[0] || ''
+            const childFirstNameKana = furiganaParts.slice(1).join(' ') || ''
+
+            // DBに保存（API経由）
+            const res = await fetch('/api/parent/basic-info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    // 保護者情報
+                    parent_last_name: parentLastName,
+                    parent_first_name: parentFirstName,
+                    parent_phone: data.parentPhone,
+                    prefecture: data.prefecture,
+                    // お子様情報
+                    child_last_name: childLastName,
+                    child_first_name: childFirstName,
+                    child_last_name_kana: childLastNameKana,
+                    child_first_name_kana: childFirstNameKana,
+                    child_nickname: data.nickname,
+                    child_birthday: birthDate.toISOString().split('T')[0],
+                    child_gender: data.childGender,
+                    child_age: age,
+                }),
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json()
+                console.error('基本情報の保存に失敗:', errorData)
+                // デモモードではDB保存失敗してもUIは進める
+            } else {
+                console.log('基本情報をDBに保存しました')
+            }
+
             setSessionSummaryData({
                 session_id: sessionId,
                 parent_name: data.parentName,
@@ -325,11 +367,46 @@ export default function QuestionnairePageDemo() {
             // localStorageに保存
             saveQuestionnaireData(values)
 
+            // 回答データを item_id: value の配列形式に変換
+            const responses = Object.entries(values).map(([itemId, value]) => ({
+                item_id: itemId,
+                value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+            }))
+
+            // 基本情報を取得
+            const basicInfo = basicInfoForm.getValues()
+
+            // DBに保存（API経由）
+            const res = await fetch('/api/parent/questionnaire', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    responses,
+                    child_info: {
+                        child_name: basicInfo.childName,
+                        child_age: calculatedAge,
+                        child_gender: basicInfo.childGender,
+                        parent_name: basicInfo.parentName,
+                        parent_phone: basicInfo.parentPhone,
+                    },
+                }),
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json()
+                console.error('問診票の保存に失敗:', errorData)
+                // デモモードではDB保存失敗してもUIは進める
+            } else {
+                console.log('問診票をDBに保存しました')
+            }
+
             console.log('問診票送信データ:', {
                 sessionId: sessionId,
                 formType,
                 basicInfo: basicInfoForm.getValues(),
                 questionnaire: values,
+                responsesCount: responses.length,
             })
 
             // 結果画面（QR表示）へ遷移
