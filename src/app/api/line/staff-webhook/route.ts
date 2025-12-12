@@ -247,7 +247,7 @@ async function handleMessageEvent(event: any) {
     // 登録完了メッセージ
     await sendLineMessage(
       lineUserId,
-      `名前を登録しました！\n\n姓: ${lastName}\n名: ${firstName}\n\n診断アプリはこちらからアクセスできます:\nhttps://your-app.vercel.app/staff/login`
+      `名前を登録しました！\n\n姓: ${lastName}\n名: ${firstName}\n\n診断アプリはリッチメニューの「アプリを開く」からアクセスできます。`
     )
   } catch (error) {
     console.error('[Staff Webhook] handleMessageEvent error:', error)

@@ -4,6 +4,9 @@ import { createClient } from '@supabase/supabase-js'
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET!
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://coralup.vercel.app'
+const CORALUP_ORG_ID = process.env.CORALUP_ORG_ID
+const DEFAULT_EVENT_ID = process.env.DEFAULT_EVENT_ID // YourTIMEイベントID
 
 // Supabase クライアント
 const supabase = createClient(

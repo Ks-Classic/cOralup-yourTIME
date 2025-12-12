@@ -1,6 +1,6 @@
 # LINE公式アカウント構成の理解 (cOralup Platform)
 
-**最終更新: 2024-12-09**
+**最終更新: 2024-12-12**
 
 ---
 
@@ -43,9 +43,9 @@ LINE Developers Consoleの視点:
 
 ---
 
-## 親御さん向けの構成
+## cOralupの構成
 
-### 推奨構成: 1アカウント + 2チャネル
+### 親御さん向け: 1アカウント + 2チャネル
 
 ```
 LINE公式アカウント「cOralup」（1つ）
@@ -62,14 +62,43 @@ LINE公式アカウント「cOralup」（1つ）
 **環境変数:**
 ```env
 # Messaging APIチャネル用
-LINE_CHANNEL_ID=xxxxx                    # Messaging APIチャネルID
-LINE_CHANNEL_SECRET=xxxxx                # Messaging APIチャネルシークレット
+LINE_CHANNEL_ID=xxxxx
+LINE_CHANNEL_SECRET=xxxxx
 LINE_MESSAGING_CHANNEL_ACCESS_TOKEN=xxxxx
 
 # LINE Loginチャネル用
-LINE_LOGIN_CHANNEL_ID=xxxxx              # LINE LoginチャネルID
-LINE_LOGIN_CHANNEL_SECRET=xxxxx          # LINE Loginチャネルシークレット
-NEXT_PUBLIC_PARENT_LIFF_ID=xxxxx-xxxxx   # LIFF ID
+LINE_LOGIN_CHANNEL_ID=xxxxx
+LINE_LOGIN_CHANNEL_SECRET=xxxxx
+NEXT_PUBLIC_PARENT_LIFF_ID=xxxxx-xxxxx
+```
+
+### スタッフ向け: 1アカウント + 2チャネル ✅ 実装完了
+
+```
+LINE公式アカウント「cOralupスタッフ」（1つ）
+├── Messaging APIチャネル ✅
+│   ├── 友だち追加 → profiles作成
+│   ├── Webhook（/api/line/staff-webhook）
+│   └── メッセージ受信 → 名前登録
+│
+└── LINE Loginチャネル ✅
+    ├── LIFFアプリ（/staff/liff-login）
+    └── OAuth認証 → Cookie発行
+```
+
+**環境変数:**
+```env
+# Messaging APIチャネル用
+LINE_STAFF_CHANNEL_ID=xxxxx
+LINE_STAFF_CHANNEL_SECRET=xxxxx
+LINE_STAFF_CHANNEL_ACCESS_TOKEN=xxxxx
+
+# LINE Loginチャネル用
+NEXT_PUBLIC_STAFF_LIFF_ID=xxxxx-xxxxx
+
+# セッション管理
+STAFF_SESSION_SECRET=xxxxx
+CORALUP_ORG_ID=xxxxx
 ```
 
 ---
@@ -111,6 +140,31 @@ NEXT_PUBLIC_PARENT_LIFF_ID=xxxxx-xxxxx   # LIFF ID
 
 ---
 
+## 実装状況サマリー
+
+### スタッフ向け ✅
+
+| 項目 | 状態 | ファイル |
+|------|------|---------|
+| Webhook API | ✅ | `src/app/api/line/staff-webhook/route.ts` |
+| セッション発行API | ✅ | `src/app/api/auth/staff-session/route.ts` |
+| 認証ユーティリティ | ✅ | `src/lib/staff-auth.ts` |
+| LIFFログイン画面 | ✅ | `src/app/staff/liff-login/page.tsx` |
+| ログイン案内画面 | ✅ | `src/app/staff/login/page.tsx` |
+| ホーム画面 | ✅ | `src/app/staff/home/page.tsx` |
+| 対応履歴一覧 | ✅ | `src/app/staff/history/page.tsx` |
+| 対応詳細 | ✅ | `src/app/staff/history/[sessionId]/page.tsx` |
+| ログアウト | ✅ | `src/app/staff/logout/page.tsx` |
+
+### 親御さん向け 📋
+
+| 項目 | 状態 |
+|------|------|
+| Webhook API | ✅ 既存 |
+| LIFF問診画面 | 📋 今後実装 |
+
+---
+
 ## まとめ
 
 **質問への回答: 「Messaging API + LINE Login とするなら1つのアカウントでいいってこと？」**
@@ -120,17 +174,8 @@ NEXT_PUBLIC_PARENT_LIFF_ID=xxxxx-xxxxx   # LIFF ID
 - **LINE公式アカウント**: 1つ（ユーザーが友だち追加するアカウント）
 - **チャネル**: 2つ（Messaging API + LINE Login）
 
-**既存アカウントがある場合:**
-- 既存のLINE公式アカウントにLINE Loginチャネルを追加するだけ
-- Messaging APIチャネルは既存のまま使用可能
+**cOralupの構成:**
+- **親御さん用**: 1アカウント + 2チャネル
+- **スタッフ用**: 1アカウント + 2チャネル ✅ 実装完了
 
-**一から作り直す場合:**
-- 1つのLINE公式アカウントを作成
-- そのアカウントにMessaging APIチャネルとLINE Loginチャネルの2つを紐づける
-
-**どちらでもOK。既存アカウントがあるなら、LINE Loginチャネルを追加する方が簡単です。**
-
-
-
-
-
+**スタッフ向けは既にコード実装完了。LINE Developers Console設定のみ残り。**

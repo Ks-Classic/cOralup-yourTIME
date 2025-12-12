@@ -1,6 +1,6 @@
 # LINE全体構成図 (cOralup Platform)
 
-**最終更新: 2024-12-09**
+**最終更新: 2024-12-12**
 
 ---
 
@@ -16,11 +16,11 @@
 │  │  「cOralup」              │    │  「cOralupスタッフ」      │     │
 │  │                          │    │                          │     │
 │  │  [Messaging API]         │    │  [Messaging API]         │     │
-│  │  - 友だち追加Webhook     │    │  - 友だち追加Webhook     │     │
-│  │  - レポート送信           │    │  - 通知送信               │     │
+│  │  - 友だち追加Webhook     │    │  - 友だち追加Webhook ✅   │     │
+│  │  - レポート送信           │    │  - 名前登録（メッセージ）✅│     │
 │  │                          │    │                          │     │
 │  │  [LINE Login]           │    │  [LINE Login]            │     │
-│  │  - LIFFアプリ（問診用）  │    │  - LIFFアプリ（認証用）   │     │
+│  │  - LIFFアプリ（問診用）  │    │  - LIFFアプリ（認証用）✅  │     │
 │  └──────────────────────────┘    └──────────────────────────┘     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -38,12 +38,15 @@
 │  /api/line/send-report      - レポート送信                         │
 │  /parent/questionnaire      - 問診画面（LIFF）                     │
 │                                                                     │
-│  【スタッフ向け】                                                    │
-│  /api/line/staff-webhook     - 友だち追加処理（事前登録用）         │
-│  /staff/login                - ログイン画面（PIN認証）              │
-│  /staff/scan                 - QRスキャン（ブラウザ・Cookie認証）    │
-│  /staff/diagnosis/[id]       - 診断画面                             │
-│  /staff/history              - 対応履歴（開発余裕があれば）          │
+│  【スタッフ向け】 ✅ 実装完了                                        │
+│  /api/line/staff-webhook    - 友だち追加処理 + 名前登録             │
+│  /api/auth/staff-session    - LIFF→セッション発行（Cookie）        │
+│  /staff/liff-login          - LIFF専用ログイン画面                  │
+│  /staff/login               - ログイン案内画面（Cookie切れ時）      │
+│  /staff/home                - ホーム画面（QRスキャン + 履歴）       │
+│  /staff/history             - 対応履歴一覧                          │
+│  /staff/history/[sessionId] - 対応詳細                              │
+│  /staff/logout              - ログアウト                            │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                               │
@@ -53,9 +56,11 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  profiles (role: 'parent' | 'staff')                                │
-│  ├── line_user_id                                                  │
-│  ├── display_name                                                  │
-│  └── role                                                          │
+│  ├── line_user_id      ← LINE識別キー                              │
+│  ├── display_name      ← LINE表示名                                │
+│  ├── first_name/last_name ← 名前（メッセージで登録）               │
+│  ├── role              ← 'staff' | 'parent'                        │
+│  └── is_active         ← 有効フラグ（ブロック時false）             │
 │                                                                     │
 │  visits                                                             │
 │  ├── staff_profile_id  ← スタッフ紐付け                            │
@@ -80,18 +85,35 @@
 | **LIFF** | 問診画面（`/parent/questionnaire`） |
 | **環境変数** | `LINE_CHANNEL_ID`, `LINE_CHANNEL_SECRET`, `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` |
 
-### 2. スタッフ用「cOralupスタッフ」（新規作成必要）
+### 2. スタッフ用「cOralupスタッフ」✅ 実装完了
 
 | 項目 | 内容 |
 |------|------|
 | **チャネル名** | cOralupスタッフ |
-| **チャネルタイプ** | Messaging API（1チャネルのみ） |
-| **用途** | スタッフ事前登録・通知 |
-| **機能** | 友だち追加で自動登録、リッチメニュー（診断アプリリンク） |
-| **Webhook** | `/api/line/staff-webhook` |
-| **LIFF** | 不要（ブラウザで直接アクセス） |
-| **環境変数** | `LINE_STAFF_CHANNEL_ID`, `LINE_STAFF_CHANNEL_SECRET`, `LINE_STAFF_CHANNEL_ACCESS_TOKEN` |
-| **備考** | 当日はブラウザで直接 `/staff/scan` にアクセス、Cookie認証で識別 |
+| **チャネルタイプ** | Messaging API + LINE Login |
+| **用途** | スタッフ事前登録・認証・通知 |
+| **機能** | 友だち追加で自動登録、名前登録（メッセージ）、LIFF認証 |
+| **Webhook** | `/api/line/staff-webhook` ✅ |
+| **LIFF** | `/staff/liff-login` ✅ |
+| **環境変数** | `LINE_STAFF_CHANNEL_ID`, `LINE_STAFF_CHANNEL_SECRET`, `LINE_STAFF_CHANNEL_ACCESS_TOKEN`, `NEXT_PUBLIC_STAFF_LIFF_ID` |
+
+---
+
+## 実装済み機能一覧
+
+### スタッフ認証フロー ✅
+
+| 機能 | ファイル | 状態 |
+|------|---------|------|
+| Webhook API | `src/app/api/line/staff-webhook/route.ts` | ✅ |
+| セッション発行API | `src/app/api/auth/staff-session/route.ts` | ✅ |
+| 認証ユーティリティ | `src/lib/staff-auth.ts` | ✅ |
+| LIFFログイン画面 | `src/app/staff/liff-login/page.tsx` | ✅ |
+| ログイン案内画面 | `src/app/staff/login/page.tsx` | ✅ |
+| ホーム画面 | `src/app/staff/home/page.tsx` | ✅ |
+| 対応履歴一覧 | `src/app/staff/history/page.tsx` | ✅ |
+| 対応詳細 | `src/app/staff/history/[sessionId]/page.tsx` | ✅ |
+| ログアウト | `src/app/staff/logout/page.tsx` | ✅ |
 
 ---
 
@@ -109,73 +131,72 @@
 4. 診断完了後 → LINEでレポート受信
 ```
 
-### スタッフフロー（シンプル構成）
+### スタッフフロー ✅ 実装完了
 
 #### 事前登録（イベント前）
 ```
 1. スタッフがLINE公式「cOralupスタッフ」を友だち追加
    ↓
-2. Webhook → profiles作成 (role: 'staff')
+2. Webhook → profiles作成 (role: 'staff', display_name: LINE名)
    ↓
-3. スタッフがブラウザで /staff/login にアクセス
+3. LINEで「名前を入力してください」メッセージ受信
    ↓
-4. PIN認証 → Cookie発行
+4. スタッフが「山田 太郎」と送信
+   ↓
+5. Webhook → profiles更新 (first_name, last_name)
+   ↓
+6. 登録完了メッセージ受信
 ```
 
-#### 当日（イベント時）
+#### 当日ログイン（イベント時）
 ```
-1. スタッフがブラウザで /staff/scan にアクセス
+1. スタッフがLINEのリッチメニューから「アプリを開く」タップ
+   ↓
+2. LIFF起動 → /staff/liff-login
+   ↓
+3. LIFF SDK初期化 → LINE自動認証
+   ↓
+4. /api/auth/staff-session → Cookie発行
+   ↓
+5. /staff/home へリダイレクト
+```
+
+#### 2回目以降（Cookie有効時）
+```
+1. ブラウザで /staff/home に直接アクセス
    ↓
 2. Cookie認証でスタッフ識別
+   ↓
+3. ホーム画面表示（QRスキャン + 履歴）
+```
+
+#### QRスキャン〜診断
+```
+1. /staff/home の「QRスキャン」タップ
+   ↓
+2. /staff/session/new → QRスキャン画面
    ↓
 3. QRスキャン → visitId取得
    ↓
 4. スタッフ自動紐付け（Cookie → staff_profile_id）
    ↓
-5. 診断開始 → 診断入力 → 保存
-```
-
-#### 開発余裕があれば（オプション）
-```
-- リッチメニュー「診断アプリを開く」→ /staff/scan へ遷移
-- リッチメニュー「対応履歴」→ /staff/history 表示
-- リッチメニュー「QA・困ったとき」→ ヘルプページ表示
+5. /staff/diagnosis/[visitId] → 診断入力
 ```
 
 ---
 
-## 必要な作業
+## 必要な環境変数
 
-### ✅ 既に完了
-
-- [x] 親御さん用LINE公式アカウント（既存）
-- [x] スタッフ認証実装（Cookie認証）
-- [x] QRスキャン画面実装
-- [x] スタッフ紐付けAPI実装（Cookie認証対応）
-
-### 📋 残作業（手動設定）
-
-#### 1. スタッフ用LINE公式アカウント作成
-
-**LINE Developers Consoleで以下を作成:**
-
-1. **Messaging APIチャネル（1チャネルのみ）**
-   - チャネル名: `cOralupスタッフ`
-   - Webhook URL: `https://your-app.vercel.app/api/line/staff-webhook`
-   - リッチメニュー（開発余裕があれば）:
-     - 「診断アプリを開く」→ `https://your-app.vercel.app/staff/scan`
-     - 「対応履歴」→ `https://your-app.vercel.app/staff/history`
-     - 「QA・困ったとき」→ ヘルプページURL
-
-**⚠️ LINE Loginチャネルは不要**（ブラウザで直接アクセスするため）
-
-#### 2. 環境変数設定
+### スタッフ用（新規追加が必要）
 
 ```env
-# スタッフ用Messaging API（友だち追加・通知用）
+# スタッフ用Messaging API
 LINE_STAFF_CHANNEL_ID=xxxxx
 LINE_STAFF_CHANNEL_SECRET=xxxxx
 LINE_STAFF_CHANNEL_ACCESS_TOKEN=xxxxx
+
+# スタッフ用LIFF
+NEXT_PUBLIC_STAFF_LIFF_ID=xxxxx-xxxxx
 
 # セッション暗号化キー（Cookie認証用）
 STAFF_SESSION_SECRET=your-random-secret-key
@@ -184,62 +205,49 @@ STAFF_SESSION_SECRET=your-random-secret-key
 CORALUP_ORG_ID=xxxxx
 ```
 
-**⚠️ LINE Loginチャネル関連の環境変数は不要**
+---
+
+## 残作業（LINE Developers Console設定）
+
+### 📋 手動設定が必要
+
+1. **スタッフ用LINE公式アカウント作成**
+   - Messaging APIチャネル作成
+   - LINE Loginチャネル作成（LIFF用）
+
+2. **Webhook URL設定**
+   - `https://your-domain.vercel.app/api/line/staff-webhook`
+
+3. **LIFF作成**
+   - エンドポイントURL: `https://your-domain.vercel.app/staff/liff-login`
+   - サイズ: Full
+
+4. **リッチメニュー作成（オプション）**
+   - 「診断アプリを開く」→ LIFF URL
+   - 「対応履歴」→ `/staff/history`
+
+5. **環境変数設定**
+   - Vercel + `.env.local` に上記変数を設定
 
 ---
 
-## 最適性評価
+## 実装完了度
 
-### 現在の実装（Messaging API 1チャネル + Cookie認証）
-
-| 評価項目 | 評価 | 備考 |
-|---------|------|------|
-| **実装完了度** | ✅ 100% | コード実装完了、設定のみ残り |
-| **審査不要** | ✅ 即座に利用可能 | YourTIMEイベント（12/21）に間に合う |
-| **スタッフ識別精度** | ✅ 100%確実 | Cookie認証で識別 |
-| **なりすまし防止** | ✅ 可能 | PIN認証 + Cookie管理 |
-| **運用コスト** | ✅ 低い | スタッフ追加は自動（友だち追加） |
-| **チャネル管理** | ✅ 1チャネル | Messaging APIのみ |
-| **実装シンプル度** | ✅ 高い | LIFF不要、ブラウザで完結 |
-
-### 他の選択肢との比較
-
-| 選択肢 | チャネル数 | 審査 | 識別精度 | 実装コスト | 評価 |
-|--------|-----------|------|---------|-----------|------|
-| **現在の実装** | 1つ | 不要 | 高（PIN+Cookie） | 低（完了） | ✅ **最適** |
-| Messaging + LINE Login | 2つ | 不要 | 100% | 中 | ⚠️ 過剰 |
-| LINEミニアプリ | 1つ | 必要（1-2週間） | 100% | 低 | ❌ 時間不足 |
-| PIN認証のみ | 0 | 不要 | 低（選び間違いリスク） | 低 | ❌ 精度不足 |
-
-### 結論
-
-**✅ 現在の実装が最適です。**
-
-**理由:**
-1. **YourTIMEイベント（12/21）まで残り約12日** → 審査不要で即座に利用可能
-2. **シンプルな構成** → Messaging API 1チャネルのみ、LIFF不要
-3. **実装完了** → コード実装済み、LINE Developers Consoleでの設定のみ残り
-4. **ブラウザ完結** → 当日はブラウザで直接アクセス、Cookie認証で識別
-5. **事前登録で確実** → 友だち追加で自動登録、当日はPIN認証でログイン
-
-**将来の改善（開発余裕があれば）:**
-- リッチメニューから診断アプリ、履歴、QAページへのリンク追加
+| 項目 | 状態 | 備考 |
+|------|------|------|
+| **コード実装** | ✅ 100% | 全API・画面実装済み |
+| **LINE設定** | 📋 未完了 | LINE Developers Console設定必要 |
+| **環境変数** | 📋 未完了 | 設定後に動作確認必要 |
+| **E2Eテスト** | 📋 未完了 | LINE設定後に実施 |
 
 ---
 
 ## まとめ
 
-**質問への回答: 「これがベスト？」**
+**スタッフLINE認証機能のコード実装は100%完了しています。**
 
-**はい、YourTIMEイベントまでの時間制約を考慮すると、現在の実装が最適です。**
-
-1. **スタッフ用LINE公式アカウント（Messaging APIチャネル）** を作成（1チャネルのみ）
-2. **事前にスタッフが友だち追加** → Webhookで自動登録
-3. **当日はブラウザで直接アクセス** → `/staff/login` でPIN認証 → Cookie発行
-4. **QRスキャン画面** → Cookie認証でスタッフ識別 → 自動紐付け
-
-**LIFFは不要**（ブラウザ想定のため）なので、シンプルで確実な構成です。
-
-**開発余裕があれば:**
-- リッチメニューから診断アプリ、履歴、QAページへのリンク追加
-
+残りは以下の手動設定のみ：
+1. LINE Developers Consoleでチャネル・LIFF作成
+2. Webhook URL設定
+3. 環境変数設定
+4. E2Eテスト実施
