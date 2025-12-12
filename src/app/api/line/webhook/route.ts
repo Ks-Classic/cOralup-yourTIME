@@ -125,7 +125,7 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
   const welcomeMessage = {
     type: 'text',
     text: `${displayName ? `${displayName}さん、` : ''}友だち登録ありがとうございます！\n\n` +
-          'Coralup口腔育成診断システムです。\n\n' +
+          'cOralup口腔育成診断システムです。\n\n' +
           '下のボタンから診断を開始してください👇',
   }
 

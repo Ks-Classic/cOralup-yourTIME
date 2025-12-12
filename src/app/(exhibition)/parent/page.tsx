@@ -91,10 +91,10 @@ export default function ParentPage() {
                   <span className="text-white font-bold">C</span>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900 mb-1">Coralup Bot</p>
+                  <p className="font-medium text-gray-900 mb-1">cOralup Bot</p>
                   <div className="bg-gray-100 rounded-lg p-3 mb-2">
                     <p className="text-sm text-gray-800 mb-2">
-                      こんにちは！Coralupです。
+                      こんにちは！cOralupです。
                     </p>
                     <p className="text-sm text-gray-800 mb-3">
                       お子様の口腔育成診断を始めましょう。

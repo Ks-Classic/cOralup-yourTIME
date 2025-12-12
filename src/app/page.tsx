@@ -11,10 +11,10 @@ export default function LandingPage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-16 sm:px-6 lg:px-8">
         <header className="text-center space-y-4">
           <span className="inline-flex items-center rounded-full bg-coral-100 px-3 py-1 text-sm font-medium text-coral-700">
-            Coralup Oral Development Platform
+            cOralup Oral Development Platform
           </span>
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-            Coralup 口腔育成診断システム
+            cOralup 口腔育成診断システム
           </h1>
           <p className="text-lg text-gray-600">
             問診票のデジタル化からAI分析・レポート通知まで、イベント運営をワンストップで支援します。

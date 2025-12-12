@@ -52,7 +52,7 @@ export default function StaffLayout({
           <div className="px-3 py-2.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-medium text-coral-500">Coralup Staff Console</p>
+                <p className="text-[10px] font-medium text-coral-500">cOralup Staff Console</p>
                 <h1 className="text-sm font-semibold text-gray-900">診断オペレーションセンター</h1>
               </div>
               <div className="flex items-center gap-2">
@@ -89,7 +89,7 @@ export default function StaffLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-coral-500">Coralup Staff Console</p>
+              <p className="text-xs font-medium text-coral-500">cOralup Staff Console</p>
               <h1 className="text-xl font-semibold text-gray-900">診断オペレーションセンター</h1>
             </div>
             <div className="flex items-center space-x-3">
