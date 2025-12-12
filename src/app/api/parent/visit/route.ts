@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
 
       visit = visits?.[0] || null
 
-      // 4. 問診回答を取得
-      if (visit?.session_id) {
+      // 4. 問診回答を取得（visit_id優先、session_idフォールバック）
+      if (visit?.id) {
         const { data: responses } = await supabase
           .from('questionnaire_responses')
           .select(`
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
               options
             )
           `)
-          .eq('session_id', visit.session_id)
+          .or(`visit_id.eq.${visit.id},session_id.eq.${visit.session_id}`)
           .order('answered_at', { ascending: true })
 
         questionnaireResponses = responses || []
@@ -175,23 +175,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. セッションID生成
+    // 2. セッションID生成（後方互換用）
     const sessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-    // 3. sessionsテーブルに作成（互換用）
-    const { error: sessionError } = await supabase
-      .from('sessions')
-      .insert({
-        session_id: sessionId,
-        line_user_id: lineUserId,
-        status: 'active',
-      })
-
-    if (sessionError) {
-      console.error('[Parent Visit] Session creation error:', sessionError)
-    }
-
-    // 4. visitsテーブルに作成
+    // 3. visitsテーブルに作成（sessionsテーブルは廃止、visit_idを主キーとして使用）
     const { data: visit, error: visitError } = await supabase
       .from('visits')
       .insert({

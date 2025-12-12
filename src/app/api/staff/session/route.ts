@@ -135,9 +135,9 @@ export async function GET(request: NextRequest) {
         parentProfile = profile
       }
 
-      // 問診回答を取得（session_id経由）
+      // 問診回答を取得（visit_id優先、session_idフォールバック）
       let questionnaireResponses: unknown[] = []
-      if (visit.session_id) {
+      if (visit.id) {
         const { data: responses } = await supabase
           .from('questionnaire_responses')
           .select(`
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
               )
             )
           `)
-          .eq('session_id', visit.session_id)
+          .or(`visit_id.eq.${visit.id}${visit.session_id ? `,session_id.eq.${visit.session_id}` : ''}`)
           .order('answered_at', { ascending: true })
 
         questionnaireResponses = responses || []

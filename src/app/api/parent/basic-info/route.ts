@@ -185,19 +185,10 @@ export async function POST(request: NextRequest) {
 
     // visitがなければ新規作成
     if (!visitId) {
-      // セッションID生成
+      // セッションID生成（後方互換用）
       finalSessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-      // sessionsテーブルに作成
-      await supabase
-        .from('sessions')
-        .insert({
-          session_id: finalSessionId,
-          line_user_id: lineUserId,
-          status: 'active',
-        })
-
-      // visitsテーブルに作成
+      // visitsテーブルに作成（sessionsテーブルは廃止、visit_idを主キーとして使用）
       const { data: newVisit, error: visitError } = await supabase
         .from('visits')
         .insert({

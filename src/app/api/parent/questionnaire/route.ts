@@ -7,29 +7,42 @@ const supabase = createClient(
 )
 
 interface QuestionnaireRequest {
-  sessionId: string
-  visitId?: string
+  sessionId?: string  // 後方互換用
+  visitId?: string    // 推奨
   answers: Record<string, unknown>
 }
 
 /**
  * POST: 問診回答を一括保存
+ * ※ visit_id を優先使用、session_id は後方互換
  */
 export async function POST(request: NextRequest) {
   try {
     const body: QuestionnaireRequest = await request.json()
     const { sessionId, visitId, answers } = body
 
-    if (!sessionId) {
+    if (!visitId && !sessionId) {
       return NextResponse.json(
-        { success: false, error: 'sessionId is required' },
+        { success: false, error: 'visitId or sessionId is required' },
         { status: 400 }
       )
     }
 
-    // 回答をquestionnaire_responsesに保存
+    // visit_idを取得（session_idからフォールバック）
+    let resolvedVisitId = visitId
+    if (!resolvedVisitId && sessionId) {
+      const { data: visit } = await supabase
+        .from('visits')
+        .select('id')
+        .eq('session_id', sessionId)
+        .single()
+      resolvedVisitId = visit?.id
+    }
+
+    // 回答をquestionnaire_responsesに保存（visit_id優先）
     const responsesToInsert = Object.entries(answers).map(([itemId, value]) => ({
-      session_id: sessionId,
+      visit_id: resolvedVisitId || null,
+      session_id: sessionId || null,  // 後方互換
       item_id: itemId,
       value: typeof value === 'object' ? JSON.stringify(value) : String(value),
       answered_at: new Date().toISOString(),
@@ -37,10 +50,17 @@ export async function POST(request: NextRequest) {
 
     if (responsesToInsert.length > 0) {
       // 既存の回答を削除してから挿入（upsert代わり）
-      await supabase
-        .from('questionnaire_responses')
-        .delete()
-        .eq('session_id', sessionId)
+      if (resolvedVisitId) {
+        await supabase
+          .from('questionnaire_responses')
+          .delete()
+          .eq('visit_id', resolvedVisitId)
+      } else if (sessionId) {
+        await supabase
+          .from('questionnaire_responses')
+          .delete()
+          .eq('session_id', sessionId)
+      }
 
       const { error: insertError } = await supabase
         .from('questionnaire_responses')
@@ -56,42 +76,26 @@ export async function POST(request: NextRequest) {
     }
 
     // visitsステータスを更新
-    if (visitId) {
+    if (resolvedVisitId) {
       await supabase
         .from('visits')
         .update({
           status: 'questionnaire_completed',
           updated_at: new Date().toISOString(),
         })
-        .eq('id', visitId)
-    } else if (sessionId) {
-      await supabase
-        .from('visits')
-        .update({
-          status: 'questionnaire_completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('session_id', sessionId)
+        .eq('id', resolvedVisitId)
     }
 
-    // sessionsステータスも更新
-    await supabase
-      .from('sessions')
-      .update({
-        status: 'completed',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('session_id', sessionId)
-
     console.log('[Questionnaire] Saved:', {
+      visitId: resolvedVisitId,
       sessionId,
-      visitId,
       answerCount: responsesToInsert.length,
     })
 
     return NextResponse.json({
       success: true,
       savedCount: responsesToInsert.length,
+      visitId: resolvedVisitId,
     })
   } catch (error) {
     console.error('[Questionnaire] Error:', error)

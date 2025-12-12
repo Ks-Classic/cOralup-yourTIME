@@ -1,6 +1,6 @@
 # Coralup TODO プロジェクト管理
 
-**最終更新: 2024-12-12**
+**最終更新: 2024-12-13**
 
 ---
 
@@ -66,6 +66,10 @@
 | 1.10 | cOralup組織確認 | `organizations` に cOralup が登録されていることを確認 | ✅ | |
 | 1.11 | RLS有効化 | 全テーブルにRLS ON + service_roleポリシー | ✅ | |
 | 1.12 | API Service Role移行 | クライアント直Supabase廃止→サーバーAPI経由 | ✅ | |
+| 1.13 | reports拡張マイグレーション | `uuid`, `visit_id`, AI分析カラム追加 | ✅ | |
+| 1.14 | line_message_logs作成 | LINE送信ログテーブル作成 | ✅ | |
+| 1.15 | visits冗長カラム削除 | `line_user_id`, `parent_name`, `parent_phone` 削除 | ✅ | |
+| 1.16 | visit_id統一 | 全テーブルに `visit_id` カラム追加、外部キー設定 | ✅ | |
 
 #### 02-parent: 問診画面DB連携 ✅
 
@@ -261,7 +265,8 @@ src/
 | ファイル | 内容 |
 |---------|------|
 | [00-企画書_ビジョン.md](../designe/00-企画書_ビジョン.md) | プロジェクトビジョン |
-| [06-DB設計書.md](../designe/06-DB設計書.md) | データベース設計 |
+| [06-DB設計書.md](../designe/06-DB設計書.md) | データベース設計 ✅ 12/13更新（visit_id統一） |
+| [04-データフロー設計.md](../designe/04-データフロー設計.md) | データフロー設計 ✅ 12/13更新（visit_id統一） |
 | [28-スタッフLINE認証仕様書.md](../designe/28-スタッフLINE認証仕様書.md) | スタッフ認証設計 |
 | [30-LINE全体構成図.md](../designe/30-LINE全体構成図.md) | LINE構成図 ✅ 更新済み |
 | [31-親御さんLIFF採用のメリット.md](../designe/31-親御さんLIFF採用のメリット.md) | LIFF採用理由 ✅ 更新済み |
@@ -286,7 +291,7 @@ src/
 
 ```
 12/12    : ドキュメント更新 ✅ + 親御さんLIFF実装開始
-12/13    : 親御さんLIFF実装完了 + LINE Developers Console設定（両方）
+12/13    : DB設計統一（visit_id統一）✅ + API更新 ✅ + ドキュメント更新 ✅
 12/14    : 環境変数設定 + スタッフ認証E2Eテスト
 12/15    : 親御さんLIFF E2Eテスト
 12/16-17 : 本番テスト（問診〜診断〜レポート）
@@ -294,3 +299,20 @@ src/
 12/20    : テストデータクリア + 最終リハーサル
 12/21    : YourTIME イベント本番
 ```
+
+## 🔄 12/13 DB設計変更サマリー
+
+### 変更内容
+1. **visits.id (UUID) を全トランザクションの主キーとして統一**
+2. **visits から冗長カラム削除**: `line_user_id`, `parent_name`, `parent_phone`
+3. **各テーブルに visit_id カラム追加**: `questionnaire_responses`, `diagnosis_responses`, `reports`, `form_responses`, `line_message_logs`
+4. **データ参照パス**: `visits.child_id` → `children.parent_profile_id` → `profiles.line_user_id`
+
+### 影響範囲
+- 親御さん問診API: `visit_id` 優先、`session_id` 後方互換
+- スタッフ診断API: `visit_id` 優先、`session_id` 後方互換
+- レポート/LINE通知API: `visit_id` + `reports.uuid` で管理
+
+### マイグレーションファイル
+- `20241213000000_reports_and_visits_enhancements.sql`
+- `20241213100000_cleanup_redundant_columns.sql`
