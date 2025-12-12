@@ -131,3 +131,6 @@ NEXT_PUBLIC_PARENT_LIFF_ID=xxxxx-xxxxx   # LIFF ID
 **どちらでもOK。既存アカウントがあるなら、LINE Loginチャネルを追加する方が簡単です。**
 
 
+
+
+
