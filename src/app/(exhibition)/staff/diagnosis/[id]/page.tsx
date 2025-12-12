@@ -912,22 +912,47 @@ export default function IntegratedDiagnosisPage({ params }: { params: Promise<{ 
     }
   }
 
-  // レポート送信
+  // レポート送信（統合API使用）
   const sendReport = async () => {
-    if (!editableReport) return
+    if (!session?.id) return
 
     setIsSending(true)
     try {
-      // モックデータ用なので、実際のLINE通知はスキップ
-      alert('診断レポートが送信されました（モック）')
+      // 診断完了→レポート作成→LINE送信の統合APIを呼び出し
+      const res = await fetch('/api/diagnosis/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitId: session.id,
+          aiSummary: editableReport?.summary || '診断が完了しました。',
+          ageConsideration: editableReport?.analysis || '',
+          postureAnalysis: analysisResult?.postureAnalysis,
+          oralAnalysis: analysisResult?.oralAnalysis,
+          sendLineNotification: true,
+        }),
+      })
+
+      const result = await res.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'レポート送信に失敗しました')
+      }
+
+      // 成功時
       markStepCompleted('report')
-      // 送信成功時にローカルストレージをクリア
       clearStorage()
-      router.push('/')
+
+      // LINE通知結果を表示
+      if (result.lineNotification?.success) {
+        alert(`✅ 診断レポートを送信しました！\n\nレポートURL:\n${result.report.url}`)
+      } else {
+        alert(`⚠️ レポートは作成されましたが、LINE通知の送信に失敗しました。\n\nレポートURL:\n${result.report.url}`)
+      }
+
+      router.push('/staff/home')
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
-      alert('レポートの送信に失敗しました')
+      alert('レポートの送信に失敗しました: ' + (error instanceof Error ? error.message : '不明なエラー'))
     } finally {
       setIsSending(false)
     }
