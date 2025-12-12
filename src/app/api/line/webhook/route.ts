@@ -125,31 +125,104 @@ async function handleFollowEvent(event: any) {
 }
 
 async function sendWelcomeMessage(userId: string, displayName: string | null) {
+  // LIFF IDが設定されている場合はLIFF URLを使用
+  const liffId = process.env.NEXT_PUBLIC_PARENT_LIFF_ID
+  const questionnaireUrl = liffId
+    ? `https://liff.line.me/${liffId}`
+    : `${APP_URL}/parent/questionnaire/demo`
+
   const welcomeMessage = {
     type: 'text',
-    text: `${displayName ? `${displayName}さん、` : ''}友だち登録ありがとうございます！\n\n` +
+    text: `${displayName ? `${displayName}さん、` : ''}友だち登録ありがとうございます！🦷\n\n` +
           'cOralup口腔育成診断システムです。\n\n' +
-          '下のボタンから診断を開始してください👇',
+          '下のボタンから問診を開始してください👇',
   }
 
-  const buttonMessage = {
-    type: 'template',
-    altText: '診断を開始',
-    template: {
-      type: 'buttons',
-      text: 'お子様の口腔育成診断を始めましょう',
-      actions: [
-        {
-          type: 'uri',
-          label: '診断を開始する',
-          uri: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://coralup.vercel.app'}/questionnaire?line_user_id=${userId}`,
-        },
-      ],
+  // Flex Messageでより見やすいボタンを送信
+  const flexMessage = {
+    type: 'flex',
+    altText: 'お子様の口腔育成診断を始めましょう',
+    contents: {
+      type: 'bubble',
+      hero: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '🦷 口腔育成診断',
+            weight: 'bold',
+            size: 'xl',
+            align: 'center',
+            color: '#F97316',
+          },
+        ],
+        paddingAll: '20px',
+        backgroundColor: '#FFF7ED',
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'お子様の口腔育成状態を\n専門スタッフが診断します',
+            wrap: true,
+            size: 'sm',
+            align: 'center',
+            color: '#666666',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '📝 問診票の入力（約5分）',
+                size: 'xs',
+                color: '#888888',
+              },
+              {
+                type: 'text',
+                text: '📷 スタッフによる撮影・診断',
+                size: 'xs',
+                color: '#888888',
+              },
+              {
+                type: 'text',
+                text: '📊 LINEでレポートをお届け',
+                size: 'xs',
+                color: '#888888',
+              },
+            ],
+            margin: 'lg',
+            spacing: 'sm',
+          },
+        ],
+        paddingAll: '15px',
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '問診を開始する',
+              uri: questionnaireUrl,
+            },
+            style: 'primary',
+            color: '#F97316',
+          },
+        ],
+        paddingAll: '15px',
+      },
     },
   }
 
   await sendMessage(userId, welcomeMessage)
-  await sendMessage(userId, buttonMessage)
+  await sendMessage(userId, flexMessage)
 }
 
 async function handleMessageEvent(event: any) {
