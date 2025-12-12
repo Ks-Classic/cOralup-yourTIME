@@ -6,198 +6,238 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+interface BasicInfoRequest {
+  lineUserId: string
+  sessionId?: string
+  parentName: string
+  parentLastName?: string
+  parentFirstName?: string
+  parentPhone: string
+  childName: string
+  childLastName?: string
+  childFirstName?: string
+  childFurigana?: string
+  childBirthday: string
+  childGender: 'male' | 'female' | 'other'
+  childNickname?: string
+  prefecture?: string
+}
+
 /**
- * 基本情報保存API
- * 
- * 処理フロー:
- * 1. profiles を UPDATE（実名情報追加）
- * 2. children を INSERT
- * 3. visits を INSERT
- * 4. sessions を UPDATE（互換用）
+ * POST: 親御さん基本情報を保存
+ * - profilesテーブル更新
+ * - childrenテーブル作成/更新
+ * - visitsテーブル作成/更新
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body: BasicInfoRequest = await request.json()
+
     const {
-      line_user_id,
-      session_id,
-      // 保護者情報
-      parent_last_name,
-      parent_first_name,
-      parent_last_name_kana,
-      parent_first_name_kana,
-      parent_phone,
-      // 子供情報
-      child_last_name,
-      child_first_name,
-      child_last_name_kana,
-      child_first_name_kana,
-      child_birthday,
-      child_gender,
+      lineUserId,
+      sessionId,
+      parentLastName,
+      parentFirstName,
+      parentPhone,
+      childLastName,
+      childFirstName,
+      childFurigana,
+      childBirthday,
+      childGender,
+      childNickname,
       prefecture,
     } = body
 
-    // バリデーション
-    if (!session_id) {
+    if (!lineUserId) {
       return NextResponse.json(
-        { error: 'session_id は必須です' },
+        { success: false, error: 'lineUserId is required' },
         { status: 400 }
       )
     }
 
-    let profileId: string | null = null
+    // 1. 親プロフィールを取得または作成
+    let { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('line_user_id', lineUserId)
+      .eq('role', 'parent')
+      .single()
 
-    // 1. profiles を UPDATE（LINE連携済みの場合）
-    if (line_user_id) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          last_name: parent_last_name,
-          first_name: parent_first_name,
-          last_name_kana: parent_last_name_kana,
-          first_name_kana: parent_first_name_kana,
-          phone_number: parent_phone,
-          last_activity_at: new Date().toISOString(),
-        })
-        .eq('line_user_id', line_user_id)
-        .select('id')
-        .single()
-
-      if (profileError) {
-        console.error('Error updating profile:', profileError)
-        // LINE連携なしでも続行可能
-      } else {
-        profileId = profile?.id
-      }
-    }
-
-    // LINE連携なしの場合、新規profileを作成
-    if (!profileId) {
-      const { data: newProfile, error: newProfileError } = await supabase
+    if (!profile) {
+      // 新規作成
+      const { data: newProfile, error: createError } = await supabase
         .from('profiles')
         .insert({
-          last_name: parent_last_name,
-          first_name: parent_first_name,
-          last_name_kana: parent_last_name_kana,
-          first_name_kana: parent_first_name_kana,
-          phone_number: parent_phone,
+          line_user_id: lineUserId,
           role: 'parent',
-          last_activity_at: new Date().toISOString(),
+          first_name: parentFirstName,
+          last_name: parentLastName,
+          phone_number: parentPhone,
+          prefecture,
+          is_active: true,
         })
-        .select('id')
+        .select()
         .single()
 
-      if (newProfileError) {
-        console.error('Error creating profile:', newProfileError)
+      if (createError) {
+        console.error('[Basic Info] Profile create error:', createError)
         return NextResponse.json(
-          { error: 'プロフィールの作成に失敗しました' },
+          { success: false, error: 'profile_creation_failed' },
           { status: 500 }
         )
       }
-      profileId = newProfile?.id
+
+      profile = newProfile
+    } else {
+      // 更新
+      await supabase
+        .from('profiles')
+        .update({
+          first_name: parentFirstName,
+          last_name: parentLastName,
+          phone_number: parentPhone,
+          prefecture,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', profile.id)
     }
 
-    // 2. children を INSERT
-    const { data: child, error: childError } = await supabase
+    // 2. 子供情報を取得または作成
+    let { data: child } = await supabase
       .from('children')
-      .insert({
-        parent_profile_id: profileId,
-        last_name: child_last_name,
-        first_name: child_first_name,
-        last_name_kana: child_last_name_kana,
-        first_name_kana: child_first_name_kana,
-        birthday: child_birthday,
-        gender: child_gender,
-        notes: prefecture ? `都道府県: ${prefecture}` : null,
-      })
       .select('id')
+      .eq('parent_profile_id', profile.id)
       .single()
 
-    if (childError) {
-      console.error('Error creating child:', childError)
-      return NextResponse.json(
-        { error: 'お子様情報の登録に失敗しました' },
-        { status: 500 }
-      )
+    // 年齢（月）を計算
+    const birthday = new Date(childBirthday)
+    const now = new Date()
+    const ageMonths = (now.getFullYear() - birthday.getFullYear()) * 12 + (now.getMonth() - birthday.getMonth())
+
+    if (!child) {
+      // 新規作成
+      const { data: newChild, error: childError } = await supabase
+        .from('children')
+        .insert({
+          parent_profile_id: profile.id,
+          first_name: childFirstName,
+          last_name: childLastName,
+          first_name_kana: childFurigana?.split(/\s+/)[1] || childFurigana,
+          last_name_kana: childFurigana?.split(/\s+/)[0] || '',
+          birthday: childBirthday,
+          gender: childGender,
+          nickname: childNickname,
+        })
+        .select()
+        .single()
+
+      if (childError) {
+        console.error('[Basic Info] Child create error:', childError)
+        return NextResponse.json(
+          { success: false, error: 'child_creation_failed' },
+          { status: 500 }
+        )
+      }
+
+      child = newChild
+    } else {
+      // 更新
+      await supabase
+        .from('children')
+        .update({
+          first_name: childFirstName,
+          last_name: childLastName,
+          first_name_kana: childFurigana?.split(/\s+/)[1] || childFurigana,
+          last_name_kana: childFurigana?.split(/\s+/)[0] || '',
+          birthday: childBirthday,
+          gender: childGender,
+          nickname: childNickname,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', child.id)
     }
 
-    // 月齢を計算
-    const childAgeMonths = calculateAgeInMonths(child_birthday)
+    // 3. セッションとvisitを処理
+    let finalSessionId = sessionId
+    let visitId: string | null = null
 
-    // 3. visits を INSERT
-    const { data: visit, error: visitError } = await supabase
-      .from('visits')
-      .insert({
-        child_id: child.id,
-        session_id: session_id,
-        status: 'questionnaire_in_progress',
-        visit_date: new Date().toISOString(),
-        child_age_months: childAgeMonths,
-      })
-      .select('id')
-      .single()
+    if (sessionId) {
+      // 既存セッションのvisitを更新
+      const { data: existingVisit } = await supabase
+        .from('visits')
+        .select('id')
+        .eq('session_id', sessionId)
+        .single()
 
-    if (visitError) {
-      console.error('Error creating visit:', visitError)
-      return NextResponse.json(
-        { error: '来場セッションの作成に失敗しました' },
-        { status: 500 }
-      )
+      if (existingVisit) {
+        visitId = existingVisit.id
+        await supabase
+          .from('visits')
+          .update({
+            child_id: child.id,
+            child_age_months: ageMonths,
+            status: 'questionnaire_in_progress',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingVisit.id)
+      }
     }
 
-    // 4. visits テーブルを更新（親御さん情報）
-    const { error: visitUpdateError } = await supabase
-      .from('visits')
-      .update({
-        parent_name: `${parent_last_name} ${parent_first_name}`,
-        parent_phone: parent_phone,
-        line_user_id: line_user_id || null,
-      })
-      .eq('session_id', session_id)
+    // visitがなければ新規作成
+    if (!visitId) {
+      // セッションID生成
+      finalSessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-    if (visitUpdateError) {
-      console.error('Error updating visit:', visitUpdateError)
-      // 続行可能
+      // sessionsテーブルに作成
+      await supabase
+        .from('sessions')
+        .insert({
+          session_id: finalSessionId,
+          line_user_id: lineUserId,
+          status: 'active',
+        })
+
+      // visitsテーブルに作成
+      const { data: newVisit, error: visitError } = await supabase
+        .from('visits')
+        .insert({
+          session_id: finalSessionId,
+          child_id: child.id,
+          child_age_months: ageMonths,
+          event_id: process.env.DEFAULT_EVENT_ID || null,
+          organization_id: process.env.CORALUP_ORG_ID || null,
+          status: 'questionnaire_in_progress',
+          visit_date: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (visitError) {
+        console.error('[Basic Info] Visit create error:', visitError)
+      } else {
+        visitId = newVisit.id
+      }
     }
 
-    console.log('Basic info saved:', {
-      profile_id: profileId,
-      child_id: child.id,
-      visit_id: visit.id,
-      session_id,
+    console.log('[Basic Info] Saved:', {
+      profileId: profile.id,
+      childId: child.id,
+      visitId,
+      sessionId: finalSessionId,
     })
 
     return NextResponse.json({
       success: true,
-      profile_id: profileId,
-      child_id: child.id,
-      visit_id: visit.id,
+      profileId: profile.id,
+      childId: child.id,
+      visitId,
+      sessionId: finalSessionId,
     })
   } catch (error) {
-    console.error('Error in basic-info API:', error)
+    console.error('[Basic Info] Error:', error)
     return NextResponse.json(
-      { error: '基本情報の保存中にエラーが発生しました' },
+      { success: false, error: 'server_error' },
       { status: 500 }
     )
   }
 }
-
-/**
- * 生年月日から月齢を計算
- */
-function calculateAgeInMonths(birthday: string): number {
-  const birthDate = new Date(birthday)
-  const today = new Date()
-  
-  let months = (today.getFullYear() - birthDate.getFullYear()) * 12
-  months -= birthDate.getMonth()
-  months += today.getMonth()
-  
-  // 日が来ていない場合は1ヶ月引く
-  if (today.getDate() < birthDate.getDate()) {
-    months--
-  }
-  
-  return Math.max(0, months)
-}
-
