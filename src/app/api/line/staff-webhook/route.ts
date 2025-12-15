@@ -5,6 +5,20 @@ import { createClient } from '@supabase/supabase-js'
 const LINE_STAFF_CHANNEL_SECRET = process.env.LINE_STAFF_CHANNEL_SECRET!
 const LINE_STAFF_CHANNEL_ACCESS_TOKEN = process.env.LINE_STAFF_CHANNEL_ACCESS_TOKEN!
 const CORALUP_ORG_ID = process.env.CORALUP_ORG_ID
+const STAFF_LIFF_ID = process.env.NEXT_PUBLIC_STAFF_LIFF_ID
+// ngrok URLを優先（テスト環境用: localhostを除外）
+const getAppUrl = () => {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  // ngrok URLがあれば優先
+  if (baseUrl && baseUrl.includes('ngrok')) return baseUrl.replace(/\/$/, '')
+  if (appUrl && appUrl.includes('ngrok')) return appUrl.replace(/\/$/, '')
+  // localhostでなければappUrlを使用
+  if (appUrl && !appUrl.includes('localhost')) return appUrl.replace(/\/$/, '')
+  // デフォルトはngrok URL（テスト環境）
+  return 'https://woozily-convective-libbie.ngrok-free.dev'
+}
+const APP_URL = getAppUrl()
 
 // Supabase クライアント (Service Role)
 const supabase = createClient(
@@ -109,10 +123,10 @@ async function handleFollowEvent(event: any) {
 
       console.log('[Staff Webhook] Staff reactivated:', existing.id)
 
-      // 再登録メッセージ送信
+      // 再登録メッセージ送信（ブックマーク案内付き）
       await sendLineMessage(
         lineUserId,
-        `${displayName}さん、おかえりなさい！\n\ncOralupスタッフとして再登録されました。\n下のメニューから「アプリを開く」をタップしてログインしてください。`
+        `${displayName}さん、おかえりなさい！\n\ncOralupスタッフとして再登録されました。\n\n📌 診断アプリURL:\n${APP_URL}/staff/home\n\n初回ログイン:\n${APP_URL}/staff/liff-login\n\n※ブックマーク登録をお願いします。`
       )
     } else {
       // 新規スタッフ登録
@@ -137,10 +151,10 @@ async function handleFollowEvent(event: any) {
 
       console.log('[Staff Webhook] Staff created:', newStaff.id)
 
-        // 登録完了メッセージ送信（名前入力案内）
+        // 登録完了メッセージ送信（名前入力案内 + ブックマーク案内）
       await sendLineMessage(
         lineUserId,
-        `${displayName}さん、cOralupスタッフとして登録されました！🎉\n\n次に、お名前を登録してください。\n「姓 名」の形式で送信してください。\n例: 山田 太郎\n\n※スペースなしでも登録できます（例: 山田太郎）`
+        `${displayName}さん、cOralupスタッフとして登録されました！🎉\n\n次に、お名前を登録してください。\n「姓 名」の形式で送信してください。\n例: 山田 太郎\n\n※スペースなしでも登録できます（例: 山田太郎）\n\n📌 名前登録後、診断アプリURLをブックマーク登録してください:\n${APP_URL}/staff/home`
       )
     }
   } catch (error) {
@@ -199,24 +213,7 @@ async function handleMessageEvent(event: any) {
     }
 
     // 名前のパース（「姓 名」または「姓名」形式を想定）
-    const nameParts = text.split(/\s+/)
-    let lastName = ''
-    let firstName = ''
-
-    if (nameParts.length >= 2) {
-      // 「姓 名」形式
-      lastName = nameParts[0]
-      firstName = nameParts.slice(1).join(' ')
-    } else if (text.length >= 2) {
-      // 「姓名」形式（2文字以上）
-      // 簡易的に最初の1文字を姓、残りを名とする
-      lastName = text.substring(0, 1)
-      firstName = text.substring(1)
-    } else {
-      // 1文字の場合は姓として扱う
-      lastName = text
-      firstName = ''
-    }
+    const { lastName, firstName } = await parseJapaneseName(text)
 
     // プロフィール更新
     const { error } = await supabase
@@ -244,11 +241,76 @@ async function handleMessageEvent(event: any) {
       firstName,
     })
 
-    // 登録完了メッセージ
+    // 登録完了メッセージ（Flex Message + テキスト）
+    const staffHomeUrl = `${APP_URL}/staff/home`
+    const liffLoginUrl = STAFF_LIFF_ID ? `https://liff.line.me/${STAFF_LIFF_ID}` : `${APP_URL}/staff/liff-login`
+    
+    // テキストメッセージ
     await sendLineMessage(
       lineUserId,
-      `名前を登録しました！\n\n姓: ${lastName}\n名: ${firstName}\n\n診断アプリはリッチメニューの「アプリを開く」からアクセスできます。`
+      `名前を登録しました！\n\n姓: ${lastName}\n名: ${firstName}\n\n🎉 下のボタンから診断アプリ（Webブラウザ）にアクセスしてください。\n初回はログイン画面が表示されます。`
     )
+    
+    // Flex Message（ボタン付き）
+    const flexMessage = {
+      type: 'flex',
+      altText: '診断アプリを開く',
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '📌 ブックマーク登録をお願いします',
+              weight: 'bold',
+              size: 'sm',
+              color: '#FF6B35',
+              margin: 'md',
+            },
+            {
+              type: 'text',
+              text: '次回から素早くアクセスできるよう、診断アプリURLをブックマーク登録してください。',
+              size: 'xs',
+              color: '#666666',
+              wrap: true,
+              margin: 'sm',
+            },
+            {
+              type: 'text',
+              text: staffHomeUrl,
+              size: 'xxs',
+              color: '#999999',
+              wrap: true,
+              margin: 'md',
+            },
+          ],
+          paddingAll: '15px',
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '診断アプリを開く（Webブラウザ）',
+                uri: staffHomeUrl,
+              },
+              color: '#06C755',
+            },
+          ],
+          paddingAll: '15px',
+        },
+      },
+    }
+    
+    await sendFlexMessage(lineUserId, flexMessage)
   } catch (error) {
     console.error('[Staff Webhook] handleMessageEvent error:', error)
   }
@@ -274,6 +336,96 @@ async function sendLineMessage(userId: string, text: string) {
     }
   } catch (error) {
     console.error('[Staff Webhook] sendLineMessage error:', error)
+  }
+}
+
+// Gemini APIで姓名を分割（軽量・高精度）
+async function parseJapaneseName(text: string): Promise<{ lastName: string; firstName: string }> {
+  const trimmed = text.trim()
+  
+  // スペースがある場合はそのまま分割
+  const spaceParts = trimmed.split(/\s+/)
+  if (spaceParts.length >= 2) {
+    return {
+      lastName: spaceParts[0],
+      firstName: spaceParts.slice(1).join(' '),
+    }
+  }
+  
+  // 1文字以下の場合
+  if (trimmed.length <= 1) {
+    return { lastName: trimmed, firstName: '' }
+  }
+  
+  // Gemini APIで分割
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    // フォールバック: 2文字を姓として扱う
+    console.log('[Name Parse] No GEMINI_API_KEY, using fallback')
+    return { lastName: trimmed.substring(0, 2), firstName: trimmed.substring(2) }
+  }
+  
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `日本人の名前「${trimmed}」を姓と名に分割してください。JSONのみで回答: {"lastName":"姓","firstName":"名"}`
+            }]
+          }],
+          generationConfig: { temperature: 0, maxOutputTokens: 50 }
+        })
+      }
+    )
+    
+    if (!response.ok) throw new Error('API error')
+    
+    const data = await response.json()
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    
+    // JSONを抽出してパース
+    const jsonMatch = content.match(/\{[^}]+\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      if (parsed.lastName && typeof parsed.lastName === 'string') {
+        return {
+          lastName: parsed.lastName,
+          firstName: parsed.firstName || '',
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Name Parse] Gemini API error:', error)
+  }
+  
+  // フォールバック: 2文字を姓として扱う
+  return { lastName: trimmed.substring(0, 2), firstName: trimmed.substring(2) }
+}
+
+async function sendFlexMessage(userId: string, flexMessage: any) {
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${LINE_STAFF_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to: userId,
+        messages: [flexMessage],
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[Staff Webhook] Failed to send flex message:', errorText)
+    }
+  } catch (error) {
+    console.error('[Staff Webhook] sendFlexMessage error:', error)
   }
 }
 

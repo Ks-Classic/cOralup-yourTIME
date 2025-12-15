@@ -281,3 +281,7 @@ curl -X POST http://localhost:3000/api/diagnosis/complete \
 - `profiles.line_user_id` が正しく登録されているか確認
 - `line_message_logs` のエラーメッセージを確認
 
+
+
+
+

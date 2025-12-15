@@ -1,0 +1,5 @@
+{"location":"report/[id]/route.ts:GET","message":"Final photo URLs","data":{"photoUrlKeys":[],"hasPhotos":false},"timestamp":1765831698497,"sessionId":"debug-session","hypothesisId":"G"}
+{"location":"report/[id]/route.ts:GET","message":"Final photo URLs","data":{"photoUrlKeys":[],"hasPhotos":false},"timestamp":1765831928835,"sessionId":"debug-session","hypothesisId":"G"}
+{"location":"report/[id]/route.ts:GET","message":"Final photo URLs","data":{"photoUrlKeys":["posture_front","posture_side","oral_front"],"hasPhotos":true},"timestamp":1765832021301,"sessionId":"debug-session","hypothesisId":"G"}
+{"location":"report/[id]/route.ts:GET","message":"Final photo URLs","data":{"photoUrlKeys":["posture_front","posture_side","oral_front"],"hasPhotos":true},"timestamp":1765832054967,"sessionId":"debug-session","hypothesisId":"G"}
+{"location":"report/[id]/route.ts:GET","message":"Final photo URLs","data":{"photoUrlKeys":["posture_front","posture_side","oral_front"],"hasPhotos":true},"timestamp":1765832109787,"sessionId":"debug-session","hypothesisId":"G"}

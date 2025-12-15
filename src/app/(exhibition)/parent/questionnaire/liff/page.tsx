@@ -14,13 +14,19 @@ import {
   calculateAge,
   getFormType,
   createDateFromParts,
+  formatDateToISO,
   generateYearOptions,
   generateMonthOptions,
   generateDayOptions
 } from '@/utils/age-calculator'
 import type { FormSchemaConfig, FormFieldConfig, FormSectionConfig } from '@/types/forms'
-import { initLiff, liffLogin, type LiffProfile } from '@/lib/liff-utils'
+import { initLiff, liffLogin, preloadLiffSdk, type LiffProfile } from '@/lib/liff-utils'
 import { AlertCircle, Loader2, CheckCircle2, Smartphone } from 'lucide-react'
+
+// LIFF SDKをページロード時にプリロード開始
+if (typeof window !== 'undefined') {
+  preloadLiffSdk()
+}
 
 // ============================================================================
 // Types
@@ -60,8 +66,10 @@ interface VisitData {
 // ============================================================================
 
 const basicInfoSchema = z.object({
-  furigana: z.string().optional(),
-  childName: z.string().min(1, 'お子様のお名前を入力してください'),
+  childLastName: z.string().min(1, 'お子様の姓を入力してください'),
+  childFirstName: z.string().min(1, 'お子様の名を入力してください'),
+  childLastNameKana: z.string().optional(),
+  childFirstNameKana: z.string().optional(),
   birthYear: z.number().min(2000).max(new Date().getFullYear(), '正しい年を選択してください'),
   birthMonth: z.number().min(1).max(12, '正しい月を選択してください'),
   birthDay: z.number().min(1).max(31, '正しい日を選択してください'),
@@ -70,7 +78,10 @@ const basicInfoSchema = z.object({
     required_error: '性別を選択してください',
   }),
   nickname: z.string().optional(),
-  parentName: z.string().min(1, '保護者のお名前を入力してください'),
+  parentLastName: z.string().min(1, '保護者の姓を入力してください'),
+  parentFirstName: z.string().min(1, '保護者の名を入力してください'),
+  parentLastNameKana: z.string().optional(),
+  parentFirstNameKana: z.string().optional(),
   parentPhone: z.string().regex(/^(\+81|0)[0-9]{9,10}$/, '正しい電話番号を入力してください'),
 }).refine((data) => {
   const date = createDateFromParts(data.birthYear, data.birthMonth, data.birthDay)
@@ -201,9 +212,11 @@ export default function LiffQuestionnairePage() {
       if (data.child) {
         setChildData(data.child)
 
-        // フォームに復元
-        const nameParts = `${data.child.lastName || ''} ${data.child.firstName || ''}`.trim()
-        if (nameParts) setValue('childName', nameParts)
+        // フォームに復元（姓名分離）
+        if (data.child.lastName) setValue('childLastName', data.child.lastName)
+        if (data.child.firstName) setValue('childFirstName', data.child.firstName)
+        if (data.child.lastNameKana) setValue('childLastNameKana', data.child.lastNameKana)
+        if (data.child.firstNameKana) setValue('childFirstNameKana', data.child.firstNameKana)
         if (data.child.gender) setValue('childGender', data.child.gender as 'male' | 'female' | 'other')
 
         // 生年月日を復元
@@ -215,12 +228,12 @@ export default function LiffQuestionnairePage() {
         }
       }
 
-      // 保護者情報を復元
+      // 保護者情報を復元（姓名分離）
       if (data.profile) {
-        const parentName = data.profile.lastName && data.profile.firstName
-          ? `${data.profile.lastName} ${data.profile.firstName}`
-          : data.profile.displayName || ''
-        if (parentName) setValue('parentName', parentName)
+        if (data.profile.lastName) setValue('parentLastName', data.profile.lastName)
+        if (data.profile.firstName) setValue('parentFirstName', data.profile.firstName)
+        if (data.profile.lastNameKana) setValue('parentLastNameKana', data.profile.lastNameKana)
+        if (data.profile.firstNameKana) setValue('parentFirstNameKana', data.profile.firstNameKana)
         if (data.profile.phoneNumber) setValue('parentPhone', data.profile.phoneNumber)
       }
 
@@ -369,35 +382,29 @@ export default function LiffQuestionnairePage() {
 
     setIsLoading(true)
     try {
-      // 名前を分割
-      const nameParts = data.childName.trim().split(/\s+/)
-      const lastName = nameParts[0] || ''
-      const firstName = nameParts.slice(1).join(' ') || ''
-
-      // 生年月日
+      // 生年月日（タイムゾーンに依存しないISO形式で送信）
       const birthday = createDateFromParts(data.birthYear, data.birthMonth, data.birthDay)
+      const birthdayStr = formatDateToISO(data.birthYear, data.birthMonth, data.birthDay)
 
-      // 保護者名を分割
-      const parentNameParts = data.parentName.trim().split(/\s+/)
-      const parentLastName = parentNameParts[0] || ''
-      const parentFirstName = parentNameParts.slice(1).join(' ') || ''
-
-      // API呼び出し
+      // API呼び出し（姓名分離で送信）
       const res = await fetch('/api/parent/basic-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lineUserId: liffProfile.userId,
           sessionId: visitData?.sessionId,
-          parentName: data.parentName,
-          parentLastName,
-          parentFirstName,
+          parentName: `${data.parentLastName} ${data.parentFirstName}`,
+          parentLastName: data.parentLastName,
+          parentFirstName: data.parentFirstName,
+          parentLastNameKana: data.parentLastNameKana,
+          parentFirstNameKana: data.parentFirstNameKana,
           parentPhone: data.parentPhone,
-          childName: data.childName,
-          childLastName: lastName,
-          childFirstName: firstName,
-          childFurigana: data.furigana,
-          childBirthday: birthday.toISOString().split('T')[0],
+          childName: `${data.childLastName} ${data.childFirstName}`,
+          childLastName: data.childLastName,
+          childFirstName: data.childFirstName,
+          childLastNameKana: data.childLastNameKana,
+          childFirstNameKana: data.childFirstNameKana,
+          childBirthday: birthdayStr,
           childGender: data.childGender,
           childNickname: data.nickname,
           prefecture: data.prefecture,
@@ -497,14 +504,39 @@ export default function LiffQuestionnairePage() {
   // Render: LIFF状態別
   // ============================================================================
 
-  // 初期化中
+  // 初期化中 - スケルトンUIで体感速度向上
   if (liffStatus === 'initializing' || liffStatus === 'loading_data') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-coral-50 to-white p-4">
-        <Loader2 className="w-12 h-12 text-coral-500 animate-spin mb-4" />
-        <p className="text-gray-600">
-          {liffStatus === 'initializing' ? '初期化中...' : 'データを読み込み中...'}
-        </p>
+      <div className="min-h-screen bg-gradient-to-br from-coral-50 to-white">
+        {/* ヘッダースケルトン */}
+        <div className="bg-white border-b px-4 py-3">
+          <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+        </div>
+        
+        {/* コンテンツスケルトン */}
+        <div className="p-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="h-5 w-24 bg-gray-200 rounded animate-pulse mb-2" />
+              <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* フォームフィールドスケルトン */}
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2">
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-10 w-full bg-gray-100 rounded animate-pulse" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          
+          {/* ローディングインジケーター */}
+          <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{liffStatus === 'initializing' ? 'LINE認証中...' : 'データを読み込み中...'}</span>
+          </div>
+        </div>
       </div>
     )
   }
@@ -638,29 +670,48 @@ export default function LiffQuestionnairePage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit(onBasicInfoSubmit)} className="space-y-4">
-                {/* お子様のお名前 */}
+                {/* お子様のお名前（姓名横並び） */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     お子様のお名前 <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    {...register('childName')}
-                    placeholder="例: 山田 太郎"
-                  />
-                  {errors.childName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.childName.message}</p>
-                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        {...register('childLastName')}
+                        placeholder="姓（例: 山田）"
+                      />
+                      {errors.childLastName && (
+                        <p className="text-red-500 text-xs mt-1">{errors.childLastName.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Input
+                        {...register('childFirstName')}
+                        placeholder="名（例: 太郎）"
+                      />
+                      {errors.childFirstName && (
+                        <p className="text-red-500 text-xs mt-1">{errors.childFirstName.message}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* ふりがな */}
+                {/* ふりがな（姓名横並び） */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     ふりがな
                   </label>
-                  <Input
-                    {...register('furigana')}
-                    placeholder="例: やまだ たろう"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      {...register('childLastNameKana')}
+                      placeholder="せい（例: やまだ）"
+                    />
+                    <Input
+                      {...register('childFirstNameKana')}
+                      placeholder="めい（例: たろう）"
+                    />
+                  </div>
                 </div>
 
                 {/* 生年月日 */}
@@ -739,18 +790,48 @@ export default function LiffQuestionnairePage() {
                   )}
                 </div>
 
-                {/* 保護者のお名前 */}
+                {/* 保護者のお名前（姓名横並び） */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     保護者のお名前 <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    {...register('parentName')}
-                    placeholder="例: 山田 花子"
-                  />
-                  {errors.parentName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.parentName.message}</p>
-                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        {...register('parentLastName')}
+                        placeholder="姓（例: 山田）"
+                      />
+                      {errors.parentLastName && (
+                        <p className="text-red-500 text-xs mt-1">{errors.parentLastName.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Input
+                        {...register('parentFirstName')}
+                        placeholder="名（例: 花子）"
+                      />
+                      {errors.parentFirstName && (
+                        <p className="text-red-500 text-xs mt-1">{errors.parentFirstName.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 保護者ふりがな（姓名横並び） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    保護者ふりがな
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      {...register('parentLastNameKana')}
+                      placeholder="せい（例: やまだ）"
+                    />
+                    <Input
+                      {...register('parentFirstNameKana')}
+                      placeholder="めい（例: はなこ）"
+                    />
+                  </div>
                 </div>
 
                 {/* 電話番号 */}
@@ -811,9 +892,8 @@ export default function LiffQuestionnairePage() {
                 <DynamicForm
                   ref={questionnaireFormRef}
                   schema={activeFormSchema}
-                  initialData={restoredResponses}
-                  onComplete={handleQuestionnaireComplete}
-                  onFieldChange={handleAutoSave}
+                  defaultValues={restoredResponses}
+                  onSubmit={handleQuestionnaireComplete}
                   submitLabel="次へ：QRコード表示"
                   isSubmitting={isLoading}
                 />

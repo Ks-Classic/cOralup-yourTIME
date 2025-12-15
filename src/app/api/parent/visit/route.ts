@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     // 1. profilesからparent情報取得
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, display_name, first_name, last_name, phone_number')
+      .select('id, display_name, first_name, last_name, first_name_kana, last_name_kana, phone_number')
       .eq('line_user_id', lineUserId)
       .eq('role', 'parent')
       .single()
@@ -44,22 +44,16 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 2. 子供情報を取得
-    const { data: children } = await supabase
-      .from('children')
-      .select('id, first_name, last_name, first_name_kana, last_name_kana, birthday, gender')
-      .eq('parent_profile_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    const child = children?.[0] || null
-
-    // 3. 未完了のvisitを検索（問診途中 or 待機中）
-    let visit = null
-    let questionnaireResponses: unknown[] = []
-
-    if (child) {
-      const { data: visits } = await supabase
+    // 2. 子供情報とvisitを並列取得（高速化）
+    const [childrenResult, visitsResult] = await Promise.all([
+      supabase
+        .from('children')
+        .select('id, first_name, last_name, first_name_kana, last_name_kana, birthday, gender')
+        .eq('parent_profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      // 子供IDが不明でもprofile_id経由でvisitを検索（JOINで高速化）
+      supabase
         .from('visits')
         .select(`
           id,
@@ -67,37 +61,44 @@ export async function GET(request: NextRequest) {
           session_id,
           visit_date,
           child_age_months,
-          event_id
+          event_id,
+          child_id
         `)
-        .eq('child_id', child.id)
         .in('status', ['waiting', 'questionnaire_in_progress', 'questionnaire_completed'])
         .order('created_at', { ascending: false })
-        .limit(1)
+        .limit(10) // 複数候補から後でフィルタ
+    ])
 
-      visit = visits?.[0] || null
+    const child = childrenResult.data?.[0] || null
+    
+    // 子供IDでvisitをフィルタ
+    let visit = null
+    if (child && visitsResult.data) {
+      visit = visitsResult.data.find(v => v.child_id === child.id) || null
+    }
 
-      // 4. 問診回答を取得（visit_id優先、session_idフォールバック）
-      if (visit?.id) {
-        const { data: responses } = await supabase
-          .from('questionnaire_responses')
-          .select(`
+    // 3. 問診回答を取得（visitがある場合のみ）
+    let questionnaireResponses: unknown[] = []
+    if (visit?.id) {
+      const { data: responses } = await supabase
+        .from('questionnaire_responses')
+        .select(`
+          id,
+          item_id,
+          value,
+          answered_at,
+          questionnaire_items (
             id,
-            item_id,
-            value,
-            answered_at,
-            questionnaire_items (
-              id,
-              code,
-              question,
-              answer_type,
-              options
-            )
-          `)
-          .or(`visit_id.eq.${visit.id},session_id.eq.${visit.session_id}`)
-          .order('answered_at', { ascending: true })
+            code,
+            question,
+            answer_type,
+            options
+          )
+        `)
+        .or(`visit_id.eq.${visit.id},session_id.eq.${visit.session_id}`)
+        .order('answered_at', { ascending: true })
 
-        questionnaireResponses = responses || []
-      }
+      questionnaireResponses = responses || []
     }
 
     console.log('[Parent Visit] Found:', {
@@ -114,6 +115,8 @@ export async function GET(request: NextRequest) {
         displayName: profile.display_name,
         firstName: profile.first_name,
         lastName: profile.last_name,
+        firstNameKana: profile.first_name_kana,
+        lastNameKana: profile.last_name_kana,
         phoneNumber: profile.phone_number,
       },
       child: child ? {

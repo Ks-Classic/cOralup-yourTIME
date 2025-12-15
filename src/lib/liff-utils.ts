@@ -5,6 +5,18 @@
 import type { Liff } from '@line/liff'
 
 let liffInstance: Liff | null = null
+let liffModulePromise: Promise<typeof import('@line/liff')> | null = null
+
+/**
+ * LIFF SDKをプリロード（初期化前に呼び出し可能）
+ * 動的インポートを事前に開始して初期化を高速化
+ */
+export function preloadLiffSdk(): void {
+  if (typeof window === 'undefined') return
+  if (!liffModulePromise) {
+    liffModulePromise = import('@line/liff')
+  }
+}
 
 export interface LiffProfile {
   userId: string
@@ -28,8 +40,11 @@ export interface LiffInitResult {
  */
 export async function initLiff(liffId: string): Promise<LiffInitResult> {
   try {
-    // 動的インポート（SSR対策）
-    const liff = (await import('@line/liff')).default
+    // 動的インポート（プリロード済みなら即座に解決）
+    if (!liffModulePromise) {
+      liffModulePromise = import('@line/liff')
+    }
+    const liff = (await liffModulePromise).default
     liffInstance = liff
 
     await liff.init({ liffId })
@@ -140,4 +155,8 @@ export function isLiffLoggedIn(): boolean {
   if (!liffInstance) return false
   return liffInstance.isLoggedIn()
 }
+
+
+
+
 

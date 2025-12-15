@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { v4 as uuidv4 } from 'uuid'
-import { getStaffSession } from '@/lib/staff-session'
+import { getStaffSession } from '@/lib/staff-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup.vercel.app'
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN!
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://woozily-convective-libbie.ngrok-free.dev'
 
 interface CompleteDiagnosisRequest {
   visitId: string
@@ -101,40 +100,57 @@ export async function POST(request: NextRequest) {
       parentLineUserId = parentProfile?.line_user_id || null
     }
 
-    // 3. レポートを作成
-    const reportUuid = uuidv4()
-    const aiSummary = body.aiSummary || generateDummyAiSummary()
-    const ageConsideration = body.ageConsideration || 'お子様の年齢に応じた発達段階を考慮した評価です。'
-    const postureAnalysis = body.postureAnalysis || {
-      overallScore: 75,
-      issues: ['姿勢の改善が推奨されます', '口呼吸の傾向が見られます'],
-    }
-    const oralAnalysis = body.oralAnalysis || {
-      overallScore: 80,
-      issues: ['歯並びは概ね良好です', '定期的な歯科検診をお勧めします'],
-    }
-
-    const { data: report, error: reportError } = await supabase
+    // 3. レポートを取得または作成（visit_idで一意）
+    const { data: existingReport } = await supabase
       .from('reports')
-      .insert({
-        uuid: reportUuid,
-        visit_id: visitId,
-        diagnosis_id: diagnosisId || null,
-        ai_summary: aiSummary,
-        age_consideration: ageConsideration,
-        posture_analysis: postureAnalysis,
-        oral_analysis: oralAnalysis,
-        status: 'completed',
-      })
-      .select()
+      .select('*')
+      .eq('visit_id', visitId)
       .single()
 
-    if (reportError) {
-      console.error('[Complete Diagnosis] Report creation error:', reportError)
-      return NextResponse.json(
-        { success: false, error: 'report_creation_failed' },
-        { status: 500 }
-      )
+    let report = existingReport
+
+    if (!report) {
+      // 新規レポートを作成
+      const aiSummary = body.aiSummary || generateDummyAiSummary()
+      const ageConsideration = body.ageConsideration || 'お子様の年齢に応じた発達段階を考慮した評価です。'
+      const postureAnalysis = body.postureAnalysis || {
+        overallScore: 75,
+        issues: ['姿勢の改善が推奨されます', '口呼吸の傾向が見られます'],
+      }
+      const oralAnalysis = body.oralAnalysis || {
+        overallScore: 80,
+        issues: ['歯並びは概ね良好です', '定期的な歯科検診をお勧めします'],
+      }
+
+      const { data: newReport, error: reportError } = await supabase
+        .from('reports')
+        .insert({
+          visit_id: visitId,
+          diagnosis_id: diagnosisId || null,
+          ai_summary: aiSummary,
+          age_consideration: ageConsideration,
+          posture_analysis: postureAnalysis,
+          oral_analysis: oralAnalysis,
+          status: 'completed',
+        })
+        .select()
+        .single()
+
+      if (reportError) {
+        console.error('[Complete Diagnosis] Report creation error:', reportError)
+        return NextResponse.json(
+          { success: false, error: 'report_creation_failed' },
+          { status: 500 }
+        )
+      }
+
+      report = newReport
+    } else {
+      // 既存レポートのステータスを更新
+      await supabase
+        .from('reports')
+        .update({ status: 'completed' })
+        .eq('id', report.id)
     }
 
     // 4. Visitステータスを更新
@@ -156,20 +172,19 @@ export async function POST(request: NextRequest) {
 
       lineNotificationResult = await sendReportNotification({
         lineUserId: parentLineUserId,
-        reportUuid,
+        visitId,
         childName,
         eventName,
-        visitId,
         sessionId: visit.session_id,
       })
     }
 
-    const reportUrl = `${APP_URL}/report/${reportUuid}`
+    // レポートURLはvisit_idベース
+    const reportUrl = `${APP_URL}/report/${visitId}`
 
     console.log('[Complete Diagnosis] Success:', {
       visitId,
       reportId: report.id,
-      reportUuid,
       lineNotificationSent: !!lineNotificationResult?.success,
     })
 
@@ -177,7 +192,7 @@ export async function POST(request: NextRequest) {
       success: true,
       report: {
         id: report.id,
-        uuid: reportUuid,
+        visitId,
         url: reportUrl,
       },
       lineNotification: lineNotificationResult,
@@ -208,14 +223,14 @@ function generateDummyAiSummary(): string {
  */
 async function sendReportNotification(params: {
   lineUserId: string
-  reportUuid: string
+  visitId: string
   childName: string
   eventName?: string
-  visitId: string
   sessionId?: string
 }): Promise<{ success: boolean; error?: string }> {
-  const { lineUserId, reportUuid, childName, eventName, visitId, sessionId } = params
-  const reportUrl = `${APP_URL}/report/${reportUuid}`
+  const { lineUserId, visitId, childName, eventName, sessionId } = params
+  // レポートURLはvisit_idベース
+  const reportUrl = `${APP_URL}/report/${visitId}`
 
   const flexMessage = {
     type: 'flex',
@@ -356,4 +371,8 @@ async function sendReportNotification(params: {
     return { success: false, error: String(error) }
   }
 }
+
+
+
+
 

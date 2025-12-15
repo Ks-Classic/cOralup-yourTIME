@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup.vercel.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://woozily-convective-libbie.ngrok-free.dev'
 
 // Supabase クライアント (Service Role)
 const supabase = createClient(

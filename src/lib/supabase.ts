@@ -14,13 +14,35 @@ export const supabase = isMockMode
   ? null as any // モックモードではnullを返す
   : createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 
-// サーバー用クライアント（モックモード対応）
+// サーバー用クライアント（モックモード対応）- Anon Key使用（RLS適用）
 export const createServerSupabaseClient = () => {
   if (isMockMode) return null as any
 
   return createClient<Database>(
     supabaseUrl,
     supabaseAnonKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
+}
+
+// サーバー用クライアント（Service Role Key使用、RLSバイパス）
+export const createServiceSupabaseClient = () => {
+  if (isMockMode) return null as any
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) {
+    console.error('SUPABASE_SERVICE_ROLE_KEY is not set')
+    return null as any
+  }
+
+  return createClient<Database>(
+    supabaseUrl,
+    serviceKey,
     {
       auth: {
         autoRefreshToken: false,

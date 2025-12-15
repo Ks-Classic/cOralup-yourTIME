@@ -19,7 +19,7 @@ import { generateQRCode } from '@/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
 // メインビューの定義（下部メニューで切り替え）
-type MainView = 'qr' | 'questionnaire' | 'photos' | 'diagnosis' | 'review' | 'report' | 'memo'
+type MainView = 'questionnaire' | 'photos' | 'diagnosis' | 'review' | 'report' | 'memo'
 
 // ステップ定義（後方互換性のため残す）
 type DiagnosisStep =
@@ -115,7 +115,7 @@ export default function IntegratedDiagnosisPage() {
   const [sessionId] = useState<string>('demo')
 
   // メインビューの管理（下部メニューで切り替え）
-  const [currentMainView, setCurrentMainView] = useState<MainView>('qr')
+  const [currentMainView, setCurrentMainView] = useState<MainView>('questionnaire')
 
   // ステップ管理（後方互換性のため残す）
   const [currentStep, setCurrentStep] = useState<DiagnosisStep>('session')
@@ -204,6 +204,8 @@ export default function IntegratedDiagnosisPage() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const categoryTabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const categoryTabContainerRef = useRef<HTMLDivElement | null>(null)
   const isScrollingRef = useRef(false)
   const mainContainerRef = useRef<HTMLElement | null>(null)
 
@@ -301,32 +303,76 @@ export default function IntegratedDiagnosisPage() {
     }
   }, [currentMainView, staffCategoryOrder, activeCategory])
 
-  // Intersection Observerでスクロール位置を監視
+  // アクティブカテゴリが変わった時にタブを中央にスクロール
+  useEffect(() => {
+    if (!activeCategory || currentMainView !== 'diagnosis') return
+
+    const tabElement = categoryTabRefs.current[activeCategory]
+    const container = categoryTabContainerRef.current
+
+    if (tabElement && container) {
+      const containerRect = container.getBoundingClientRect()
+      const tabRect = tabElement.getBoundingClientRect()
+      
+      // タブを中央に配置するためのスクロール位置を計算
+      const scrollLeft = tabElement.offsetLeft - (containerRect.width / 2) + (tabRect.width / 2)
+      
+      container.scrollTo({
+        left: Math.max(0, scrollLeft),
+        behavior: 'smooth'
+      })
+    }
+  }, [activeCategory, currentMainView])
+
+  // Intersection Observerでスクロール位置を監視（スクロール時のカテゴリハイライト）
   useEffect(() => {
     if (currentMainView !== 'diagnosis') return
+    if (!mainContainerRef.current || staffCategoryOrder.length === 0) return
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isScrollingRef.current) return
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveCategory(entry.target.id.replace('category-', ''))
+    let observer: IntersectionObserver | null = null
+
+    // AnimatePresenceのアニメーション完了を待つ
+    const timeoutId = setTimeout(() => {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (isScrollingRef.current) return
+          
+          // 最も上に表示されているカテゴリを検出
+          const visibleEntries = entries.filter(entry => entry.isIntersecting)
+          if (visibleEntries.length > 0) {
+            // 最も上に近いカテゴリを選択
+            const topEntry = visibleEntries.reduce((prev, current) => {
+              const prevTop = prev.boundingClientRect.top
+              const currentTop = current.boundingClientRect.top
+              return currentTop < prevTop ? current : prev
+            })
+            
+            const categoryId = topEntry.target.id.replace('category-', '')
+            setActiveCategory(categoryId)
           }
-        })
-      },
-      {
-        root: mainContainerRef.current,
-        rootMargin: '-120px 0px -70% 0px',
-        threshold: 0
+        },
+        {
+          root: mainContainerRef.current,
+          rootMargin: '-140px 0px -60% 0px', // ヘッダー分のオフセットを調整
+          threshold: [0, 0.1, 0.5, 1.0] // 複数の閾値でより正確に検出
+        }
+      )
+
+      // カテゴリ要素を検索して監視
+      staffCategoryOrder.forEach((category) => {
+        const element = document.getElementById(`category-${category}`)
+        if (element) {
+          observer?.observe(element)
+        }
+      })
+    }, 300) // アニメーション完了を待つ（300ms）
+
+    return () => {
+      clearTimeout(timeoutId)
+      if (observer) {
+        observer.disconnect()
       }
-    )
-
-    staffCategoryOrder.forEach((category) => {
-      const element = document.getElementById(`category-${category}`)
-      if (element) observer.observe(element)
-    })
-
-    return () => observer.disconnect()
+    }
   }, [currentMainView, staffCategoryOrder])
 
   // タブクリック時のスクロール処理
@@ -993,63 +1039,6 @@ export default function IntegratedDiagnosisPage() {
             transition={{ duration: 0.2 }}
             className="max-w-4xl mx-auto px-3 py-4"
           >
-            {/* QR読み込みビュー */}
-            {currentMainView === 'qr' && (
-              <Card className="shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center space-x-2">
-                    <QrCode className="w-4 h-4" />
-                    <span>QRコード読み込み</span>
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    親御さんのQRコードをスキャンしてセッションを開始
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* QRスキャンエリア */}
-                  <div className="aspect-square max-w-[280px] mx-auto bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center">
-                    <QrCode className="w-16 h-16 text-gray-400 mb-3" />
-                    <p className="text-sm text-gray-600 font-medium">QRコードをスキャン</p>
-                    <p className="text-xs text-gray-400 mt-1">カメラが起動します</p>
-                  </div>
-
-                  {/* スキャンボタン */}
-                  <Button
-                    className="w-full h-14 bg-coral-500 hover:bg-coral-600 text-white text-base font-bold"
-                    onClick={() => {
-                      // デモ: QRスキャン後に問診ビューへ遷移
-                      alert('デモモード: QRスキャンをスキップして問診確認に進みます')
-                      setCurrentMainView('questionnaire')
-                    }}
-                  >
-                    <Camera className="w-5 h-5 mr-2" />
-                    QRコードをスキャン
-                  </Button>
-
-                  {/* 手動入力オプション */}
-                  <div className="text-center">
-                    <p className="text-xs text-gray-400 mb-2">または</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentMainView('questionnaire')}
-                    >
-                      セッションIDを手動入力
-                    </Button>
-                  </div>
-
-                  {/* デモ用ショートカット */}
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-xs text-blue-800">
-                      <strong>📱 デモモード:</strong><br />
-                      このデモではQRスキャンをスキップして、<br />
-                      サンプルデータで診断フローを体験できます。
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* 問診ビュー */}
             {currentMainView === 'questionnaire' && questionnaire && (
               <Card className="shadow-sm">
@@ -1179,48 +1168,30 @@ export default function IntegratedDiagnosisPage() {
                     // 表示モード
                     <>
                       <div>
-                        <h3 className="text-xs font-medium text-gray-900 mb-2">お子様情報</h3>
-                        <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
-                          <p className="text-sm"><span className="font-medium">お名前:</span> {questionnaire.child_name}</p>
-                          <p className="text-sm"><span className="font-medium">年齢:</span> {questionnaire.child_age}歳</p>
-                          <p className="text-sm"><span className="font-medium">性別:</span> {questionnaire.child_gender === 'male' ? '男' : questionnaire.child_gender === 'female' ? '女' : 'その他'}</p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-900 mb-2">気になること</h3>
-                        <div className="flex flex-wrap gap-1.5">
-                          {questionnaire.concerns.length > 0 ? questionnaire.concerns.map((concern, index) => (
-                            <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              {concern}
-                            </Badge>
-                          )) : <span className="text-xs text-gray-400">なし</span>}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-900 mb-2">理想の状態</h3>
-                        <div className="flex flex-wrap gap-1.5">
-                          {questionnaire.ideal_goals.length > 0 ? questionnaire.ideal_goals.map((goal, index) => (
-                            <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                              {goal}
-                            </Badge>
-                          )) : <span className="text-xs text-gray-400">なし</span>}
-                        </div>
-                      </div>
-
-                      {questionnaire.medical_history.length > 0 && (
-                        <div>
-                          <h3 className="text-xs font-medium text-gray-900 mb-2">既往歴</h3>
-                          <div className="flex flex-wrap gap-1.5">
-                            {questionnaire.medical_history.map((history, index) => (
-                              <Badge key={index} variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                                {history}
-                              </Badge>
-                            ))}
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">お子様情報</h3>
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 space-y-2">
+                          <p className="text-lg font-bold text-gray-800">
+                            {(() => {
+                              const nameParts = questionnaire.child_name.split(' ')
+                              const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : questionnaire.child_name
+                              const honorific = questionnaire.child_gender === 'male' ? 'くん' : 'ちゃん'
+                              return `${firstName}${honorific}`
+                            })()}
+                            <span className="text-sm font-normal text-gray-500 ml-2">
+                              ({questionnaire.child_name})
+                            </span>
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              🎂 <span className="font-medium">{questionnaire.child_age}歳</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              {questionnaire.child_gender === 'male' ? '👦' : '👧'}
+                              <span className="font-medium">{questionnaire.child_gender === 'male' ? '男の子' : questionnaire.child_gender === 'female' ? '女の子' : 'その他'}</span>
+                            </span>
                           </div>
                         </div>
-                      )}
+                      </div>
 
                       {questionnaire.notes && (
                         <div>
@@ -1228,6 +1199,98 @@ export default function IntegratedDiagnosisPage() {
                           <p className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3">{questionnaire.notes}</p>
                         </div>
                       )}
+
+                      {/* デモ用問診回答表示 */}
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          📋 {(() => {
+                            const nameParts = questionnaire.child_name.split(' ')
+                            const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : questionnaire.child_name
+                            const honorific = questionnaire.child_gender === 'male' ? 'くん' : 'ちゃん'
+                            return `${firstName}${honorific}の問診回答`
+                          })()}
+                        </h3>
+                        
+                        {/* カテゴリ別にグループ化して表示 */}
+                        {(() => {
+                          // カテゴリアイコンマップ
+                          const categoryIcons: Record<string, string> = {
+                            '基本情報': '👤',
+                            '口腔習慣': '👄',
+                            '食事': '🍽️',
+                            '睡眠': '😴',
+                            '姿勢': '🧍',
+                            '運動': '🏃',
+                            '生活習慣': '🏠',
+                            '歯並び': '🦷',
+                            'その他': '📝',
+                          }
+                          
+                          // カテゴリ色マップ
+                          const categoryColors: Record<string, { bg: string, border: string, text: string, badge: string }> = {
+                            '基本情報': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100' },
+                            '口腔習慣': { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700', badge: 'bg-pink-100' },
+                            '食事': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100' },
+                            '睡眠': { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', badge: 'bg-indigo-100' },
+                            '姿勢': { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100' },
+                            '運動': { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100' },
+                            '生活習慣': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100' },
+                            '歯並び': { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100' },
+                          }
+                          const defaultColors = { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100' }
+                          
+                          // デモ用のサンプル問診回答
+                          const demoResponses = [
+                            { category: '基本情報', question: 'お子様のお名前', answer: questionnaire.child_name },
+                            { category: '基本情報', question: 'お子様の年齢', answer: `${questionnaire.child_age}歳` },
+                            { category: '口腔習慣', question: '指しゃぶりをしていますか？', answer: 'いいえ' },
+                            { category: '口腔習慣', question: '口呼吸をしていますか？', answer: 'ときどきある' },
+                            { category: '食事', question: '食事中の姿勢はどうですか？', answer: '気になる' },
+                            { category: '食事', question: 'よく噛んで食べていますか？', answer: 'あまり噛まない' },
+                            { category: '睡眠', question: 'いびきをかきますか？', answer: 'ときどきある' },
+                            { category: '睡眠', question: '寝相が悪いですか？', answer: 'はい' },
+                          ]
+                          
+                          // カテゴリ別にグループ化
+                          const grouped = demoResponses.reduce((acc, item) => {
+                            if (!acc[item.category]) acc[item.category] = []
+                            acc[item.category].push(item)
+                            return acc
+                          }, {} as Record<string, typeof demoResponses>)
+                          
+                          return Object.entries(grouped).map(([category, items]) => {
+                            const colors = categoryColors[category] || defaultColors
+                            const icon = categoryIcons[category] || '📝'
+                            
+                            return (
+                              <div key={category} className={`rounded-xl border ${colors.border} ${colors.bg} overflow-hidden`}>
+                                {/* カテゴリヘッダー */}
+                                <div className={`px-3 py-2 ${colors.badge} border-b ${colors.border}`}>
+                                  <span className={`text-sm font-semibold ${colors.text}`}>
+                                    {icon} {category}
+                                  </span>
+                                </div>
+                                
+                                {/* 質問と回答 */}
+                                <div className="divide-y divide-gray-100">
+                                  {items.map((item, index) => (
+                                    <div key={index} className="px-3 py-2.5 bg-white/50">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <p className="text-xs text-gray-600 flex-1">
+                                          {item.question}
+                                        </p>
+                                        <span className={`text-xs font-bold ${colors.text} whitespace-nowrap px-2 py-0.5 rounded-full ${colors.badge}`}>
+                                          {item.answer}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })
+                        })()}
+                      </div>
                     </>
                   )}
                 </CardContent>
@@ -1357,7 +1420,10 @@ export default function IntegratedDiagnosisPage() {
                 </div>
 
                 {/* カテゴリタブ - 固定 */}
-                <div className="border-b bg-white overflow-x-auto sticky top-[52px] z-10 scrollbar-hide shadow-sm">
+                <div 
+                  ref={categoryTabContainerRef}
+                  className="border-b bg-white overflow-x-auto sticky top-[52px] z-10 scrollbar-hide shadow-sm"
+                >
                   <div className="flex">
                     {staffCategoryOrder.map((category) => {
                       const items = staffItemsByCategory[category] || []
@@ -1371,6 +1437,7 @@ export default function IntegratedDiagnosisPage() {
                       return (
                         <button
                           key={category}
+                          ref={(el) => { categoryTabRefs.current[category] = el }}
                           type="button"
                           onClick={(e) => handleCategoryClick(e, category)}
                           className={cn(
@@ -1651,7 +1718,7 @@ export default function IntegratedDiagnosisPage() {
                           setEditableSummary(value)
                           setIsReportConfirmed(false)
                         }}
-                        reportUrl={isReportConfirmed ? `${typeof window !== 'undefined' ? window.location.origin : ''}/report/demo-${sessionId}` : undefined}
+                        reportUrl={isReportConfirmed ? `https://woozily-convective-libbie.ngrok-free.dev/report/demo-${sessionId}` : undefined}
                       />
 
                       {/* 確定・送信ボタン */}
@@ -1708,7 +1775,6 @@ export default function IntegratedDiagnosisPage() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50 safe-area-inset-bottom">
         <div className="flex">
           {[
-            { view: 'qr' as MainView, label: 'QR', icon: <QrCode className="w-4 h-4" /> },
             { view: 'questionnaire' as MainView, label: '問診', icon: <FileText className="w-4 h-4" /> },
             { view: 'photos' as MainView, label: '写真', icon: <Camera className="w-4 h-4" /> },
             { view: 'diagnosis' as MainView, label: '診断', icon: <CheckCircle2 className="w-4 h-4" /> },
@@ -2063,7 +2129,7 @@ export default function IntegratedDiagnosisPage() {
                   setIsReportConfirmed(false)
                   setAnalysisResult(null)
                   setEditableSummary('')
-                  setCurrentMainView('qr')
+                  setCurrentMainView('questionnaire')
                   // 必要に応じて他の状態もリセット
                 }}
                 className="w-full h-14 bg-blue-500 hover:bg-blue-600 text-white text-base font-bold"

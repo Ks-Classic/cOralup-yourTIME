@@ -12,11 +12,15 @@ interface BasicInfoRequest {
   parentName: string
   parentLastName?: string
   parentFirstName?: string
+  parentLastNameKana?: string
+  parentFirstNameKana?: string
   parentPhone: string
   childName: string
   childLastName?: string
   childFirstName?: string
   childFurigana?: string
+  childLastNameKana?: string
+  childFirstNameKana?: string
   childBirthday: string
   childGender: 'male' | 'female' | 'other'
   childNickname?: string
@@ -38,10 +42,14 @@ export async function POST(request: NextRequest) {
       sessionId,
       parentLastName,
       parentFirstName,
+      parentLastNameKana,
+      parentFirstNameKana,
       parentPhone,
       childLastName,
       childFirstName,
       childFurigana,
+      childLastNameKana,
+      childFirstNameKana,
       childBirthday,
       childGender,
       childNickname,
@@ -72,6 +80,8 @@ export async function POST(request: NextRequest) {
           role: 'parent',
           first_name: parentFirstName,
           last_name: parentLastName,
+          first_name_kana: parentFirstNameKana,
+          last_name_kana: parentLastNameKana,
           phone_number: parentPhone,
           prefecture,
           is_active: true,
@@ -95,6 +105,8 @@ export async function POST(request: NextRequest) {
         .update({
           first_name: parentFirstName,
           last_name: parentLastName,
+          first_name_kana: parentFirstNameKana,
+          last_name_kana: parentLastNameKana,
           phone_number: parentPhone,
           prefecture,
           updated_at: new Date().toISOString(),
@@ -122,8 +134,8 @@ export async function POST(request: NextRequest) {
           parent_profile_id: profile.id,
           first_name: childFirstName,
           last_name: childLastName,
-          first_name_kana: childFurigana?.split(/\s+/)[1] || childFurigana,
-          last_name_kana: childFurigana?.split(/\s+/)[0] || '',
+          first_name_kana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
+          last_name_kana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
           birthday: childBirthday,
           gender: childGender,
           nickname: childNickname,
@@ -147,8 +159,8 @@ export async function POST(request: NextRequest) {
         .update({
           first_name: childFirstName,
           last_name: childLastName,
-          first_name_kana: childFurigana?.split(/\s+/)[1] || childFurigana,
-          last_name_kana: childFurigana?.split(/\s+/)[0] || '',
+          first_name_kana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
+          last_name_kana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
           birthday: childBirthday,
           gender: childGender,
           nickname: childNickname,

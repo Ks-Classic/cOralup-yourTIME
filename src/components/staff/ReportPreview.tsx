@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Heart, ChevronLeft, ChevronRight, X, ZoomIn, Edit2, Check } from 'lucide-react'
-import Image from 'next/image'
 import { cn } from '@/utils'
 import { Button } from '@/components/ui/button'
 
@@ -105,11 +104,10 @@ export function ReportPreview({
                   >
                     {photoUrl ? (
                       <>
-                        <Image
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
                           src={photoUrl}
                           alt={label}
-                          width={100}
-                          height={133}
                           className="w-full h-full object-cover"
                         />
                         {/* タップで拡大アイコン */}
@@ -318,11 +316,10 @@ export function ReportPreview({
 
             {/* 画像 */}
             <div className="w-full h-full flex items-center justify-center p-4">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={validPhotos[selectedPhotoIndex].url!}
                 alt={validPhotos[selectedPhotoIndex].label}
-                width={800}
-                height={1000}
                 className="max-w-full max-h-full object-contain"
                 style={{ maxHeight: 'calc(100vh - 160px)' }}
               />

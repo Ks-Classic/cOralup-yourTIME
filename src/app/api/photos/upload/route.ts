@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
     const eventId = formData.get('eventId') as string | null
     const photoType = formData.get('photoType') as PhotoType | null
 
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'photos/upload/route.ts:POST',message:'Upload request received',data:{hasFile:!!file,fileSize:file?.size,visitId,sessionId,photoType},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'J'})}).catch(()=>{});
+    // #endregion
+
     if (!file) {
       return NextResponse.json(
         { error: 'ファイルが必要です' },
@@ -113,6 +117,10 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'photos/upload/route.ts:POST',message:'DB insert result',data:{dbError:dbError?.message,photoRecordId:photoRecord?.id,visitId,photoType,storagePath:uploadData.path},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'K'})}).catch(()=>{});
+    // #endregion
+
     if (dbError) {
       console.error('[Photo Upload] DB error:', dbError)
       // DBエラーでもアップロード自体は成功しているので警告のみ
@@ -194,6 +202,10 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
+
+
+
+
 
 
 

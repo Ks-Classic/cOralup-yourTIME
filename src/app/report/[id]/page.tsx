@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
-import Image from 'next/image'
 import { cn } from '@/utils'
 
 interface ReportData {
   id: string
   childName: string
+  childFullName?: string
   childAge: number
   childAgeMonths?: number
+  childGender?: string
   parentName: string
   eventName: string
   diagnosisDate: string
@@ -93,8 +94,21 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     )
   }
 
-  const getAgeDisplay = () => 
-    reportData.childAgeMonths ? `${reportData.childAgeMonths}ヶ月` : `${reportData.childAge}歳`
+  // 月齢を「〇年〇ヶ月」形式で表示
+  const getAgeDisplay = () => {
+    if (reportData.childAgeMonths) {
+      const years = Math.floor(reportData.childAgeMonths / 12)
+      const months = reportData.childAgeMonths % 12
+      if (years > 0 && months > 0) {
+        return `${years}歳${months}ヶ月`
+      } else if (years > 0) {
+        return `${years}歳`
+      } else {
+        return `${months}ヶ月`
+      }
+    }
+    return `${reportData.childAge}歳`
+  }
 
   const photoLabels = [
     { key: 'postureSide', label: '横向き姿勢' },
@@ -163,11 +177,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
                   >
                     {photoUrl ? (
                       <>
-                        <Image
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
                           src={photoUrl}
                           alt={label}
-                          width={200}
-                          height={267}
                           className="w-full h-full object-cover"
                         />
                         {/* タップで拡大アイコン */}
@@ -253,11 +266,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
             {/* 画像 */}
             <div className="w-full h-full flex items-center justify-center p-4">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={validPhotos[selectedPhotoIndex].url!}
                 alt={validPhotos[selectedPhotoIndex].label}
-                width={800}
-                height={1000}
                 className="max-w-full max-h-full object-contain"
                 style={{ maxHeight: 'calc(100vh - 160px)' }}
               />

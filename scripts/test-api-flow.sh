@@ -245,3 +245,7 @@ echo "  DELETE FROM visits WHERE id = '${VISIT_ID}';"
 echo "  DELETE FROM children WHERE id = '${CHILD_ID}';"
 echo "  DELETE FROM profiles WHERE id = '${PROFILE_ID}';"
 
+
+
+
+

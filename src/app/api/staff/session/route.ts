@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient, isMockMode } from '@/lib/supabase'
+import { createServiceSupabaseClient, isMockMode } from '@/lib/supabase'
 
 // モック用データ
 const mockVisits = [
@@ -64,6 +64,8 @@ export async function GET(request: NextRequest) {
     const visitId = searchParams.get('visitId')
     const code = searchParams.get('code')
 
+    console.log('[Staff Session] Request:', { visitId, code })
+
     // モックモードの場合
     if (isMockMode) {
       if (visitId) {
@@ -90,8 +92,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Supabaseから取得
-    const supabase = createServerSupabaseClient()
+    // Supabaseから取得（Service Role Key使用でRLSバイパス）
+    const supabase = createServiceSupabaseClient()
 
     if (visitId) {
       // visit_idで検索
@@ -118,11 +120,14 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (error || !visit) {
+        console.log('[Staff Session] Not found:', { visitId, error })
         return NextResponse.json(
           { success: false, error: 'not_found', message: '該当するセッションが見つかりません' },
           { status: 404 }
         )
       }
+
+      console.log('[Staff Session] Found:', { visitId: visit.id, status: visit.status })
 
       // 保護者プロフィールを取得
       let parentProfile = null
@@ -162,6 +167,17 @@ export async function GET(request: NextRequest) {
           .order('answered_at', { ascending: true })
 
         questionnaireResponses = responses || []
+        
+        // #region agent log
+        const sampleResponses = (responses || []).slice(0, 3).map((r: any) => ({
+          id: r.id,
+          value: r.value,
+          options: r.questionnaire_items?.options,
+          optionsType: typeof r.questionnaire_items?.options,
+          question: r.questionnaire_items?.question?.slice(0, 30)
+        }));
+        fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff/session/route.ts:GET',message:'Questionnaire responses with options',data:{count:responses?.length,sampleResponses},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
       }
 
       // 互換用 questionnaires テーブルからも取得

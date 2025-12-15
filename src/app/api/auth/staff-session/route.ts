@@ -112,14 +112,42 @@ export async function DELETE() {
 /**
  * GET: セッション確認
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // 注意: この関数はAPI Routeなので、cookiesを直接使えない
-    // クライアントサイドからのセッション確認用
-    return NextResponse.json({
-      message: 'Use client-side session check or server component',
-    })
+    // Cookieからトークンを取得
+    const token = request.cookies.get('staff_session')?.value
+
+    if (!token) {
+      return NextResponse.json(
+        { authenticated: false, error: 'no_session' },
+        { status: 401 }
+      )
+    }
+
+    // トークン検証
+    const { jwtVerify } = await import('jose')
+    const secret = new TextEncoder().encode(
+      process.env.STAFF_SESSION_SECRET || 'default-secret-change-in-production'
+    )
+
+    try {
+      const { payload } = await jwtVerify(token, secret)
+      return NextResponse.json({
+        authenticated: true,
+        staff: {
+          id: payload.staffId,
+          name: payload.staffName,
+          role: payload.role,
+        },
+      })
+    } catch {
+      return NextResponse.json(
+        { authenticated: false, error: 'invalid_token' },
+        { status: 401 }
+      )
+    }
   } catch (error) {
+    console.error('[Staff Session] GET error:', error)
     return NextResponse.json(
       { error: 'internal_error' },
       { status: 500 }

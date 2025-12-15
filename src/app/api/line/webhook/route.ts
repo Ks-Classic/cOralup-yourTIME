@@ -3,8 +3,9 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET!
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://coralup.vercel.app'
+// 親御さん用のMessaging APIアクセストークン（LINE_MESSAGING_CHANNEL_ACCESS_TOKENを優先）
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN!
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://woozily-convective-libbie.ngrok-free.dev'
 const CORALUP_ORG_ID = process.env.CORALUP_ORG_ID
 const DEFAULT_EVENT_ID = process.env.DEFAULT_EVENT_ID // YourTIMEイベントID
 
@@ -76,6 +77,8 @@ async function handleFollowEvent(event: any) {
 
   try {
     // LINEプロフィールを取得
+    console.log('[LINE Webhook] Fetching profile with token:', LINE_CHANNEL_ACCESS_TOKEN ? `${LINE_CHANNEL_ACCESS_TOKEN.substring(0, 20)}...` : 'NOT SET')
+    
     const profileResponse = await fetch(
       `https://api.line.me/v2/bot/profile/${lineUserId}`,
       {
@@ -93,6 +96,9 @@ async function handleFollowEvent(event: any) {
       displayName = profile.displayName
       avatarUrl = profile.pictureUrl
       console.log('LINE profile fetched:', { displayName, avatarUrl })
+    } else {
+      const errorText = await profileResponse.text()
+      console.error('[LINE Webhook] Profile fetch failed:', profileResponse.status, errorText)
     }
 
     // profiles テーブルに登録（存在しなければINSERT、存在すればUPDATE）
@@ -306,7 +312,7 @@ async function sendMessage(userId: string, message: any) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
       },
       body: JSON.stringify({
         to: userId,

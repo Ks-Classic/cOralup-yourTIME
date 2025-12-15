@@ -49,6 +49,19 @@ export function createDateFromParts(year: number, month: number, day: number): D
 }
 
 /**
+ * 年・月・日からISO形式の日付文字列を作成（タイムゾーンに依存しない）
+ * @param year 年
+ * @param month 月（1-12）
+ * @param day 日
+ * @returns YYYY-MM-DD形式の文字列
+ */
+export function formatDateToISO(year: number, month: number, day: number): string {
+  const mm = String(month).padStart(2, '0')
+  const dd = String(day).padStart(2, '0')
+  return `${year}-${mm}-${dd}`
+}
+
+/**
  * 現在の年から過去の年のリストを生成（生年月日用）
  * @param startAge 開始年齢（デフォルト: 0歳）
  * @param endAge 終了年齢（デフォルト: 18歳）

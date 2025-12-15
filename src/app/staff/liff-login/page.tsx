@@ -1,15 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
-type LoginStatus = 'loading' | 'success' | 'error' | 'not_registered' | 'inactive'
+type LoginStatus = 'loading' | 'success' | 'opening_browser' | 'error' | 'not_registered' | 'inactive'
+
+// LINE内ブラウザかどうかを判定
+function isLiffBrowser(): boolean {
+  if (typeof window === 'undefined') return false
+  const ua = window.navigator.userAgent.toLowerCase()
+  return ua.includes('line') || ua.includes('liff')
+}
 
 export default function LiffLoginPage() {
-  const router = useRouter()
   const [status, setStatus] = useState<LoginStatus>('loading')
   const [errorMessage, setErrorMessage] = useState('')
   const [staffName, setStaffName] = useState('')
+  const [externalUrl, setExternalUrl] = useState('')
 
   useEffect(() => {
     const initLiff = async () => {
@@ -34,6 +40,7 @@ export default function LiffLoginPage() {
 
         // プロフィール取得
         const profile = await liff.getProfile()
+        console.log('[LIFF Login] Profile:', profile.userId)
 
         // セッション発行API呼び出し
         const res = await fetch('/api/auth/staff-session', {
@@ -47,10 +54,26 @@ export default function LiffLoginPage() {
         if (res.ok && data.success) {
           setStatus('success')
           setStaffName(data.staff.name)
-          // 少し待ってからホームへ遷移
-          setTimeout(() => {
-            window.location.href = '/staff/home'
-          }, 1500)
+
+          // LIFF/LINE内ブラウザの場合 → 外部ブラウザで開く
+          if (isLiffBrowser() && liff.isInClient()) {
+            const homeUrl = `${window.location.origin}/staff/home`
+            setExternalUrl(homeUrl)
+            setStatus('opening_browser')
+            
+            // 少し待ってから外部ブラウザで開く
+            setTimeout(() => {
+              liff.openWindow({
+                url: homeUrl,
+                external: true // 外部ブラウザで開く
+              })
+            }, 1500)
+          } else {
+            // 通常ブラウザの場合 → そのまま遷移
+            setTimeout(() => {
+              window.location.href = '/staff/home'
+            }, 1500)
+          }
         } else if (data.error === 'not_registered') {
           setStatus('not_registered')
         } else if (data.error === 'account_inactive') {
@@ -96,6 +119,47 @@ export default function LiffLoginPage() {
           </p>
           <p className="text-slate-400 text-sm mt-4">
             ホーム画面に移動します...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // LINE内ブラウザから外部ブラウザへ移動中
+  if (status === 'opening_browser') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+        <div className="bg-slate-800/50 backdrop-blur rounded-2xl shadow-xl p-8 max-w-sm w-full text-center border border-slate-700">
+          <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">ログイン成功！</h1>
+          <p className="text-slate-300 mb-4">
+            {staffName}さん、ようこそ！
+          </p>
+          
+          <div className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl mb-4">
+            <p className="text-blue-300 text-sm font-medium mb-2">
+              🌐 ブラウザが開きます
+            </p>
+            <p className="text-blue-200 text-xs leading-relaxed">
+              Safari/Chrome で診断アプリが開きます。<br />
+              <strong>ブックマーク登録</strong>をお願いします！
+            </p>
+          </div>
+
+          <div className="text-slate-400 text-sm flex items-center justify-center gap-2">
+            <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            外部ブラウザを起動中...
+          </div>
+          
+          <p className="text-xs text-slate-500 mt-4">
+            自動で開かない場合は<br />
+            <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">
+              こちらをタップ
+            </a>
           </p>
         </div>
       </div>

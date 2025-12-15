@@ -1,53 +1,160 @@
 'use client'
 
-export default function StaffLoginPage() {
-  const liffId = process.env.NEXT_PUBLIC_STAFF_LIFF_ID
-  const liffUrl = liffId ? `https://liff.line.me/${liffId}` : '#'
+import { useEffect, useState } from 'react'
 
+// LIFF ID（ビルド時に埋め込み）
+const STAFF_LIFF_ID = process.env.NEXT_PUBLIC_STAFF_LIFF_ID || ''
+
+// LINE内ブラウザかどうかを判定
+function isLineInAppBrowser(): boolean {
+  if (typeof window === 'undefined') return false
+  const ua = window.navigator.userAgent.toLowerCase()
+  return ua.includes('line')
+}
+
+// 外部ブラウザで開く（LINE内ブラウザからの脱出）
+function openInExternalBrowser(url: string) {
+  // iOS: Safari で開く
+  // Android: デフォルトブラウザで開く
+  // LINE内ブラウザでは window.open が外部ブラウザで開く
+  const externalUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`
+  
+  // まず通常の方法を試す
+  const opened = window.open(url, '_blank')
+  
+  // 開けなかった場合（LINE内ブラウザ等）
+  if (!opened) {
+    // Android Intent URI を試す
+    window.location.href = externalUrl
+  }
+}
+
+export default function StaffLoginPage() {
+  const [status, setStatus] = useState<'checking' | 'line_browser' | 'redirecting' | 'no_liff'>('checking')
+
+  useEffect(() => {
+    console.log('[Login] STAFF_LIFF_ID:', STAFF_LIFF_ID)
+    console.log('[Login] User Agent:', navigator.userAgent)
+    console.log('[Login] Is LINE browser:', isLineInAppBrowser())
+
+    if (!STAFF_LIFF_ID) {
+      setStatus('no_liff')
+      return
+    }
+
+    // LINE内ブラウザの場合
+    if (isLineInAppBrowser()) {
+      setStatus('line_browser')
+      // LINE内ブラウザからはLIFFでログイン後、外部ブラウザで開く案内
+      return
+    }
+
+    // 外部ブラウザの場合 → LIFFログインへリダイレクト
+    setStatus('redirecting')
+    const liffUrl = `https://liff.line.me/${STAFF_LIFF_ID}`
+    console.log('[Login] Redirecting to:', liffUrl)
+    
+    const timer = setTimeout(() => {
+      window.location.href = liffUrl
+    }, 500)
+    
+    return () => clearTimeout(timer)
+  }, [])
+
+  // チェック中
+  if (status === 'checking') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+        <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // LINE内ブラウザの場合 → 外部ブラウザで開くよう案内
+  if (status === 'line_browser') {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+    
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-white mb-2">外部ブラウザで開いてください</h1>
+            <p className="text-slate-400 text-sm">
+              診断アプリはLINE内ブラウザでは動作しません
+            </p>
+          </div>
+
+          <div className="bg-slate-800/50 backdrop-blur rounded-2xl shadow-xl p-6 border border-slate-700 space-y-4">
+            <div className="text-slate-300 text-sm space-y-3">
+              <p className="font-medium text-white">📱 開き方:</p>
+              <ol className="list-decimal list-inside space-y-2 text-slate-400">
+                <li>右上の <span className="text-white">「⋮」</span> または <span className="text-white">「…」</span> をタップ</li>
+                <li><span className="text-white">「他のブラウザで開く」</span> を選択</li>
+                <li>Safari / Chrome で開きます</li>
+              </ol>
+            </div>
+
+            <div className="pt-4 border-t border-slate-700">
+              <button
+                onClick={() => openInExternalBrowser(currentUrl)}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-4 rounded-xl transition-colors"
+              >
+                外部ブラウザで開く
+              </button>
+              <p className="text-xs text-slate-500 text-center mt-2">
+                ※ 上手くいかない場合は手動で開いてください
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // リダイレクト中
+  if (status === 'redirecting') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">ログイン中...</h1>
+          <p className="text-slate-400 text-sm">
+            LINEログイン画面に移動します
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // LIFF IDが設定されていない場合
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
       <div className="w-full max-w-sm">
-        {/* ロゴ・タイトル */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white">cOralup Staff</h1>
           <p className="text-slate-400 mt-2">スタッフ専用アプリ</p>
         </div>
 
-        {/* ログインカード */}
         <div className="bg-slate-800/50 backdrop-blur rounded-2xl shadow-xl p-6 text-center border border-slate-700">
-          <p className="text-slate-300 mb-6">
-            セッションが切れました。
+          <p className="text-slate-300 mb-4">
+            ログイン設定が完了していません。
             <br />
-            LINEからログインしてください。
+            管理者にお問い合わせください。
           </p>
-
-          <a
-            href={liffUrl}
-            className="w-full flex items-center justify-center gap-2 bg-[#06C755] hover:bg-[#05b04c] text-white font-medium py-3.5 px-4 rounded-xl transition-colors"
-          >
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-            </svg>
-            LINEでログイン
-          </a>
         </div>
-
-        <p className="text-center text-sm text-slate-500 mt-6">
-          初めての方は先にLINE公式アカウント
-          <br />
-          「cOralupスタッフ」を友だち追加してください
-        </p>
       </div>
     </div>
   )
 }
-
-
-
-
-
