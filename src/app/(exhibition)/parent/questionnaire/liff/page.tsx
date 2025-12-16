@@ -189,7 +189,6 @@ export default function LiffQuestionnairePage() {
       const liffState = urlParams.get('liff.state')
       if (liffState && liffState !== '/parent/questionnaire/liff') {
         // 別ページへリダイレクト
-        console.log('[LIFF] Redirecting to:', liffState)
         router.replace(liffState)
         return
       }
@@ -205,6 +204,7 @@ export default function LiffQuestionnairePage() {
     }
 
     initializeLiff()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ============================================================================

@@ -190,6 +190,7 @@ export default function SchemaEditorPage() {
     }
 
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schemaType, activeTab, questionnaireSubTab])
 
   // フォーム編集内容をタブ跨ぎでも保持するためキャッシュへ同期
@@ -738,6 +739,7 @@ export default function SchemaEditorPage() {
       sections: [...prev.sections, newSection]
     }))
     setExpandedSections(prev => new Set([...prev, newSection.id]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionnaireSubTab, basicInfoSchema.sections.length, questionnaireSchema.sections.length])
 
   // フィールド追加

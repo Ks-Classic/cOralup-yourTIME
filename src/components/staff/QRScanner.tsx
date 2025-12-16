@@ -46,7 +46,11 @@ export function QRScanner({ onScan, onError, className }: QRScannerProps) {
       }
 
       // スキャン成功 - スキャナーを停止
-      stopScanner()
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => { })
+        scannerRef.current = null
+      }
+      setIsScanning(false)
       setErrorMessage(null)
       onScan(data.visitId)
     } catch {
@@ -72,7 +76,7 @@ export function QRScanner({ onScan, onError, className }: QRScannerProps) {
           qrbox: { width: 250, height: 250 },
         },
         handleScan,
-        () => {} // スキャン中のエラーは無視
+        () => { } // スキャン中のエラーは無視
       )
 
       setIsScanning(true)
@@ -124,9 +128,9 @@ export function QRScanner({ onScan, onError, className }: QRScannerProps) {
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           {/* QRリーダーコンテナ */}
-          <div 
+          <div
             ref={containerRef}
-            id="qr-reader" 
+            id="qr-reader"
             className="w-full aspect-square max-w-sm mx-auto bg-black"
           />
 
@@ -144,7 +148,7 @@ export function QRScanner({ onScan, onError, className }: QRScannerProps) {
                 <p className="text-red-600 text-sm">
                   カメラへのアクセスが許可されていません
                 </p>
-                <Button 
+                <Button
                   onClick={startScanner}
                   variant="outline"
                   size="sm"
@@ -170,7 +174,7 @@ export function QRScanner({ onScan, onError, className }: QRScannerProps) {
       {/* コントロールボタン */}
       <div className="mt-4 flex justify-center gap-3">
         {isScanning ? (
-          <Button 
+          <Button
             onClick={stopScanner}
             variant="outline"
             size="sm"
@@ -178,7 +182,7 @@ export function QRScanner({ onScan, onError, className }: QRScannerProps) {
             スキャン停止
           </Button>
         ) : (
-          <Button 
+          <Button
             onClick={startScanner}
             size="sm"
             className="bg-coral-500 hover:bg-coral-600"

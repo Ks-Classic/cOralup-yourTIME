@@ -82,6 +82,27 @@ export default function ParentHomePage() {
     const [error, setError] = useState<string | null>(null)
     const [selectedChild, setSelectedChild] = useState<ChildData | null>(null)
 
+    // データ読み込み（useEffectより先に定義）
+    const loadData = useCallback(async (lineUserId: string) => {
+        try {
+            setIsLoading(true)
+            const res = await fetch(`/api/parent/visit?line_user_id=${encodeURIComponent(lineUserId)}`)
+            const data = await res.json()
+
+            if (data.success) {
+                setParentProfile(data.profile)
+                setChildren(data.children || [])
+            } else {
+                setError('データの取得に失敗しました')
+            }
+        } catch (err) {
+            console.error('[Parent Home] Load Error:', err)
+            setError('データの読み込みに失敗しました')
+        } finally {
+            setIsLoading(false)
+        }
+    }, [])
+
     // LIFF初期化
     useEffect(() => {
         const initLiff = async () => {
@@ -96,7 +117,6 @@ export default function ParentHomePage() {
 
                 // LINEアプリ外で開かれた場合はエラーにせず処理を続行
                 if (!liff.isInClient()) {
-                    console.log('[Parent Home] Not in LINE client, skipping LIFF auth')
                     setError('このページはLINEアプリ内で開いてください')
                     setIsLoading(false)
                     return
@@ -123,28 +143,7 @@ export default function ParentHomePage() {
         }
 
         initLiff()
-    }, [])
-
-    // データ読み込み
-    const loadData = useCallback(async (lineUserId: string) => {
-        try {
-            setIsLoading(true)
-            const res = await fetch(`/api/parent/visit?line_user_id=${encodeURIComponent(lineUserId)}`)
-            const data = await res.json()
-
-            if (data.success) {
-                setParentProfile(data.profile)
-                setChildren(data.children || [])
-            } else {
-                setError('データの取得に失敗しました')
-            }
-        } catch (err) {
-            console.error('[Parent Home] Load Error:', err)
-            setError('データの読み込みに失敗しました')
-        } finally {
-            setIsLoading(false)
-        }
-    }, [])
+    }, [loadData])
 
     // 新しい子どもの問診を開始
     const handleAddChild = () => {
