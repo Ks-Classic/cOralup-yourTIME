@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
         name: staffName,
         avatarUrl: staff.avatar_url,
       },
+      // 外部ブラウザ用にトークンも返す
+      token,
     })
   } catch (error) {
     console.error('[Staff Session] Error:', error)
@@ -155,7 +157,53 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * PUT: トークンからCookieをセット（LIFF→外部ブラウザ引き継ぎ用）
+ * Body: { token: string }
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const { token } = await request.json()
 
+    if (!token) {
+      return NextResponse.json(
+        { error: 'token is required' },
+        { status: 400 }
+      )
+    }
 
+    // トークン検証
+    const { jwtVerify } = await import('jose')
+    const secret = new TextEncoder().encode(
+      process.env.STAFF_SESSION_SECRET || 'default-secret-change-in-production'
+    )
 
+    try {
+      await jwtVerify(token, secret)
+
+      // Cookieをセット（レスポンスヘッダーで設定）
+      const response = NextResponse.json({ success: true })
+      response.cookies.set('staff_session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60, // 7日
+        path: '/',
+      })
+
+      return response
+    } catch {
+      return NextResponse.json(
+        { error: 'invalid_token' },
+        { status: 401 }
+      )
+    }
+  } catch (error) {
+    console.error('[Staff Session] PUT error:', error)
+    return NextResponse.json(
+      { error: 'internal_error' },
+      { status: 500 }
+    )
+  }
+}
 

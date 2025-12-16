@@ -18,10 +18,10 @@ function openInExternalBrowser(url: string) {
   // Android: デフォルトブラウザで開く
   // LINE内ブラウザでは window.open が外部ブラウザで開く
   const externalUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`
-  
+
   // まず通常の方法を試す
   const opened = window.open(url, '_blank')
-  
+
   // 開けなかった場合（LINE内ブラウザ等）
   if (!opened) {
     // Android Intent URI を試す
@@ -36,6 +36,35 @@ export default function StaffLoginPage() {
     console.log('[Login] STAFF_LIFF_ID:', STAFF_LIFF_ID)
     console.log('[Login] User Agent:', navigator.userAgent)
     console.log('[Login] Is LINE browser:', isLineInAppBrowser())
+
+    // URLパラメータからトークンを取得（LIFF→外部ブラウザの引き継ぎ用）
+    const urlParams = new URLSearchParams(window.location.search)
+    const tokenFromUrl = urlParams.get('token')
+
+    if (tokenFromUrl) {
+      // トークンがある場合 → Cookieをセットしてホームへ
+      console.log('[Login] Token found in URL, setting cookie...')
+      fetch('/api/auth/staff-session', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tokenFromUrl }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            console.log('[Login] Cookie set, redirecting to home')
+            window.location.href = '/staff/home'
+          } else {
+            console.error('[Login] Failed to set cookie:', data.error)
+            setStatus('no_liff')
+          }
+        })
+        .catch(err => {
+          console.error('[Login] Error setting cookie:', err)
+          setStatus('no_liff')
+        })
+      return
+    }
 
     if (!STAFF_LIFF_ID) {
       setStatus('no_liff')
@@ -53,11 +82,11 @@ export default function StaffLoginPage() {
     setStatus('redirecting')
     const liffUrl = `https://liff.line.me/${STAFF_LIFF_ID}`
     console.log('[Login] Redirecting to:', liffUrl)
-    
+
     const timer = setTimeout(() => {
       window.location.href = liffUrl
     }, 500)
-    
+
     return () => clearTimeout(timer)
   }, [])
 
@@ -73,7 +102,7 @@ export default function StaffLoginPage() {
   // LINE内ブラウザの場合 → 外部ブラウザで開くよう案内
   if (status === 'line_browser') {
     const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
-    
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
         <div className="w-full max-w-sm">

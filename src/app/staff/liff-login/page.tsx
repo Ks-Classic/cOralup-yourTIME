@@ -55,16 +55,17 @@ export default function LiffLoginPage() {
           setStatus('success')
           setStaffName(data.staff.name)
 
-          // LIFF/LINE内ブラウザの場合 → 外部ブラウザで開く
+          // LIFF/LINE内ブラウザの場合 → 外部ブラウザで開く（トークン付き）
           if (isLiffBrowser() && liff.isInClient()) {
-            const homeUrl = `${window.location.origin}/staff/home`
-            setExternalUrl(homeUrl)
+            // トークンをURLパラメータに追加してセッション引き継ぎ
+            const loginUrl = `${window.location.origin}/staff/login?token=${encodeURIComponent(data.token)}`
+            setExternalUrl(loginUrl)
             setStatus('opening_browser')
-            
+
             // 少し待ってから外部ブラウザで開く
             setTimeout(() => {
               liff.openWindow({
-                url: homeUrl,
+                url: loginUrl,
                 external: true // 外部ブラウザで開く
               })
             }, 1500)
@@ -139,7 +140,7 @@ export default function LiffLoginPage() {
           <p className="text-slate-300 mb-4">
             {staffName}さん、ようこそ！
           </p>
-          
+
           <div className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl mb-4">
             <p className="text-blue-300 text-sm font-medium mb-2">
               🌐 ブラウザが開きます
@@ -154,7 +155,7 @@ export default function LiffLoginPage() {
             <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
             外部ブラウザを起動中...
           </div>
-          
+
           <p className="text-xs text-slate-500 mt-4">
             自動で開かない場合は<br />
             <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">
