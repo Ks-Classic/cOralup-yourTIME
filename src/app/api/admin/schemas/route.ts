@@ -7,6 +7,8 @@ import { basicInfoFormSchema, basicInfoElementaryFormSchema } from '@/data/basic
 import { diagnosisItems, categoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
 
+export const dynamic = 'force-dynamic'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const adminApiKey = process.env.ADMIN_API_KEY
@@ -27,10 +29,10 @@ const assertAdminAuthorized = (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || ''
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
   const headerKey = request.headers.get('x-admin-key')
-  
+
   // ヘッダーがない場合も許可（暫定対応）
   if (!bearer && !headerKey) return
-  
+
   if (bearer === adminApiKey || headerKey === adminApiKey) return
   throw new Error('unauthorized')
 }
@@ -335,7 +337,7 @@ export async function POST(request: NextRequest) {
         // 項目（フィールド）の保存
         for (const field of section.fields) {
           let itemId = field.id
-        const isTempItemId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId)
+          const isTempItemId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId)
 
           const itemData = {
             category_id: categoryId,

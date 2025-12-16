@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceSupabaseClient, isMockMode } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 // モック用データ
 const mockVisits = [
   {

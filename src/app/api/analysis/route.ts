@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, isMockMode } from '@/lib/supabase'
 import { analyzeWithRetry, extractJSON, isGeminiMockMode } from '@/lib/gemini'
-import { 
-  OralDiagnosisOutput, 
+import {
+  OralDiagnosisOutput,
   OralDiagnosisOutputSchema,
   buildOralAnalysisPrompt,
   getDefaultOralDiagnosisOutput,
   OralAnalysisInput
 } from '@/agents/oral-diagnosis/schema'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/analysis
@@ -91,13 +93,13 @@ export async function POST(request: NextRequest) {
     try {
       // Gemini分析実行
       rawResponse = await analyzeWithRetry(prompt)
-      
+
       // JSONパースとバリデーション
       const parsed = extractJSON<OralDiagnosisOutput>(rawResponse)
       analysisResult = OralDiagnosisOutputSchema.parse(parsed)
     } catch (aiError) {
       console.error('[Analysis] AI分析エラー:', aiError)
-      
+
       // フォールバック
       analysisResult = getDefaultOralDiagnosisOutput()
       analysisResult.professionalNote = `AI分析エラー: ${(aiError as Error).message}`

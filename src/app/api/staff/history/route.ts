@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStaffSession } from '@/lib/staff-auth'
 
+export const dynamic = 'force-dynamic'
+
 // Supabase クライアント (Service Role)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

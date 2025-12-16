@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStaffSession } from '@/lib/staff-auth'
 
+export const dynamic = 'force-dynamic'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
     const headerKey = request.headers.get('x-admin-key')
 
     // 管理者チェック（暫定対応）
-    const isAdmin = 
+    const isAdmin =
       (session && (session.role === 'admin' || session.role === 'staff')) ||
       (adminApiKey && (bearer === adminApiKey || headerKey === adminApiKey)) ||
       !adminApiKey // ADMIN_API_KEY未設定時は許可（開発環境）
