@@ -92,15 +92,23 @@ export async function POST(request: NextRequest) {
     const childrenArray = visit.children as { id: string; first_name: string; last_name: string; parent_profile_id: string }[] | null
     const child = childrenArray?.[0] || null
 
+    console.log('[Complete Diagnosis] Debug - children:', JSON.stringify(childrenArray))
+    console.log('[Complete Diagnosis] Debug - child:', JSON.stringify(child))
+
     if (child?.parent_profile_id) {
-      const { data: parentProfile } = await supabase
+      const { data: parentProfile, error: profileError } = await supabase
         .from('profiles')
         .select('line_user_id')
         .eq('id', child.parent_profile_id)
         .single()
 
+      console.log('[Complete Diagnosis] Debug - parentProfile:', JSON.stringify(parentProfile), 'error:', profileError)
       parentLineUserId = parentProfile?.line_user_id || null
+    } else {
+      console.log('[Complete Diagnosis] Debug - No parent_profile_id found')
     }
+
+    console.log('[Complete Diagnosis] Debug - parentLineUserId:', parentLineUserId)
 
     // 3. レポートを取得または作成（visit_idで一意）
     const { data: existingReport } = await supabase
