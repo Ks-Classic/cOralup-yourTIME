@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save } from 'lucide-react'
+import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save, AlertCircle } from 'lucide-react'
 import { ReportPreview } from '@/components/staff/ReportPreview'
 import { cn } from '@/utils'
 import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-generator'
@@ -759,18 +759,38 @@ export default function IntegratedDiagnosisPage() {
   }
 
   // LINE配信確認後の完了処理
-  const completeDiagnosis = (delivered: boolean) => {
-    if (delivered) {
-      // 届いた場合
+  const completeDiagnosis = async (confirmationStatus: 'confirmed' | 'not_received' | 'unknown') => {
+    try {
+      // デモページではvisitIdがない場合があるので、存在する場合のみAPI呼び出し
+      const visitId = session?.id || null
+      if (visitId) {
+        const response = await fetch('/api/line/confirm-delivery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visitId,
+            confirmationStatus,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('確認結果の保存に失敗しました')
+        }
+      }
+
+      // 状態に応じたメッセージ表示
+      if (confirmationStatus === 'not_received') {
+        alert('親御さんに「近日中にレポートをお送りします」とお伝えください。')
+      } else if (confirmationStatus === 'unknown') {
+        alert('確認できなかった場合は、後日再送信できます。')
+      }
+
       markStepCompleted('report')
       setIsDiagnosisComplete(true)
       setShowLineDeliveryCheck(false)
-    } else {
-      // 届いていない場合
-      alert('親御さんに「近日中にレポートをお送りします」とお伝えください。')
-      markStepCompleted('report')
-      setIsDiagnosisComplete(true)
-      setShowLineDeliveryCheck(false)
+    } catch (error) {
+      console.error('Error confirming delivery:', error)
+      alert('確認結果の保存に失敗しました: ' + (error as Error).message)
     }
   }
 
@@ -2075,22 +2095,32 @@ export default function IntegratedDiagnosisPage() {
                 </p>
               </div>
 
-              {/* 届いた/届いてないボタン */}
-              <div className="flex gap-3">
+              {/* 届いた/届いてない/確認できなかったボタン */}
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => completeDiagnosis('confirmed')}
+                    className="flex-1 h-14 bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <Check className="w-5 h-5 mr-2" />
+                    届いた
+                  </Button>
+                  <Button
+                    onClick={() => completeDiagnosis('not_received')}
+                    variant="outline"
+                    className="flex-1 h-14 border-2 border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    <X className="w-5 h-5 mr-2" />
+                    届いていない
+                  </Button>
+                </div>
                 <Button
-                  onClick={() => completeDiagnosis(false)}
+                  onClick={() => completeDiagnosis('unknown')}
                   variant="outline"
-                  className="flex-1 h-14 border-2 border-red-300 text-red-600 hover:bg-red-50"
+                  className="w-full h-14 border-2 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
                 >
-                  <X className="w-5 h-5 mr-2" />
-                  届いていない
-                </Button>
-                <Button
-                  onClick={() => completeDiagnosis(true)}
-                  className="flex-1 h-14 bg-green-500 hover:bg-green-600 text-white"
-                >
-                  <Check className="w-5 h-5 mr-2" />
-                  届いた
+                  <AlertCircle className="w-5 h-5 mr-2" />
+                  確認できなかった
                 </Button>
               </div>
 

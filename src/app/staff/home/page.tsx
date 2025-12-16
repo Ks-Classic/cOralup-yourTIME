@@ -16,7 +16,7 @@ export default async function StaffHomePage() {
     redirect('/staff/login')
   }
 
-  // 最近の対応を取得
+  // 最近の対応を取得（診断完了または送信済みのみ）
   const { data: recentVisits } = await supabase
     .from('visits')
     .select(`
@@ -33,6 +33,7 @@ export default async function StaffHomePage() {
       )
     `)
     .eq('staff_profile_id', session.staffId)
+    .in('status', ['diagnosis_completed', 'report_sent'])
     .order('visit_date', { ascending: false })
     .limit(5)
 
@@ -179,7 +180,7 @@ export default async function StaffHomePage() {
                 return (
                   <Link
                     key={visit.id}
-                    href={`/staff/diagnosis/${visit.id}`}
+                    href={`/staff/history/${visit.session_id}`}
                     className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">

@@ -243,6 +243,17 @@ export default function SchemaEditorPage() {
     }))
   }, [questionnaireSubTab])
 
+  // セクション説明更新
+  const updateSectionDescription = useCallback((sectionId: string, description: string) => {
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId ? { ...section, description } : section
+      )
+    }))
+  }, [questionnaireSubTab])
+
   // カテゴリ展開切り替え + プレビュースクロール
   const toggleCategory = (categoryName: string) => {
     setExpandedCategories(prev => {
@@ -563,6 +574,12 @@ export default function SchemaEditorPage() {
   const [draggedItem, setDraggedItem] = useState<{ id: string, category: string } | null>(null)
   const [dragOverItem, setDragOverItem] = useState<string | null>(null)
 
+  // 問診票用ドラッグ＆ドロップの状態管理
+  const [draggedSection, setDraggedSection] = useState<string | null>(null)
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null)
+  const [draggedField, setDraggedField] = useState<{ id: string, sectionId: string } | null>(null)
+  const [dragOverField, setDragOverField] = useState<string | null>(null)
+
   // カテゴリのD&D
   const handleDragStart = (category: string) => {
     setDraggedCategory(category)
@@ -633,6 +650,76 @@ export default function SchemaEditorPage() {
   const handleItemDragEnd = () => {
     setDraggedItem(null)
     setDragOverItem(null)
+  }
+
+  // 問診票セクションのD&D
+  const handleSectionDragStart = (sectionId: string) => {
+    setDraggedSection(sectionId)
+  }
+
+  const handleSectionDragOver = useCallback((e: React.DragEvent, sectionId: string) => {
+    e.preventDefault()
+    if (!draggedSection || draggedSection === sectionId) return
+
+    setDragOverSection(sectionId)
+
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => {
+      const sections = [...prev.sections]
+      const draggedIdx = sections.findIndex(s => s.id === draggedSection)
+      const targetIdx = sections.findIndex(s => s.id === sectionId)
+
+      if (draggedIdx !== -1 && targetIdx !== -1 && draggedIdx !== targetIdx) {
+        const [movedSection] = sections.splice(draggedIdx, 1)
+        sections.splice(targetIdx, 0, movedSection)
+        return { ...prev, sections }
+      }
+      return prev
+    })
+  }, [draggedSection, questionnaireSubTab])
+
+  const handleSectionDragEnd = () => {
+    setDraggedSection(null)
+    setDragOverSection(null)
+  }
+
+  // 問診票フィールドのD&D
+  const handleFieldDragStart = (field: { id: string, sectionId: string }) => {
+    setDraggedField(field)
+  }
+
+  const handleFieldDragOver = useCallback((e: React.DragEvent, field: { id: string, sectionId: string }) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!draggedField || draggedField.id === field.id) return
+    if (draggedField.sectionId !== field.sectionId) return // 同一セクション内のみ
+
+    setDragOverField(field.id)
+
+    const setSchema = questionnaireSubTab === 'basic_info' ? setBasicInfoSchema : setQuestionnaireSchema
+    setSchema(prev => {
+      const sections = prev.sections.map(section => {
+        if (section.id !== field.sectionId) return section
+
+        const fields = [...section.fields]
+        const draggedIdx = fields.findIndex(f => f.id === draggedField.id)
+        const targetIdx = fields.findIndex(f => f.id === field.id)
+
+        if (draggedIdx !== -1 && targetIdx !== -1 && draggedIdx !== targetIdx) {
+          const [movedField] = fields.splice(draggedIdx, 1)
+          fields.splice(targetIdx, 0, movedField)
+          return { ...section, fields }
+        }
+        return section
+      })
+      return { ...prev, sections }
+    })
+  }, [draggedField, questionnaireSubTab])
+
+  const handleFieldDragEnd = () => {
+    setDraggedField(null)
+    setDragOverField(null)
   }
 
   // セクション追加
@@ -745,7 +832,7 @@ export default function SchemaEditorPage() {
         // 問診票スキーマをAPI経由で保存
         console.log('[UI handleSave] hardDeleteCategoryIds:', hardDeleteCategoryIds)
         console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
-        
+
         if (questionnaireSubTab === 'basic_info') {
           // 基本情報スキーマの保存
           const response = await fetch('/api/admin/schemas', {
@@ -795,7 +882,7 @@ export default function SchemaEditorPage() {
           setSaveMessage({ type: 'success', text: '問診票スキーマを保存しました' })
           setSchemaCache(prev => ({ ...prev, [schemaType]: undefined }))
         }
-        
+
         setHardDeleteCategoryIds([])
         setHardDeleteItemIds([])
       }
@@ -1055,7 +1142,7 @@ export default function SchemaEditorPage() {
             </button>
           </div>
           <p className="text-xs text-slate-500">
-            {questionnaireSubTab === 'basic_info' 
+            {questionnaireSubTab === 'basic_info'
               ? '※ 基本情報入力後「次へ」でDB保存 → 問診ページへ遷移'
               : '※ 問診入力後「次へ：QR表示」でDB保存 → QRコード表示'}
           </p>
@@ -1071,17 +1158,32 @@ export default function SchemaEditorPage() {
             {activeTab === 'diagnosis' && (
               <p className="text-xs text-slate-500 mt-1">ドラッグ&ドロップでカテゴリの順番を変更・項目クリックでプレビュー連動</p>
             )}
+            {activeTab === 'questionnaire' && (
+              <p className="text-xs text-slate-500 mt-1">ドラッグ&ドロップでセクション・項目の順番を変更</p>
+            )}
           </div>
           <div className="p-4 max-h-[700px] overflow-y-auto space-y-3">
             {activeTab === 'questionnaire' ? (
               <>
                 {(questionnaireSubTab === 'basic_info' ? basicInfoSchema : questionnaireSchema).sections.map((section) => (
-                  <div key={section.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                  <div
+                    key={section.id}
+                    className={cn(
+                      "border rounded-lg overflow-hidden transition-all",
+                      draggedSection === section.id ? "opacity-50 border-blue-300 border-dashed" : "border-slate-200",
+                      dragOverSection === section.id ? "border-blue-500 border-2" : ""
+                    )}
+                    draggable
+                    onDragStart={() => handleSectionDragStart(section.id)}
+                    onDragOver={(e) => handleSectionDragOver(e, section.id)}
+                    onDragEnd={handleSectionDragEnd}
+                  >
                     <div
                       className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center cursor-pointer hover:bg-slate-100"
                       onClick={() => toggleSection(section.id)}
                     >
                       <div className="flex items-center gap-2">
+                        <GripVertical className="w-4 h-4 text-slate-400 cursor-grab" />
                         {expandedSections.has(section.id) ? (
                           <ChevronDown className="w-4 h-4 text-slate-400" />
                         ) : (
@@ -1105,23 +1207,48 @@ export default function SchemaEditorPage() {
                     </div>
 
                     {expandedSections.has(section.id) && (
-                      <div className="p-3 space-y-2">
+                      <div className="p-3 space-y-3">
+                        {/* セクション説明欄 */}
+                        <div className="space-y-1.5 pb-3 border-b border-slate-200">
+                          <label className="text-xs text-slate-600 font-medium">セクション説明（空欄の場合は非表示）</label>
+                          <textarea
+                            value={section.description || ''}
+                            onChange={(e) => updateSectionDescription(section.id, e.target.value)}
+                            placeholder="入力例: 睡眠中の状態について教えてください"
+                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none"
+                            rows={2}
+                          />
+                        </div>
+                        {/* 項目一覧 */}
                         {section.fields.map((field) => (
                           <div
                             key={field.id}
-                            className={`p-3 border rounded-lg transition-colors ${editingField === field.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-slate-200 hover:border-slate-300'
-                              }`}
+                            className={cn(
+                              "p-3 border rounded-lg transition-all cursor-pointer",
+                              editingField === field.id
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-slate-200 hover:border-slate-300',
+                              draggedField?.id === field.id && 'opacity-50 border-dashed border-blue-400',
+                              dragOverField === field.id && 'border-t-4 border-t-blue-500'
+                            )}
+                            draggable
+                            onDragStart={(e) => { e.stopPropagation(); handleFieldDragStart({ id: field.id, sectionId: section.id }) }}
+                            onDragOver={(e) => handleFieldDragOver(e, { id: field.id, sectionId: section.id })}
+                            onDragEnd={handleFieldDragEnd}
                           >
-                            <div className="flex justify-between items-start">
-                              <div
-                                className="flex-1 cursor-pointer"
-                                onClick={() => setEditingField(editingField === field.id ? null : field.id)}
-                              >
-                                <div className="font-medium text-slate-800">{field.name}</div>
-                                <div className="text-xs text-slate-500 mt-1">
-                                  タイプ: {field.type} | {field.required ? '必須' : '任意'} | {field.isActive === false ? '非表示' : '表示'}
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <div className="mt-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
+                                  <GripVertical className="w-4 h-4" />
+                                </div>
+                                <div
+                                  className="flex-1 min-w-0 cursor-pointer"
+                                  onClick={() => setEditingField(editingField === field.id ? null : field.id)}
+                                >
+                                  <div className="font-medium text-slate-800 truncate">{field.name}</div>
+                                  <div className="text-xs text-slate-500 mt-1">
+                                    タイプ: {field.type} | {field.required ? '必須' : '任意'} | {field.isActive === false ? '非表示' : '表示'}
+                                  </div>
                                 </div>
                               </div>
                               <button
@@ -1163,32 +1290,32 @@ export default function SchemaEditorPage() {
                                     {(() => {
                                       const options = Array.isArray(field.options) ? field.options : (ensureOptions(field.type) ?? [])
                                       return (
-                                    <div className="mt-2 space-y-2">
-                                      {options.map((opt, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center">
-                                          <Input
-                                            value={opt.label}
-                                            onChange={(e) => updateFieldOption(section.id, field.id, idx, e.target.value)}
-                                            placeholder={`選択肢${idx + 1}`}
-                                            className="flex-1"
-                                          />
+                                        <div className="mt-2 space-y-2">
+                                          {options.map((opt, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                              <Input
+                                                value={opt.label}
+                                                onChange={(e) => updateFieldOption(section.id, field.id, idx, e.target.value)}
+                                                placeholder={`選択肢${idx + 1}`}
+                                                className="flex-1"
+                                              />
+                                              <button
+                                                onClick={() => removeFieldOption(section.id, field.id, idx)}
+                                                className="text-red-400 hover:text-red-600 p-2"
+                                                disabled={options.length <= 1}
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          ))}
                                           <button
-                                            onClick={() => removeFieldOption(section.id, field.id, idx)}
-                                            className="text-red-400 hover:text-red-600 p-2"
-                                            disabled={options.length <= 1}
+                                            onClick={() => addFieldOption(section.id, field.id)}
+                                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                                           >
-                                            <X className="w-4 h-4" />
+                                            <Plus className="w-3 h-3" />
+                                            選択肢を追加
                                           </button>
                                         </div>
-                                      ))}
-                                      <button
-                                        onClick={() => addFieldOption(section.id, field.id)}
-                                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                                      >
-                                        <Plus className="w-3 h-3" />
-                                        選択肢を追加
-                                      </button>
-                                    </div>
                                       )
                                     })()}
                                   </div>
@@ -1540,7 +1667,7 @@ export default function SchemaEditorPage() {
                         <p className="text-sm text-slate-500 mb-4">{section.description}</p>
                       )}
                       <div className="space-y-4">
-                      {section.fields.filter(f => f.isActive !== false).map((field) => (
+                        {section.fields.filter(f => f.isActive !== false).map((field) => (
                           <div key={field.id}>
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                               {field.name}

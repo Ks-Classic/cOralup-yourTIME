@@ -34,18 +34,28 @@ export default function AdminDashboard() {
           </div>
         </Link>
 
-        {/* セッション管理カード */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 opacity-60">
+        {/* 対応履歴管理カード */}
+        <Link
+          href="/admin/visits"
+          className="block bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition-shadow"
+        >
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-2xl">
+            <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center text-2xl">
               📋
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">セッション管理</h2>
-              <p className="text-sm text-slate-500">Coming Soon</p>
+              <h2 className="text-lg font-semibold text-slate-800">対応履歴管理</h2>
+              <p className="text-sm text-slate-500">全スタッフ・特定スタッフの履歴確認</p>
             </div>
           </div>
-        </div>
+          <div className="mt-4 text-sm text-slate-600">
+            <ul className="space-y-1">
+              <li>• 全スタッフの対応履歴一覧</li>
+              <li>• スタッフごとのフィルタ</li>
+              <li>• 問診・診断結果の確認</li>
+            </ul>
+          </div>
+        </Link>
 
         {/* データ分析カード */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 opacity-60">

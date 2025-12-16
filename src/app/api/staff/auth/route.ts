@@ -39,12 +39,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Supabaseからスタッフ一覧を取得
+    // Supabaseからスタッフ一覧を取得（role='staff' または secondary_role='staff'）
     const supabase = createServerSupabaseClient()
     const { data: staffList, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url')
-      .eq('role', 'staff')
+      .select('id, first_name, last_name, avatar_url, role, secondary_role')
+      .or('role.eq.staff,secondary_role.eq.staff')
       .order('last_name')
 
     if (error) {

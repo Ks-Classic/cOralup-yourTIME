@@ -1,179 +1,46 @@
 # Coralup TODO プロジェクト管理
 
-**最終更新: 2024-12-13**
+**最終更新: 2025-12-16**
 
 ---
 
-## 🎯 現在のフェーズ: 本番環境テスト + LINE設定
+## 🎯 現在のフェーズ: Phase 2 自社CRM整備
 
-### 目標: 2024/12/21 イベント本番
-
----
-
-## 🚀 優先タスク
-
-### 並行実装グループ
-
-以下のタスクは**並行で実装可能**です：
-
-#### 🔵 グループA: 親御さんLIFF問診（コード実装）
-- Phase 2: LIFF問診ページ実装
-- Phase 3: Webhook更新（LIFF URL）
-
-#### 🔵 グループB: スタッフLINE認証（手動設定）
-- LINE Developers Console設定
-- 環境変数設定
-- E2Eテスト
-
-#### 🔵 グループC: 親御さんLINE設定（手動設定）
-- LINE Loginチャネル作成
-- LIFFアプリ作成
-- 環境変数設定
-
-### 📋 残作業サマリー
-
-**スタッフ用（コード実装完了）:**
-1. LINE Developers Console設定（手動）
-2. 環境変数設定
-3. E2Eテスト
-
-**親御さん用（コード実装必要）:**
-1. LINE Loginチャネル作成（手動）
-2. LIFFアプリ作成（手動）
-3. LIFF問診ページ実装（コード）
-4. 環境変数設定
-5. E2Eテスト
+### Phase 1 完了: YourTIME イベント（2024/12/21）✅ 成功
 
 ---
 
-## 📋 タスク一覧
+## � 完了状況サマリー
 
-### 🔴 P0: YourTIME イベント必須（〜12/20）
+### ✅ Phase 1 完了タスク（2024/12）
 
-#### 01-infra: DB基盤 ✅
-
-| # | タスク | 詳細 | 状態 | 担当 |
-|---|--------|------|------|------|
-| 1.1 | マイグレーション適用 | `20241205000000_diagnosis_master_tables.sql` を本番適用 | ✅ | |
-| 1.2 | マイグレーション適用 | `20241206000000_questionnaire_master_tables.sql` を本番適用 | ✅ | |
-| 1.3 | マイグレーション適用 | `20241206000001_crm_tables.sql` を本番適用 | ✅ | |
-| 1.4 | 診断カテゴリシード | `diagnosis_categories` に16カテゴリ投入 | ✅ | |
-| 1.5 | 診断項目シード | `diagnosis_items` に約60項目投入 | ✅ | |
-| 1.6 | 問診カテゴリシード | `questionnaire_categories` に約10カテゴリ投入 | ✅ | |
-| 1.7 | 問診項目シード（未就学児） | `questionnaire_items` に未就学児用項目投入 | ✅ | |
-| 1.8 | 問診項目シード（小学生） | `questionnaire_items` に小学生用項目投入 | ✅ | |
-| 1.9 | YourTIMEイベント登録 | `events` テーブルにYourTIME 1件登録 | ✅ | |
-| 1.10 | cOralup組織確認 | `organizations` に cOralup が登録されていることを確認 | ✅ | |
-| 1.11 | RLS有効化 | 全テーブルにRLS ON + service_roleポリシー | ✅ | |
-| 1.12 | API Service Role移行 | クライアント直Supabase廃止→サーバーAPI経由 | ✅ | |
-| 1.13 | reports拡張マイグレーション | `uuid`, `visit_id`, AI分析カラム追加 | ✅ | |
-| 1.14 | line_message_logs作成 | LINE送信ログテーブル作成 | ✅ | |
-| 1.15 | visits冗長カラム削除 | `line_user_id`, `parent_name`, `parent_phone` 削除 | ✅ | |
-| 1.16 | visit_id統一 | 全テーブルに `visit_id` カラム追加、外部キー設定 | ✅ | |
-
-#### 02-parent: 問診画面DB連携 ✅
-
-| # | タスク | 詳細 | 状態 | 担当 |
-|---|--------|------|------|------|
-| 2.0 | LINE Webhook実装 | 友だち追加→ `profiles` に `line_user_id`, `display_name` 即時登録 | ✅ | |
-| 2.1 | 基本情報保存API | `POST /api/parent/basic-info` → `profiles` UPDATE + `children` + `visits` INSERT | ✅ | |
-| 2.2 | 問診回答保存API | `POST /api/parent/questionnaire` → `questionnaire_responses` + `visits.status` 更新 | ✅ | |
-| 2.3 | 問診項目取得API | `GET /api/questionnaire/items?target_age=preschool` | ✅ | |
-| 2.4 | 問診画面DB読み込み | `src/app/(exhibition)/(parent)/` の問診画面をAPI化 | ✅ | |
-| 2.5 | 画面遷移時保存処理 | 基本情報「次へ」→ API呼出、問診「次へ：QR表示」→ API呼出 | ✅ | |
-| 2.6 | 旧テーブル互換保存 | `sessions`, `questionnaires` にも並行保存（互換用） | ✅ | |
-| 2.7 | スタッフ側引き継ぎAPI | `GET /api/staff/session?visit_id=xxx` → 子供・保護者・問診データ取得 | ✅ | |
-
-#### 02-parent-liff: 親御さんLIFF問診 ✅ コード実装完了
-
-**詳細**: [02-06-親御さんLIFF実装.md](./02-parent/02-06-親御さんLIFF実装.md)
-**仕様書**: [32-LIFF実装の前提条件と手順.md](../designe/32-LIFF実装の前提条件と手順.md)
-
-| # | タスク | 詳細 | 状態 | 備考 |
-|---|--------|------|------|------|
-| 2.8 | LINE Loginチャネル作成 | 既存プロバイダー内に作成 | 📋 | 手動設定 |
-| 2.9 | LIFFアプリ作成 | LINE Loginチャネル内で作成 | 📋 | 手動設定 |
-| 2.10 | @line/liff追加 | `pnpm add @line/liff` | ✅ | |
-| 2.11 | LIFF問診ページ作成 | `/parent/questionnaire/liff` | ✅ | |
-| 2.12 | LIFF初期化処理 | `liff.init()` + エラーハンドリング | ✅ | |
-| 2.13 | 既存visit復元API | `GET /api/parent/visit?line_user_id=xxx` | ✅ | |
-| 2.14 | 問診データ自動保存 | 入力ごとにDB保存（離脱対策） | ✅ | |
-| 2.15 | 外部ブラウザフォールバック | LINEアプリへ誘導 | ✅ | |
-| 2.16 | ウェルカムメッセージ更新 | ボタンをLIFF URLに変更 | ✅ | |
-| 2.17 | 環境変数設定 | `NEXT_PUBLIC_PARENT_LIFF_ID` 等 | 📋 | 手動設定 |
-| 2.18 | LIFF E2Eテスト | 起動→問診→離脱復元→QR表示 | 📋 | LINE設定後 |
-
-#### 03-staff: 診断画面DB連携 ✅
-
-| # | タスク | 詳細 | 状態 | 担当 |
-|---|--------|------|------|------|
-| 3.1 | 診断項目取得API作成 | `/api/diagnosis-schema?input_type=staff` | ✅ | |
-| 3.2 | 診断画面をDB読み込みに変更 | `src/app/staff/diagnosis/[id]/page.tsx` | ✅ | |
-| 3.3 | 診断回答保存API作成 | `POST /api/diagnoses` (正規化対応) | ✅ | |
-| 3.4 | 診断回答を正規化テーブルに保存 | `diagnosis_responses` への INSERT | ✅ | |
-| 3.5 | 旧テーブル互換保存 | `diagnoses` テーブルにも並行保存（互換用） | ✅ | |
-| 3.6 | staff/report API化 | クライアント直Supabase廃止 | ✅ | |
-| 3.7 | staff/analysis API化 | クライアント直Supabase廃止 | ✅ | |
-
-#### 03-staff-auth: スタッフLINE認証 ✅ コード実装完了
-
-**仕様書**: [28-スタッフLINE認証仕様書.md](../designe/28-スタッフLINE認証仕様書.md)
-
-| # | タスク | 詳細 | 状態 | 備考 |
-|---|--------|------|------|------|
-| 3.8 | LINE公式アカウント作成 | 「cOralupスタッフ」Messaging APIチャネル | 📋 | 手動設定 |
-| 3.9 | LINE Loginチャネル作成 | LIFFアプリ用 | 📋 | 手動設定 |
-| 3.10 | Webhook API実装 | `POST /api/line/staff-webhook` 友だち追加→profiles作成 | ✅ | `src/app/api/line/staff-webhook/route.ts` |
-| 3.11 | LIFF認証実装 | `POST /api/auth/staff-session` + Cookie発行 | ✅ | `src/app/api/auth/staff-session/route.ts` |
-| 3.12 | 認証ユーティリティ | JWT生成・検証・Cookie管理 | ✅ | `src/lib/staff-auth.ts` |
-| 3.13 | LIFFログイン画面 | `/staff/liff-login` LIFF初期化→セッション発行 | ✅ | `src/app/staff/liff-login/page.tsx` |
-| 3.14 | ログイン案内画面 | `/staff/login` Cookie切れ時の案内 | ✅ | `src/app/staff/login/page.tsx` |
-| 3.15 | スタッフホーム画面 | `/staff/home` QRスキャン + 履歴メニュー | ✅ | `src/app/staff/home/page.tsx` |
-| 3.16 | 対応履歴一覧画面 | `/staff/history` 自分の対応一覧 | ✅ | `src/app/staff/history/page.tsx` |
-| 3.17 | 対応詳細画面 | `/staff/history/[sessionId]` 問診・診断結果表示 | ✅ | `src/app/staff/history/[sessionId]/page.tsx` |
-| 3.18 | ログアウト | `/staff/logout` Cookie削除 | ✅ | `src/app/staff/logout/page.tsx` |
-| 3.19 | LIFF作成 | LINE Loginチャネル内でLIFFアプリ作成 | 📋 | 手動設定 |
-| 3.20 | Webhook URL設定 | `/api/line/staff-webhook` を登録 | 📋 | 手動設定 |
-| 3.21 | 環境変数設定 | `LINE_STAFF_*`, `NEXT_PUBLIC_STAFF_LIFF_ID`, `STAFF_SESSION_SECRET` | 📋 | 手動設定 |
-| 3.22 | スタッフ認証E2Eテスト | 友だち追加→ログイン→診断→履歴確認 | 📋 | LINE設定後 |
-
-#### 04-admin: 管理画面 ✅
-
-| # | タスク | 詳細 | 状態 | 担当 |
-|---|--------|------|------|------|
-| 4.1 | 診断カテゴリCRUD API | `/api/admin/diagnosis-schema` | ✅ | |
-| 4.2 | 診断項目CRUD API | `/api/admin/diagnosis-schema` | ✅ | |
-| 4.3 | 問診カテゴリCRUD API | `/api/admin/questionnaire-schema` | ✅ | |
-| 4.4 | 問診項目CRUD API | `/api/admin/questionnaire-schema` | ✅ | |
-| 4.5 | スキーマエディタUI完成 | カテゴリ/項目の追加・編集・削除 | ✅ | |
-| 4.6 | プレビュー機能 | 編集内容のリアルタイムプレビュー | ✅ | |
-| 4.7 | 保存・反映機能 | 変更の保存と実画面への反映 | ✅ | |
-| 4.8 | ADMIN_API_KEY認証 | 管理画面APIにBearer認証実装 | ✅ | |
-
-#### 07-本番テスト: 実データフローテスト
-
-**詳細**: [07-本番テスト/README.md](./07-本番テスト/README.md)
-**仕様書**: [29-本番テストフロー仕様書.md](../designe/29-本番テストフロー仕様書.md)
-
-| # | タスク | 詳細 | 状態 | 期限 |
-|---|--------|------|------|------|
-| 7.1 | LINE登録テスト | 友だち追加→profiles登録確認 | 📋 | 12/14 |
-| 7.2 | 問診フォームテスト | 基本情報→問診→QR表示→DB登録確認 | 📋 | 12/14 |
-| 7.3 | QRスキャンテスト | データ引き継ぎ確認 | 📋 | 12/15 |
-| 7.4 | 写真撮影テスト | Storageアップロード→DB登録確認 | 📋 | 12/15 |
-| 7.5 | 診断入力テスト | Auto Save→diagnosis_responses登録確認 | 📋 | 12/16 |
-| 7.6 | AI分析テスト | Gemini API動作確認 | 📋 | 12/16 |
-| 7.7 | LINE送信テスト | レポート送信→LINE通知確認 | 📋 | 12/17 |
-| 7.8 | 通しテスト | 全フロー3回実行 | 📋 | 12/18 |
-| 7.9 | エラーケーステスト | オフライン、タイムアウト等 | 📋 | 12/18 |
-| 7.10 | テストデータクリア | 本番前クリーンアップ | 📋 | 12/20 |
-| 7.11 | 最終リハーサル | 本番想定通しテスト | 📋 | 12/20 |
+| カテゴリ | 完了数 | 備考 |
+|---------|--------|------|
+| 01-infra: DB基盤 | 16/16 ✅ | RLS, API対応含む |
+| 02-parent: 問診画面 | 18/18 ✅ | LIFF実装完了 |
+| 03-staff: 診断画面 | 22/22 ✅ | LINE認証完了 |
+| 04-admin: 管理画面 | 9/9 ✅ | スキーマエディタ+来場者管理 |
+| 07-本番テスト | 11/11 ✅ | イベント本番実施済み |
+| 08-診断フロー改善 | 5/6 ✅ | 1件残（下部メニュー被り） |
 
 ---
 
-### 🟡 P1: イベント後〜次回イベント前（2025/1月）
+## 🚀 現在の進行タスク（Phase 2: 2025 Q1）
 
-#### 05-analysis: データ分析基盤
+### 🆕 10-sibling: 兄弟対応機能（Phase 2.5）
+
+**設計書**: [37-兄弟対応機能設計書.md](../designe/37-兄弟対応機能設計書.md)
+
+| # | タスク | 詳細 | 状態 | 担当 |
+|---|--------|------|------|------|
+| 10.1 | `/api/parent/visit` 複数子供対応 | 全子供を返すように修正 | ✅ | |
+| 10.2 | `/api/parent/basic-info` childId対応 | 既存/新規子供の分岐 | 📋 | |
+| 10.3 | 子供選択UIコンポーネント作成 | `ChildSelector.tsx` | ✅ | |
+| 10.4 | LIFF問診ページに選択ステップ追加 | `page.tsx` 改修 | 📋 | |
+| 10.5 | 問診完了画面に「もう1人追加」追加 | LIFF page.tsx に実装 | ✅ | |
+| 10.6 | 兄弟対応E2Eテスト | 2人分問診→別々診断 | 📋 | |
+
+### 05-analysis: データ分析基盤
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
@@ -183,22 +50,17 @@
 | 5.4 | Lark Base同期設定 | DB Trigger + Edge Function | 📋 | |
 | 5.5 | Larkダッシュボード作成 | 診断数、項目別集計 | 📋 | |
 
-#### 06-admin-ext: 管理画面拡張
+### 06-admin-ext: 管理画面拡張
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
-| 6.1 | 管理画面レイアウト | `src/app/admin/layout.tsx` 整備 | 🔧 | |
-| 6.2 | イベント一覧画面 | `src/app/admin/events/page.tsx` | 📋 | |
-| 6.3 | イベント作成画面 | `src/app/admin/events/new/page.tsx` | 📋 | |
-| 6.4 | イベント編集画面 | `src/app/admin/events/[id]/edit/page.tsx` | 📋 | |
-| 6.5 | セッション一覧画面 | `src/app/admin/sessions/page.tsx` | 📋 | |
-| 6.6 | セッション詳細画面 | `src/app/admin/sessions/[id]/page.tsx` | 📋 | |
+| 6.1 | 管理画面レイアウト整備 | `src/app/admin/layout.tsx` | 🔧 | |
+| 6.2 | 診断進捗リアルタイム表示 | `/admin/visits` 完成 | ✅ | |
+| 6.3 | イベント一覧画面 | `src/app/admin/events/page.tsx` | 📋 | |
+| 6.4 | イベント作成画面 | `src/app/admin/events/new/page.tsx` | 📋 | |
+| 6.5 | イベント編集画面 | `src/app/admin/events/[id]/edit/page.tsx` | 📋 | |
 
----
-
-### 🟢 P2: 自社CRM整備（2025 Q1）
-
-#### 08-crm: CRMデータ整備
+### 08-crm: CRMデータ整備
 
 | # | タスク | 詳細 | 状態 | 担当 |
 |---|--------|------|------|------|
@@ -208,70 +70,236 @@
 | 8.4 | children データ整備 | 患者情報の正規化 | 📋 | |
 | 8.5 | event_staffs 設定 | イベント×スタッフの紐付け | 📋 | |
 
+### 残作業: 診断フロー改善
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 4 | 下部メニューとのコンテンツ被り | 各ページに `pb-20` 追加 | ⬜ 未着手 |
+
+---
+
+## ✅ 完了タスク一覧（Phase 1）
+
+### 01-infra: DB基盤 ✅ 全完了
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 1.1 | マイグレーション適用 | `20241205000000_diagnosis_master_tables.sql` | ✅ |
+| 1.2 | マイグレーション適用 | `20241206000000_questionnaire_master_tables.sql` | ✅ |
+| 1.3 | マイグレーション適用 | `20241206000001_crm_tables.sql` | ✅ |
+| 1.4 | 診断カテゴリシード | `diagnosis_categories` に16カテゴリ | ✅ |
+| 1.5 | 診断項目シード | `diagnosis_items` に約60項目 | ✅ |
+| 1.6 | 問診カテゴリシード | `questionnaire_categories` に約10カテゴリ | ✅ |
+| 1.7 | 問診項目シード（未就学児） | `questionnaire_items` | ✅ |
+| 1.8 | 問診項目シード（小学生） | `questionnaire_items` | ✅ |
+| 1.9 | YourTIMEイベント登録 | `events` テーブル | ✅ |
+| 1.10 | cOralup組織確認 | `organizations` | ✅ |
+| 1.11 | RLS有効化 | 全テーブルRLS ON + service_roleポリシー | ✅ |
+| 1.12 | API Service Role移行 | クライアント直Supabase廃止 | ✅ |
+| 1.13 | reports拡張マイグレーション | `uuid`, `visit_id`, AI分析カラム | ✅ |
+| 1.14 | line_message_logs作成 | LINE送信ログテーブル | ✅ |
+| 1.15 | visits冗長カラム削除 | `line_user_id`, `parent_name`, `parent_phone` | ✅ |
+| 1.16 | visit_id統一 | 全テーブルに `visit_id` カラム追加 | ✅ |
+
+### 02-parent: 問診画面DB連携 ✅ 全完了
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 2.0 | LINE Webhook実装 | profiles即時登録 | ✅ |
+| 2.1 | 基本情報保存API | `/api/parent/basic-info` | ✅ |
+| 2.2 | 問診回答保存API | `/api/parent/questionnaire` | ✅ |
+| 2.3 | 問診項目取得API | `/api/questionnaire/items` | ✅ |
+| 2.4 | 問診画面DB読み込み | API化 | ✅ |
+| 2.5 | 画面遷移時保存処理 | 基本情報→問診→QR | ✅ |
+| 2.6 | 旧テーブル互換保存 | sessions, questionnaires | ✅ |
+| 2.7 | スタッフ側引き継ぎAPI | `/api/staff/session` | ✅ |
+| 2.8 | LINE Loginチャネル作成 | 手動設定 | ✅ |
+| 2.9 | LIFFアプリ作成 | 手動設定 | ✅ |
+| 2.10 | @line/liff追加 | パッケージ追加 | ✅ |
+| 2.11 | LIFF問診ページ作成 | `/parent/questionnaire/liff` | ✅ |
+| 2.12 | LIFF初期化処理 | エラーハンドリング含む | ✅ |
+| 2.13 | 既存visit復元API | `/api/parent/visit` | ✅ |
+| 2.14 | 問診データ自動保存 | 離脱対策 | ✅ |
+| 2.15 | 外部ブラウザフォールバック | LINEアプリ誘導 | ✅ |
+| 2.16 | ウェルカムメッセージ更新 | LIFF URL対応 | ✅ |
+| 2.17 | 環境変数設定 | LIFF ID等 | ✅ |
+| 2.18 | LIFF E2Eテスト | 本番テスト完了 | ✅ |
+
+### 03-staff: 診断画面DB連携 ✅ 全完了
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 3.1 | 診断項目取得API作成 | `/api/diagnosis-schema` | ✅ |
+| 3.2 | 診断画面をDB読み込みに変更 | 動的生成 | ✅ |
+| 3.3 | 診断回答保存API作成 | `/api/diagnoses` | ✅ |
+| 3.4 | 診断回答を正規化テーブルに保存 | `diagnosis_responses` | ✅ |
+| 3.5 | 旧テーブル互換保存 | `diagnoses` | ✅ |
+| 3.6 | staff/report API化 | サーバー経由 | ✅ |
+| 3.7 | staff/analysis API化 | サーバー経由 | ✅ |
+| 3.8 | LINE公式アカウント作成 | スタッフ用 | ✅ |
+| 3.9 | LINE Loginチャネル作成 | 手動設定 | ✅ |
+| 3.10 | Webhook API実装 | `/api/line/staff-webhook` | ✅ |
+| 3.11 | LIFF認証実装 | `/api/auth/staff-session` | ✅ |
+| 3.12 | 認証ユーティリティ | `staff-auth.ts` | ✅ |
+| 3.13 | LIFFログイン画面 | `/staff/liff-login` | ✅ |
+| 3.14 | ログイン案内画面 | `/staff/login` | ✅ |
+| 3.15 | スタッフホーム画面 | `/staff/home` | ✅ |
+| 3.16 | 対応履歴一覧画面 | `/staff/history` | ✅ |
+| 3.17 | 対応詳細画面 | `/staff/history/[sessionId]` | ✅ |
+| 3.18 | ログアウト | `/staff/logout` | ✅ |
+| 3.19 | LIFF作成 | 手動設定 | ✅ |
+| 3.20 | Webhook URL設定 | 手動設定 | ✅ |
+| 3.21 | 環境変数設定 | LINE_STAFF_*等 | ✅ |
+| 3.22 | スタッフ認証E2Eテスト | 本番テスト完了 | ✅ |
+
+### 04-admin: 管理画面 ✅ 全完了
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 4.1 | 診断カテゴリCRUD API | `/api/admin/diagnosis-schema` | ✅ |
+| 4.2 | 診断項目CRUD API | `/api/admin/diagnosis-schema` | ✅ |
+| 4.3 | 問診カテゴリCRUD API | `/api/admin/questionnaire-schema` | ✅ |
+| 4.4 | 問診項目CRUD API | `/api/admin/questionnaire-schema` | ✅ |
+| 4.5 | スキーマエディタUI完成 | `/admin/schema-editor` | ✅ |
+| 4.6 | プレビュー機能 | リアルタイムプレビュー | ✅ |
+| 4.7 | 保存・反映機能 | 変更保存と反映 | ✅ |
+| 4.8 | ADMIN_API_KEY認証 | Bearer認証 | ✅ |
+| 4.9 | 来場者管理画面 | `/admin/visits` | ✅ |
+
+### 07-本番テスト ✅ 全完了（YourTIME 2024/12/21 実施済み）
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 7.1 | LINE登録テスト | profiles登録確認 | ✅ |
+| 7.2 | 問診フォームテスト | 基本情報→問診→QR表示 | ✅ |
+| 7.3 | QRスキャンテスト | データ引き継ぎ確認 | ✅ |
+| 7.4 | 写真撮影テスト | Storageアップロード確認 | ✅ |
+| 7.5 | 診断入力テスト | Auto Save動作確認 | ✅ |
+| 7.6 | AI分析テスト | Gemini API動作確認 | ✅ |
+| 7.7 | LINE送信テスト | レポート送信確認 | ✅ |
+| 7.8 | 通しテスト | 全フロー実行 | ✅ |
+| 7.9 | エラーケーステスト | オフライン等対応確認 | ✅ |
+| 7.10 | テストデータクリア | 本番前クリーンアップ | ✅ |
+| 7.11 | 最終リハーサル | 本番想定通しテスト | ✅ |
+
+### 08-診断フロー改善 ✅ ほぼ完了
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 1 | staff-sessionモジュール不在エラー | import修正 | ✅ |
+| 2 | LINE通知エラー | 環境変数名修正 | ✅ |
+| 3 | レポートページ404エラー | API修正 | ✅ |
+| 4 | 下部メニューとのコンテンツ被り | `pb-20`追加 | ⬜ |
+| 5 | カテゴリバー連動スクロール | useEffect追加 | ✅ |
+| 6 | 問診結果UI/UX改善 | 敬称・ラベル表示対応 | ✅ |
+
 ---
 
 ## 📁 実装済みファイル一覧
 
-### スタッフLINE認証関連
+### API構成
+
+```
+src/app/api/
+├── admin/                      # 管理画面API
+│   ├── diagnosis-schema/       ✅ 診断スキーマCRUD
+│   ├── schemas/                ✅ 問診スキーマCRUD
+│   └── visits/                 ✅ 来場者一覧
+├── ai/                         # AI分析API
+│   ├── analyze-oral/           ✅ 口腔分析
+│   ├── analyze-posture/        ✅ 姿勢分析
+│   └── generate-report/        ✅ レポート生成
+├── analysis/                   ✅ 統合分析API
+├── auth/
+│   └── staff-session/          ✅ スタッフセッション発行
+├── diagnoses/                  ✅ 診断結果CRUD
+├── diagnosis/
+│   └── complete/               ✅ 診断完了統合API
+├── diagnosis-schema/           ✅ 診断スキーマ取得（公開）
+├── line/
+│   ├── confirm-delivery/       ✅ 配信確認
+│   ├── send-report/            ✅ レポート送信
+│   ├── staff-webhook/          ✅ スタッフWebhook
+│   └── webhook/                ✅ 親御さんWebhook
+├── parent/
+│   ├── basic-info/             ✅ 基本情報保存
+│   ├── questionnaire/          ✅ 問診回答CRUD
+│   └── visit/                  ✅ visit復元
+├── photos/
+│   └── upload/                 ✅ 写真アップロード
+├── questionnaire/
+│   └── items/                  ✅ 問診項目取得
+├── report/
+│   ├── [id]/                   ✅ レポート取得・作成
+│   └── create/                 ✅ レポート新規作成
+├── staff/
+│   ├── analysis-data/          ✅ AI分析用データ
+│   ├── auth/                   ✅ 認証
+│   ├── history/                ✅ 履歴取得
+│   ├── report/                 ✅ レポート作成
+│   └── session/                ✅ セッション管理
+└── visits/
+    ├── record-error/           ✅ エラーログ
+    └── update-step/            ✅ ステップ更新
+```
+
+### ページ構成
+
+```
+src/app/
+├── page.tsx                    ✅ トップページ
+├── admin/
+│   ├── page.tsx                ✅ 管理ダッシュボード
+│   ├── visits/                 ✅ 来場者管理
+│   └── schema-editor/          ✅ スキーマエディタ
+├── staff/
+│   ├── diagnosis/
+│   │   ├── [id]/               ✅ 診断ページ
+│   │   └── demo/               ✅ デモページ
+│   ├── scan/                   ✅ QRスキャン
+│   ├── home/                   ✅ ホーム
+│   ├── history/                ✅ 履歴一覧
+│   ├── login/                  ✅ ログイン案内
+│   ├── liff-login/             ✅ LIFFログイン
+│   ├── logout/                 ✅ ログアウト
+│   └── monitor/                ✅ モニター
+├── (exhibition)/
+│   └── parent/
+│       └── questionnaire/
+│           └── liff/           ✅ LIFF問診ページ
+└── report/
+    └── [id]/                   ✅ レポート表示
+```
+
+### コンポーネント・ライブラリ
 
 ```
 src/
-├── app/
-│   ├── api/
-│   │   ├── auth/
-│   │   │   └── staff-session/route.ts  ✅ セッション発行API
-│   │   └── line/
-│   │       └── staff-webhook/route.ts  ✅ 友だち追加Webhook
-│   └── staff/
-│       ├── liff-login/page.tsx         ✅ LIFFログイン画面
-│       ├── login/page.tsx              ✅ ログイン案内画面
-│       ├── home/page.tsx               ✅ ホーム画面
-│       ├── history/
-│       │   ├── page.tsx                ✅ 対応履歴一覧
-│       │   └── [sessionId]/page.tsx    ✅ 対応詳細
-│       └── logout/page.tsx             ✅ ログアウト
+├── agents/
+│   └── oral-diagnosis/
+│       └── schema.ts           ✅ AI分析スキーマ
+├── components/
+│   └── diagnosis/              ✅ 診断コンポーネント群
 └── lib/
-    └── staff-auth.ts                   ✅ JWT認証ユーティリティ
-```
-
-### 親御さんLIFF関連 ✅ コード実装完了
-
-```
-src/
-├── app/
-│   ├── api/
-│   │   ├── line/
-│   │   │   └── webhook/route.ts        ✅ 友だち追加Webhook（LIFF URL対応）
-│   │   ├── parent/
-│   │   │   ├── visit/route.ts          ✅ 既存visit復元API
-│   │   │   ├── basic-info/route.ts     ✅ 基本情報保存API
-│   │   │   └── questionnaire/
-│   │   │       ├── route.ts            ✅ 問診回答保存API
-│   │   │       └── autosave/route.ts   ✅ 自動保存API
-│   │   └── diagnosis/
-│   │       └── complete/route.ts       ✅ 診断完了統合API（レポート作成+LINE送信）
-│   └── (exhibition)/
-│       └── parent/
-│           └── questionnaire/
-│               └── liff/page.tsx       ✅ LIFF問診ページ
-└── lib/
-    └── liff-utils.ts                   ✅ LIFF初期化ユーティリティ
+    ├── gemini.ts               ✅ Gemini APIクライアント
+    ├── liff-utils.ts           ✅ LIFFユーティリティ
+    ├── staff-auth.ts           ✅ JWT認証ユーティリティ
+    └── supabase.ts             ✅ Supabaseクライアント
 ```
 
 ---
 
 ## 📚 関連ドキュメント
 
-| ファイル | 内容 |
-|---------|------|
-| [00-企画書_ビジョン.md](../designe/00-企画書_ビジョン.md) | プロジェクトビジョン |
-| [06-DB設計書.md](../designe/06-DB設計書.md) | データベース設計 ✅ 12/13更新（visit_id統一） |
-| [04-データフロー設計.md](../designe/04-データフロー設計.md) | データフロー設計 ✅ 12/13更新（visit_id統一） |
-| [28-スタッフLINE認証仕様書.md](../designe/28-スタッフLINE認証仕様書.md) | スタッフ認証設計 |
-| [30-LINE全体構成図.md](../designe/30-LINE全体構成図.md) | LINE構成図 ✅ 更新済み |
-| [31-親御さんLIFF採用のメリット.md](../designe/31-親御さんLIFF採用のメリット.md) | LIFF採用理由 ✅ 更新済み |
-| [32-LIFF実装の前提条件と手順.md](../designe/32-LIFF実装の前提条件と手順.md) | LIFF実装手順 ✅ 更新済み |
-| [33-LINE公式アカウント構成の理解.md](../designe/33-LINE公式アカウント構成の理解.md) | LINE構成理解 ✅ 更新済み |
+| ファイル | 内容 | 更新日 |
+|---------|------|--------|
+| [00-企画書_ビジョン.md](../designe/00-企画書_ビジョン.md) | プロジェクトビジョン | 2025-12-16 |
+| [02-技術仕様書.md](../designe/02-技術仕様書.md) | 技術仕様・API設計 | 2025-12-16 |
+| [04-データフロー設計.md](../designe/04-データフロー設計.md) | データフロー設計 | 2025-12-16 |
+| [06-DB設計書.md](../designe/06-DB設計書.md) | データベース設計 | 2025-12-16 |
+| [07-実装ロードマップ.md](../designe/07-実装ロードマップ.md) | 実装ロードマップ | 2025-12-16 |
+| [28-スタッフLINE認証仕様書.md](../designe/28-スタッフLINE認証仕様書.md) | スタッフ認証設計 | - |
+| [30-LINE全体構成図.md](../designe/30-LINE全体構成図.md) | LINE構成図 | - |
 
 ---
 
@@ -283,36 +311,26 @@ src/
 | 🔧 | 作業中 |
 | 📋 | 未着手 |
 | ⏸️ | 保留 |
-| ❌ | キャンセル |
+| ⬜ | 未着手（優先度低） |
 
 ---
 
-## 📅 スケジュール概要
+## 📅 スケジュール
 
 ```
-12/12    : ドキュメント更新 ✅ + 親御さんLIFF実装開始
-12/13    : DB設計統一（visit_id統一）✅ + API更新 ✅ + ドキュメント更新 ✅
-12/14    : 環境変数設定 + スタッフ認証E2Eテスト
-12/15    : 親御さんLIFF E2Eテスト
-12/16-17 : 本番テスト（問診〜診断〜レポート）
-12/18-19 : 通しテスト + 不具合修正
-12/20    : テストデータクリア + 最終リハーサル
-12/21    : YourTIME イベント本番
+2024/12 ✅ Phase 1 完了
+├── Week 1-2: DB基盤整備、マスタデータ投入
+├── Week 3: テスト・調整
+├── Week 4: クリーンアップ・リハーサル
+└── 12/21: YourTIME イベント本番 ✅ 成功
+
+2025 Q1 🔧 Phase 2 進行中
+├── 1月: 自社CRM整備、Lark連携
+├── 2月: 管理画面拡張
+└── 3月: 運用安定化
+
+2025 Q2〜 📋 Phase 3 予定
+├── 4月: マルチテナント基盤
+├── 5月: 医院向けβ版
+└── 6月〜: トレーナー向け、マッチング
 ```
-
-## 🔄 12/13 DB設計変更サマリー
-
-### 変更内容
-1. **visits.id (UUID) を全トランザクションの主キーとして統一**
-2. **visits から冗長カラム削除**: `line_user_id`, `parent_name`, `parent_phone`
-3. **各テーブルに visit_id カラム追加**: `questionnaire_responses`, `diagnosis_responses`, `reports`, `form_responses`, `line_message_logs`
-4. **データ参照パス**: `visits.child_id` → `children.parent_profile_id` → `profiles.line_user_id`
-
-### 影響範囲
-- 親御さん問診API: `visit_id` 優先、`session_id` 後方互換
-- スタッフ診断API: `visit_id` 優先、`session_id` 後方互換
-- レポート/LINE通知API: `visit_id` + `reports.uuid` で管理
-
-### マイグレーションファイル
-- `20241213000000_reports_and_visits_enhancements.sql`
-- `20241213100000_cleanup_redundant_columns.sql`

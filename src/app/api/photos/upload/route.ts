@@ -126,6 +126,39 @@ export async function POST(request: NextRequest) {
       // DBエラーでもアップロード自体は成功しているので警告のみ
     }
 
+    // 全ての写真がアップロードされたか確認（3枚必要: posture_front, posture_side, oral_front）
+    if (visitId) {
+      const { data: allPhotos } = await supabase
+        .from('visit_photos')
+        .select('photo_type')
+        .eq('visit_id', visitId)
+        .in('photo_type', ['posture_front', 'posture_side', 'oral_front'])
+
+      const requiredTypes = ['posture_front', 'posture_side', 'oral_front']
+      const uploadedTypes = new Set(allPhotos?.map(p => p.photo_type) || [])
+      const allUploaded = requiredTypes.every(type => uploadedTypes.has(type))
+
+      if (allUploaded) {
+        // ステップ更新
+        const { data: currentVisit } = await supabase
+          .from('visits')
+          .select('step_timestamps')
+          .eq('id', visitId)
+          .single()
+
+        const timestamps = (currentVisit?.step_timestamps as Record<string, string>) || {}
+        timestamps.photos_uploaded = new Date().toISOString()
+
+        await supabase
+          .from('visits')
+          .update({
+            current_step: 'photos_uploaded',
+            step_timestamps: timestamps,
+          })
+          .eq('id', visitId)
+      }
+    }
+
     console.log('[Photo Upload] Success:', {
       path: uploadData.path,
       photoType,

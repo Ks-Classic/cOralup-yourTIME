@@ -6,3 +6,4 @@ CREATE POLICY "Anyone can read visit_photos"
     ON visit_photos FOR SELECT
     TO anon, authenticated
     USING (true);
+

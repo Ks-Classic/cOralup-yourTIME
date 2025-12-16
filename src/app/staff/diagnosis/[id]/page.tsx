@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save } from 'lucide-react'
+import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save, AlertCircle } from 'lucide-react'
 import { ReportPreview } from '@/components/staff/ReportPreview'
 import { cn } from '@/utils'
 import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-generator'
@@ -271,6 +271,7 @@ export default function DiagnosisPageWithId() {
       setVisitError(null)
 
       try {
+        // 1. セッションデータ取得
         const res = await fetch(`/api/staff/session?visitId=${encodeURIComponent(visitId)}`)
         const data = await res.json()
 
@@ -283,12 +284,28 @@ export default function DiagnosisPageWithId() {
         setVisitData(visit)
         setSessionId(visit.session_id || visitId)
 
+        // 2. スタッフ紐付け（まだ紐付けされていない場合）
+        try {
+          const assignRes = await fetch('/api/staff/session/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitId }),
+          })
+          const assignData = await assignRes.json()
+          if (assignData.success) {
+            console.log('[Diagnosis] Staff assigned:', assignData)
+          }
+        } catch (assignError) {
+          console.error('[Diagnosis] Staff assignment error:', assignError)
+          // 紐付け失敗しても診断は続行可能
+        }
+
         // SessionDataを設定
         const childName = `${visit.children.last_name} ${visit.children.first_name}`
         const parentName = visit.parent
           ? (visit.parent.last_name && visit.parent.first_name
-              ? `${visit.parent.last_name} ${visit.parent.first_name}`
-              : visit.parent.display_name || '')
+            ? `${visit.parent.last_name} ${visit.parent.first_name}`
+            : visit.parent.display_name || '')
           : ''
         const ageYears = Math.floor(visit.child_age_months / 12)
 
@@ -421,10 +438,10 @@ export default function DiagnosisPageWithId() {
     if (tabElement && container) {
       const containerRect = container.getBoundingClientRect()
       const tabRect = tabElement.getBoundingClientRect()
-      
+
       // タブを中央に配置するためのスクロール位置を計算
       const scrollLeft = tabElement.offsetLeft - (containerRect.width / 2) + (tabRect.width / 2)
-      
+
       container.scrollTo({
         left: Math.max(0, scrollLeft),
         behavior: 'smooth'
@@ -446,7 +463,7 @@ export default function DiagnosisPageWithId() {
       observer = new IntersectionObserver(
         (entries) => {
           if (isScrollingRef.current) return
-          
+
           // 最も上に表示されているカテゴリを検出
           const visibleEntries = entries.filter(entry => entry.isIntersecting)
           if (visibleEntries.length > 0) {
@@ -457,7 +474,7 @@ export default function DiagnosisPageWithId() {
               const currentTop = current.boundingClientRect.top - containerTop
               return currentTop < prevTop ? current : prev
             })
-            
+
             const categoryId = topEntry.target.id.replace('category-', '')
             if (categoryId) {
               setActiveCategory(categoryId)
@@ -615,7 +632,7 @@ export default function DiagnosisPageWithId() {
     }
     setPhotos(prev => [...prev.filter(p => p.type !== photoType), optimisticPhoto])
     setUploadingPhotos(prev => new Set([...prev, photoType]))
-    
+
     // プレビューを即座に閉じる
     setPreviewPhoto(null)
     setCurrentPhotoType('')
@@ -630,7 +647,7 @@ export default function DiagnosisPageWithId() {
     try {
       const response = await fetch(localUrl)
       const blob = await response.blob()
-      
+
       const formData = new FormData()
       formData.append('file', blob, `${photoType}_${Date.now()}.jpg`)
       formData.append('visitId', visitId)
@@ -656,8 +673,8 @@ export default function DiagnosisPageWithId() {
       console.log('[Photo Upload] Success:', uploadData)
 
       // アップロード成功後、URLをサーバーURLに更新
-      setPhotos(prev => prev.map(p => 
-        p.id === tempId 
+      setPhotos(prev => prev.map(p =>
+        p.id === tempId
           ? { ...p, id: uploadData.photoId || tempId, url: uploadData.url || localUrl }
           : p
       ))
@@ -892,14 +909,14 @@ export default function DiagnosisPageWithId() {
     setIsGeneratingReport(true)
     try {
       // レポートをDBに作成（editableSummaryを直接使用）
-      const createReportResponse = await fetch('/api/report/create', {
+      const createReportResponse = await fetch(`/api/report/${visitId}/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           visitId,
           diagnosisId: null,
           aiSummary: editableSummary || analysisResult.reportSummary || 'お子様の口腔・姿勢診断が完了しました。',
-          ageConsideration: visitData?.child_age_months 
+          ageConsideration: visitData?.child_age_months
             ? `${visitData.child_age_months}ヶ月のお子様の年齢に応じた発達段階を考慮した評価です。`
             : undefined,
           postureAnalysis: analysisResult.postureAnalysis,
@@ -959,7 +976,7 @@ export default function DiagnosisPageWithId() {
           visitId,
           diagnosisId: undefined,
           aiSummary: editableSummary || analysisResult.report?.summary || '',
-          ageConsideration: visitData.child_age_months 
+          ageConsideration: visitData.child_age_months
             ? `${visitData.child_age_months}ヶ月のお子様の年齢に応じた発達段階を考慮した評価です。`
             : undefined,
           postureAnalysis: analysisResult.postureAnalysis,
@@ -989,18 +1006,35 @@ export default function DiagnosisPageWithId() {
   }
 
   // LINE配信確認後の完了処理
-  const completeDiagnosis = (delivered: boolean) => {
-    if (delivered) {
-      // 届いた場合
+  const completeDiagnosis = async (confirmationStatus: 'confirmed' | 'not_received' | 'unknown') => {
+    try {
+      // APIに確認結果を送信
+      const response = await fetch('/api/line/confirm-delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitId,
+          confirmationStatus,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('確認結果の保存に失敗しました')
+      }
+
+      // 状態に応じたメッセージ表示
+      if (confirmationStatus === 'not_received') {
+        alert('親御さんに「近日中にレポートをお送りします」とお伝えください。')
+      } else if (confirmationStatus === 'unknown') {
+        alert('確認できなかった場合は、後日再送信できます。')
+      }
+
       markStepCompleted('report')
       setIsDiagnosisComplete(true)
       setShowLineDeliveryCheck(false)
-    } else {
-      // 届いていない場合
-      alert('親御さんに「近日中にレポートをお送りします」とお伝えください。')
-      markStepCompleted('report')
-      setIsDiagnosisComplete(true)
-      setShowLineDeliveryCheck(false)
+    } catch (error) {
+      console.error('Error confirming delivery:', error)
+      alert('確認結果の保存に失敗しました: ' + (error as Error).message)
     }
   }
 
@@ -1470,7 +1504,7 @@ export default function DiagnosisPageWithId() {
                               return `${firstName}${honorific}の問診回答`
                             })()}
                           </h3>
-                          
+
                           {/* カテゴリ別にグループ化して表示 */}
                           {(() => {
                             // カテゴリアイコンマップ
@@ -1485,7 +1519,7 @@ export default function DiagnosisPageWithId() {
                               '歯並び': '🦷',
                               'その他': '📝',
                             }
-                            
+
                             // カテゴリ色マップ
                             const categoryColors: Record<string, { bg: string, border: string, text: string, badge: string }> = {
                               '基本情報': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100' },
@@ -1498,7 +1532,7 @@ export default function DiagnosisPageWithId() {
                               '歯並び': { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100' },
                             }
                             const defaultColors = { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100' }
-                            
+
                             // JSON文字列をパースするヘルパー
                             const parseJsonSafe = <T,>(val: unknown): T | null => {
                               if (typeof val === 'string') {
@@ -1506,7 +1540,7 @@ export default function DiagnosisPageWithId() {
                               }
                               return val as T
                             }
-                            
+
                             // optionsからラベルを取得するヘルパー
                             const getOptionLabel = (value: string, rawOptions?: unknown): string => {
                               // optionsがJSON文字列の場合はパース
@@ -1528,13 +1562,13 @@ export default function DiagnosisPageWithId() {
                               }
                               return value
                             }
-                            
+
                             // 回答値をラベルに変換
                             const formatAnswerValue = (rawValue: unknown, rawOptions?: unknown): string => {
                               // valueがJSON文字列の場合はパース
                               const value = parseJsonSafe<string | string[] | boolean>(rawValue) ?? rawValue
                               const options = parseJsonSafe<Array<{ label: string; value: string }> | string[]>(rawOptions)
-                              
+
                               if (typeof value === 'boolean') return value ? 'はい' : 'いいえ'
                               if (Array.isArray(value)) return value.map(v => getOptionLabel(String(v), options)).join('、')
                               if (options && Array.isArray(options) && options.length > 0) return getOptionLabel(String(value), options)
@@ -1567,7 +1601,7 @@ export default function DiagnosisPageWithId() {
                               }
                               return labelMap[String(value)] || String(value)
                             }
-                            
+
                             // カテゴリ別にグループ化
                             const grouped = visitData.questionnaire_responses.reduce((acc, response) => {
                               const category = response.questionnaire_items?.questionnaire_categories?.name || 'その他'
@@ -1575,11 +1609,11 @@ export default function DiagnosisPageWithId() {
                               acc[category].push(response)
                               return acc
                             }, {} as Record<string, typeof visitData.questionnaire_responses>)
-                            
+
                             return Object.entries(grouped).map(([category, responses]) => {
                               const colors = categoryColors[category] || defaultColors
                               const icon = categoryIcons[category] || '📝'
-                              
+
                               return (
                                 <div key={category} className={`rounded-xl border ${colors.border} ${colors.bg} overflow-hidden`}>
                                   {/* カテゴリヘッダー */}
@@ -1588,7 +1622,7 @@ export default function DiagnosisPageWithId() {
                                       {icon} {category}
                                     </span>
                                   </div>
-                                  
+
                                   {/* 質問と回答 */}
                                   <div className="divide-y divide-gray-100">
                                     {responses.map((response) => (
@@ -1745,7 +1779,7 @@ export default function DiagnosisPageWithId() {
                 </div>
 
                 {/* カテゴリタブ - 固定 */}
-                <div 
+                <div
                   ref={categoryTabContainerRef}
                   className="border-b bg-white overflow-x-auto sticky top-[52px] z-10 scrollbar-hide shadow-sm"
                 >
@@ -2439,22 +2473,32 @@ export default function DiagnosisPageWithId() {
                 </p>
               </div>
 
-              {/* 届いた/届いてないボタン */}
-              <div className="flex gap-3">
+              {/* 届いた/届いてない/確認できなかったボタン */}
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => completeDiagnosis('confirmed')}
+                    className="flex-1 h-14 bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <Check className="w-5 h-5 mr-2" />
+                    届いた
+                  </Button>
+                  <Button
+                    onClick={() => completeDiagnosis('not_received')}
+                    variant="outline"
+                    className="flex-1 h-14 border-2 border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    <X className="w-5 h-5 mr-2" />
+                    届いていない
+                  </Button>
+                </div>
                 <Button
-                  onClick={() => completeDiagnosis(false)}
+                  onClick={() => completeDiagnosis('unknown')}
                   variant="outline"
-                  className="flex-1 h-14 border-2 border-red-300 text-red-600 hover:bg-red-50"
+                  className="w-full h-14 border-2 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
                 >
-                  <X className="w-5 h-5 mr-2" />
-                  届いていない
-                </Button>
-                <Button
-                  onClick={() => completeDiagnosis(true)}
-                  className="flex-1 h-14 bg-green-500 hover:bg-green-600 text-white"
-                >
-                  <Check className="w-5 h-5 mr-2" />
-                  届いた
+                  <AlertCircle className="w-5 h-5 mr-2" />
+                  確認できなかった
                 </Button>
               </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -20,7 +20,7 @@ import {
   generateDayOptions
 } from '@/utils/age-calculator'
 import type { FormSchemaConfig, FormFieldConfig, FormSectionConfig } from '@/types/forms'
-import { initLiff, liffLogin, preloadLiffSdk, type LiffProfile } from '@/lib/liff-utils'
+import { initLiff, liffLogin, preloadLiffSdk, closeLiff, type LiffProfile } from '@/lib/liff-utils'
 import { AlertCircle, Loader2, CheckCircle2, Smartphone } from 'lucide-react'
 
 // LIFF SDKをページロード時にプリロード開始
@@ -101,6 +101,11 @@ type BasicInfoForm = z.infer<typeof basicInfoSchema>
 
 export default function LiffQuestionnairePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // URLパラメータから取得
+  const urlChildId = searchParams.get('childId')
+  const urlMode = searchParams.get('mode') // 'new' の場合は新規子ども追加
 
   // LIFF状態
   const [liffStatus, setLiffStatus] = useState<LiffStatus>('initializing')
@@ -110,8 +115,10 @@ export default function LiffQuestionnairePage() {
   // データ状態
   const [parentProfile, setParentProfile] = useState<ParentProfile | null>(null)
   const [childData, setChildData] = useState<ChildData | null>(null)
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(urlChildId)
   const [visitData, setVisitData] = useState<VisitData | null>(null)
   const [restoredResponses, setRestoredResponses] = useState<Record<string, string>>({})
+  const [isNewChild, setIsNewChild] = useState(urlMode === 'new')
 
   // フォーム状態
   const [currentStep, setCurrentStep] = useState(1)
@@ -173,6 +180,17 @@ export default function LiffQuestionnairePage() {
       // ログインしていない場合
       if (!result.isLoggedIn) {
         setLiffStatus('not_logged_in')
+        return
+      }
+
+      // liff.state パラメータをチェック（別ページへのルーティング用）
+      // LIFF URLで /parent/home などにアクセスすると liff.state=/parent/home として渡される
+      const urlParams = new URLSearchParams(window.location.search)
+      const liffState = urlParams.get('liff.state')
+      if (liffState && liffState !== '/parent/questionnaire/liff') {
+        // 別ページへリダイレクト
+        console.log('[LIFF] Redirecting to:', liffState)
+        router.replace(liffState)
         return
       }
 
@@ -387,12 +405,14 @@ export default function LiffQuestionnairePage() {
       const birthdayStr = formatDateToISO(data.birthYear, data.birthMonth, data.birthDay)
 
       // API呼び出し（姓名分離で送信）
+      // isNewChild=falseかつselectedChildIdがある場合は既存子供を更新
       const res = await fetch('/api/parent/basic-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lineUserId: liffProfile.userId,
           sessionId: visitData?.sessionId,
+          childId: !isNewChild && selectedChildId ? selectedChildId : undefined,
           parentName: `${data.parentLastName} ${data.parentFirstName}`,
           parentLastName: data.parentLastName,
           parentFirstName: data.parentFirstName,
@@ -892,7 +912,16 @@ export default function LiffQuestionnairePage() {
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               <CardTitle className="text-green-800">問診票の入力が完了しました</CardTitle>
-              <CardDescription>
+              {childData && (
+                <div className="mt-2 inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-green-200">
+                  <span className="text-lg">{childData.gender === 'male' ? '👦' : childData.gender === 'female' ? '👧' : '👶'}</span>
+                  <span className="font-medium text-gray-800">
+                    {[childData.lastName, childData.firstName].filter(Boolean).join(' ')}
+                    {childData.gender === 'male' ? 'くん' : childData.gender === 'female' ? 'ちゃん' : 'さん'}
+                  </span>
+                </div>
+              )}
+              <CardDescription className="mt-3">
                 このQRコードをスタッフに見せてください
               </CardDescription>
             </CardHeader>
@@ -906,10 +935,55 @@ export default function LiffQuestionnairePage() {
                 受付番号: <span className="font-mono font-bold">{visitData.id.slice(0, 8).toUpperCase()}</span>
               </p>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center mb-6">
                 <p className="text-xs text-yellow-800">
                   💡 この画面を閉じても、LINEから再度開けます
                 </p>
+              </div>
+
+              {/* 兄弟対応: もう1人追加ボタン */}
+              <div className="w-full space-y-3">
+                <button
+                  onClick={() => {
+                    // フォームをリセットして新しい子供の入力へ
+                    setChildData(null)
+                    setVisitData(null)
+                    setRestoredResponses({})
+                    setCalculatedAge(null)
+                    setFormType(null)
+                    setActiveFormSchema(null)
+                    // 新規子どもとして扱う
+                    setIsNewChild(true)
+                    setSelectedChildId(null)
+                    setChildData(null)
+                    // 子供情報フィールドをクリア
+                    setValue('childLastName', '')
+                    setValue('childFirstName', '')
+                    setValue('childLastNameKana', '')
+                    setValue('childFirstNameKana', '')
+                    setValue('birthYear', undefined as unknown as number)
+                    setValue('birthMonth', undefined as unknown as number)
+                    setValue('birthDay', undefined as unknown as number)
+                    setValue('childGender', undefined as unknown as 'male' | 'female' | 'other')
+                    setValue('nickname', '')
+                    // 基本情報入力へ戻る
+                    setCurrentStep(1)
+                  }}
+                  className="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="text-lg">👶</span>
+                  <span>他のお子さまの問診を入力</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    // 親御さんホーム画面へ遷移
+                    router.push('/parent/home')
+                  }}
+                  className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+                >
+                  マイページへ
+                </button>
               </div>
             </CardContent>
           </Card>

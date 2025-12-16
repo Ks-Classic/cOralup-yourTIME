@@ -9,6 +9,7 @@ const supabase = createClient(
 interface BasicInfoRequest {
   lineUserId: string
   sessionId?: string
+  childId?: string  // 既存の子供を更新する場合に指定
   parentName: string
   parentLastName?: string
   parentFirstName?: string
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
     const {
       lineUserId,
       sessionId,
+      childId,
       parentLastName,
       parentFirstName,
       parentLastNameKana,
@@ -63,12 +65,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. 親プロフィールを取得または作成
+    // 1. 親プロフィールを取得または作成（role='parent' または secondary_role='parent'）
     let { data: profile } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, role, secondary_role')
       .eq('line_user_id', lineUserId)
-      .eq('role', 'parent')
+      .or('role.eq.parent,secondary_role.eq.parent')
       .single()
 
     if (!profile) {
@@ -114,20 +116,49 @@ export async function POST(request: NextRequest) {
         .eq('id', profile.id)
     }
 
-    // 2. 子供情報を取得または作成
-    let { data: child } = await supabase
-      .from('children')
-      .select('id')
-      .eq('parent_profile_id', profile.id)
-      .single()
+    // 2. 子供情報を処理
+    // childIdが指定されていれば既存の子供を更新、なければ新規作成
+    let child: { id: string } | null = null
 
     // 年齢（月）を計算
     const birthday = new Date(childBirthday)
     const now = new Date()
     const ageMonths = (now.getFullYear() - birthday.getFullYear()) * 12 + (now.getMonth() - birthday.getMonth())
 
-    if (!child) {
-      // 新規作成
+    if (childId) {
+      // 既存の子供を更新
+      const { data: existingChild, error: fetchError } = await supabase
+        .from('children')
+        .select('id')
+        .eq('id', childId)
+        .eq('parent_profile_id', profile.id)
+        .single()
+
+      if (fetchError || !existingChild) {
+        console.error('[Basic Info] Child not found:', childId)
+        return NextResponse.json(
+          { success: false, error: 'child_not_found' },
+          { status: 404 }
+        )
+      }
+
+      await supabase
+        .from('children')
+        .update({
+          first_name: childFirstName,
+          last_name: childLastName,
+          first_name_kana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
+          last_name_kana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
+          birthday: childBirthday,
+          gender: childGender,
+          nickname: childNickname,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', childId)
+
+      child = existingChild
+    } else {
+      // 新規作成（常に新しい子供を作成）
       const { data: newChild, error: childError } = await supabase
         .from('children')
         .insert({
@@ -152,21 +183,6 @@ export async function POST(request: NextRequest) {
       }
 
       child = newChild
-    } else {
-      // 更新
-      await supabase
-        .from('children')
-        .update({
-          first_name: childFirstName,
-          last_name: childLastName,
-          first_name_kana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
-          last_name_kana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
-          birthday: childBirthday,
-          gender: childGender,
-          nickname: childNickname,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', child.id)
     }
 
     // 3. セッションとvisitを処理

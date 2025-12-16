@@ -356,12 +356,23 @@ async function sendReportNotification(params: {
       return { success: false, error: JSON.stringify(responseData) }
     }
 
-    // Visitステータスを更新
+    // Visitステータスとステップを更新
+    const { data: currentVisit } = await supabase
+      .from('visits')
+      .select('step_timestamps')
+      .eq('id', visitId)
+      .single()
+
+    const timestamps = (currentVisit?.step_timestamps as Record<string, string>) || {}
+    timestamps.line_sent = sentAt
+
     await supabase
       .from('visits')
       .update({
         status: 'report_sent',
         report_sent_at: sentAt,
+        current_step: 'line_sent',
+        step_timestamps: timestamps,
       })
       .eq('id', visitId)
 

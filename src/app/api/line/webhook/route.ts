@@ -101,20 +101,62 @@ async function handleFollowEvent(event: any) {
       console.error('[LINE Webhook] Profile fetch failed:', profileResponse.status, errorText)
     }
 
-    // profiles テーブルに登録（存在しなければINSERT、存在すればUPDATE）
-    const { data, error } = await supabase
+    // 既存プロフィール確認
+    const { data: existing, error: existingError } = await supabase
       .from('profiles')
-      .upsert(
-        {
+      .select('id, role, secondary_role')
+      .eq('line_user_id', lineUserId)
+      .maybeSingle()
+
+    let data, error
+    if (existing) {
+      // 既存レコード: roleを上書きせず、secondary_roleを設定
+      if (existing.role === 'parent' || existing.secondary_role === 'parent') {
+        // 既に親御さんロールがある場合は更新のみ
+        const { data: updated, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            display_name: displayName,
+            avatar_url: avatarUrl,
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        data = updated
+        error = updateError
+      } else {
+        // 他のロール（staff等）がある場合、secondary_role='parent'を追加
+        const { data: updated, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            display_name: displayName,
+            avatar_url: avatarUrl,
+            secondary_role: 'parent',
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        data = updated
+        error = updateError
+      }
+    } else {
+      // 新規作成: role='parent'で作成
+      const { data: inserted, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
           line_user_id: lineUserId,
           display_name: displayName,
           avatar_url: avatarUrl,
           role: 'parent',
           last_activity_at: new Date().toISOString(),
-        },
-        { onConflict: 'line_user_id' }
-      )
-      .select()
+        })
+        .select()
+        .single()
+      data = inserted
+      error = insertError
+    }
 
     if (error) {
       console.error('Error registering user to profiles:', error)

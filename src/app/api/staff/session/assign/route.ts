@@ -82,11 +82,23 @@ export async function POST(request: NextRequest) {
     }
 
     // 既存のvisitにスタッフを紐付け
+    // ステップタイムスタンプを更新
+    const { data: currentVisit } = await supabase
+      .from('visits')
+      .select('step_timestamps')
+      .eq('id', targetVisitId)
+      .single()
+
+    const timestamps = (currentVisit?.step_timestamps as Record<string, string>) || {}
+    timestamps.diagnosis_started = new Date().toISOString()
+
     const { data: updatedVisit, error: updateError } = await supabase
       .from('visits')
       .update({
         staff_profile_id: staffId,
         status: 'in_progress',
+        current_step: 'diagnosis_started',
+        step_timestamps: timestamps,
       })
       .eq('id', targetVisitId)
       .select()

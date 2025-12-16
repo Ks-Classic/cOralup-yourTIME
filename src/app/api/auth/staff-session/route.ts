@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // DBでスタッフ確認
+    // DBでスタッフ確認（role='staff' または secondary_role='staff'）
     const { data: staff, error } = await supabase
       .from('profiles')
-      .select('id, display_name, first_name, last_name, avatar_url, role, is_active')
+      .select('id, display_name, first_name, last_name, avatar_url, role, secondary_role, is_active')
       .eq('line_user_id', lineUserId)
-      .eq('role', 'staff')
+      .or('role.eq.staff,secondary_role.eq.staff')
       .single()
 
     if (error || !staff) {

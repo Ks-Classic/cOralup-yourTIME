@@ -42,3 +42,4 @@ END $$;
 -- コメント更新
 COMMENT ON TABLE reports IS 'レポートテーブル（1 visit = 1 report、visit_id がURLの識別子）';
 
+
