@@ -1,85 +1,126 @@
-import { redirect } from 'next/navigation'
-import { getStaffSession } from '@/lib/staff-auth'
-import { createClient } from '@supabase/supabase-js'
+'use client'
+
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
 
-const supabase = createClient(
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-interface PageProps {
-  searchParams: Promise<{ staffId?: string; status?: string }>
+interface Staff {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  display_name: string | null
 }
 
-export default async function AdminVisitsPage({ searchParams }: PageProps) {
-  const session = await getStaffSession()
-  const params = await searchParams
+interface Visit {
+  id: string
+  visit_date: string
+  created_at: string
+  status: string
+  session_id: string
+  staff_profile_id: string | null
+  children: {
+    id: string
+    first_name: string
+    last_name: string
+    birthday: string | null
+    gender: string | null
+  } | null
+  profiles: Staff | null
+}
 
-  // 管理者チェック（暫定対応）
-  const adminApiKey = process.env.ADMIN_API_KEY
-  const isAdmin =
-    (session && (session.role === 'admin' || session.role === 'staff')) ||
-    !adminApiKey // 開発環境では許可
+function AdminVisitsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [staffList, setStaffList] = useState<Staff[]>([])
+  const [visits, setVisits] = useState<Visit[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (!isAdmin && adminApiKey) {
-    redirect('/staff/login')
+  const staffId = searchParams.get('staffId') || ''
+  const status = searchParams.get('status') || ''
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+
+      // スタッフ一覧取得
+      const { data: staffData } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, display_name')
+        .or('role.eq.staff,secondary_role.eq.staff,role.eq.admin')
+        .order('last_name')
+
+      if (staffData) {
+        setStaffList(staffData)
+      }
+
+      // 履歴取得
+      let query = supabase
+        .from('visits')
+        .select(`
+          id,
+          visit_date,
+          created_at,
+          status,
+          session_id,
+          staff_profile_id,
+          children (
+            id,
+            first_name,
+            last_name,
+            birthday,
+            gender
+          ),
+          profiles!visits_staff_profile_id_fkey (
+            id,
+            first_name,
+            last_name,
+            display_name
+          )
+        `)
+        .order('visit_date', { ascending: false })
+        .limit(100)
+
+      if (staffId) {
+        query = query.eq('staff_profile_id', staffId)
+      }
+
+      if (status) {
+        query = query.eq('status', status)
+      } else {
+        query = query.in('status', ['diagnosis_completed', 'report_sent'])
+      }
+
+      const { data: visitsData } = await query
+
+      if (visitsData) {
+        setVisits(visitsData as unknown as Visit[])
+      }
+
+      setLoading(false)
+    }
+
+    fetchData()
+  }, [staffId, status])
+
+  const handleFilterChange = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value) {
+      params.set(key, value)
+    } else {
+      params.delete(key)
+    }
+    router.push(`/admin/visits?${params.toString()}`)
   }
-
-  // スタッフ一覧取得
-  const { data: staffList } = await supabase
-    .from('profiles')
-    .select('id, first_name, last_name, display_name')
-    .or('role.eq.staff,secondary_role.eq.staff,role.eq.admin')
-    .order('last_name')
-
-  // 履歴取得
-  const staffId = params.staffId
-  const status = params.status
-
-  let query = supabase
-    .from('visits')
-    .select(
-      `
-      id,
-      visit_date,
-      created_at,
-      status,
-      session_id,
-      staff_profile_id,
-      children (
-        id,
-        first_name,
-        last_name,
-        birthday,
-        gender
-      ),
-      profiles!visits_staff_profile_id_fkey (
-        id,
-        first_name,
-        last_name,
-        display_name
-      )
-    `
-    )
-    .order('visit_date', { ascending: false })
-    .limit(100)
-
-  if (staffId) {
-    query = query.eq('staff_profile_id', staffId)
-  }
-
-  if (status) {
-    query = query.eq('status', status)
-  } else {
-    query = query.in('status', ['diagnosis_completed', 'report_sent'])
-  }
-
-  const { data: visits } = await query
 
   // 日付でグループ化
-  const groupedVisits: Record<string, typeof visits> = {}
-  visits?.forEach((visit) => {
+  const groupedVisits: Record<string, Visit[]> = {}
+  visits.forEach((visit) => {
     const date = new Date(visit.visit_date || visit.created_at).toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: 'long',
@@ -88,7 +129,7 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
     if (!groupedVisits[date]) {
       groupedVisits[date] = []
     }
-    groupedVisits[date]!.push(visit)
+    groupedVisits[date].push(visit)
   })
 
   const statusColors: Record<string, string> = {
@@ -135,19 +176,11 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
               <label className="block text-sm text-slate-400 mb-1">スタッフ</label>
               <select
                 className="w-full bg-slate-700 text-white rounded-lg px-3 py-2 border border-slate-600"
-                defaultValue={staffId || ''}
-                onChange={(e) => {
-                  const url = new URL(window.location.href)
-                  if (e.target.value) {
-                    url.searchParams.set('staffId', e.target.value)
-                  } else {
-                    url.searchParams.delete('staffId')
-                  }
-                  window.location.href = url.toString()
-                }}
+                value={staffId}
+                onChange={(e) => handleFilterChange('staffId', e.target.value)}
               >
                 <option value="">全スタッフ</option>
-                {staffList?.map((staff) => (
+                {staffList.map((staff) => (
                   <option key={staff.id} value={staff.id}>
                     {staff.display_name || `${staff.last_name || ''}${staff.first_name || ''}`}
                   </option>
@@ -158,16 +191,8 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
               <label className="block text-sm text-slate-400 mb-1">ステータス</label>
               <select
                 className="w-full bg-slate-700 text-white rounded-lg px-3 py-2 border border-slate-600"
-                defaultValue={status || ''}
-                onChange={(e) => {
-                  const url = new URL(window.location.href)
-                  if (e.target.value) {
-                    url.searchParams.set('status', e.target.value)
-                  } else {
-                    url.searchParams.delete('status')
-                  }
-                  window.location.href = url.toString()
-                }}
+                value={status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
               >
                 <option value="">全て</option>
                 <option value="diagnosis_completed">診断完了</option>
@@ -181,16 +206,20 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
 
         {/* 履歴一覧 */}
         <div className="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700 overflow-hidden">
-          {visits && visits.length > 0 ? (
+          {loading ? (
+            <div className="p-8 text-center">
+              <p className="text-slate-400">読み込み中...</p>
+            </div>
+          ) : visits.length > 0 ? (
             Object.entries(groupedVisits).map(([date, dateVisits]) => (
               <div key={date} className="border-b border-slate-700 last:border-b-0">
                 <div className="px-4 py-3 bg-slate-700/50">
                   <h2 className="text-sm font-semibold text-slate-300">{date}</h2>
                 </div>
                 <div className="divide-y divide-slate-700">
-                  {dateVisits?.map((visit) => {
-                    const child = visit.children as any
-                    const staff = visit.profiles as any
+                  {dateVisits.map((visit) => {
+                    const child = visit.children
+                    const staff = visit.profiles
                     const age = child?.birthday
                       ? Math.floor(
                         (Date.now() - new Date(child.birthday).getTime()) /
@@ -252,4 +281,14 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
   )
 }
 
-
+export default function AdminVisitsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <p className="text-slate-400">読み込み中...</p>
+      </div>
+    }>
+      <AdminVisitsContent />
+    </Suspense>
+  )
+}
