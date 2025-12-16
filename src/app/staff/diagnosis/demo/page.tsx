@@ -1738,7 +1738,7 @@ export default function IntegratedDiagnosisPage() {
                           setEditableSummary(value)
                           setIsReportConfirmed(false)
                         }}
-                        reportUrl={isReportConfirmed ? `https://woozily-convective-libbie.ngrok-free.dev/report/demo-${sessionId}` : undefined}
+                        reportUrl={isReportConfirmed ? `https://coralup-yourtime.vercel.app/report/demo-${sessionId}` : undefined}
                       />
 
                       {/* 確定・送信ボタン */}

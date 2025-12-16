@@ -14,7 +14,7 @@ function getSupabaseClient() {
 function getAppUrl() {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-  const fallback = 'https://woozily-convective-libbie.ngrok-free.dev'
+  const fallback = 'https://coralup-yourtime.vercel.app'
   // 末尾スラッシュを削除して正規化
   const url = (envUrl || baseUrl || fallback).replace(/\/+$/, '')
   fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'report/create/route.ts:getAppUrl',message:'ENV values (fixed)',data:{envUrl,baseUrl,normalizedUrl:url},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});

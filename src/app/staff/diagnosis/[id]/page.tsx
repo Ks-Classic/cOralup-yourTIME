@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://woozily-convective-libbie.ngrok-free.dev'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'

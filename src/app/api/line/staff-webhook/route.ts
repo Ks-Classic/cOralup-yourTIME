@@ -6,17 +6,13 @@ const LINE_STAFF_CHANNEL_SECRET = process.env.LINE_STAFF_CHANNEL_SECRET!
 const LINE_STAFF_CHANNEL_ACCESS_TOKEN = process.env.LINE_STAFF_CHANNEL_ACCESS_TOKEN!
 const CORALUP_ORG_ID = process.env.CORALUP_ORG_ID
 const STAFF_LIFF_ID = process.env.NEXT_PUBLIC_STAFF_LIFF_ID
-// ngrok URLを優先（テスト環境用: localhostを除外）
+// 本番Vercel URLをデフォルトに（環境変数で上書き可能）
 const getAppUrl = () => {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  // ngrok URLがあれば優先
-  if (baseUrl && baseUrl.includes('ngrok')) return baseUrl.replace(/\/$/, '')
-  if (appUrl && appUrl.includes('ngrok')) return appUrl.replace(/\/$/, '')
-  // localhostでなければappUrlを使用
+  // 環境変数が設定されていればそれを使用
   if (appUrl && !appUrl.includes('localhost')) return appUrl.replace(/\/$/, '')
-  // デフォルトはngrok URL（テスト環境）
-  return 'https://woozily-convective-libbie.ngrok-free.dev'
+  // デフォルトは本番Vercel URL
+  return 'https://coralup-yourtime.vercel.app'
 }
 const APP_URL = getAppUrl()
 
