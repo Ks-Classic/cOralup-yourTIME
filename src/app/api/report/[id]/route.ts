@@ -24,7 +24,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  
+
   try {
     const supabase = getSupabaseClient()
     if (!supabase) {
@@ -49,7 +49,7 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
-    
+
     // diagnosis_idがあればdiagnosesテーブルから取得
     let diagnosis = null
     if (report?.diagnosis_id) {
@@ -60,7 +60,7 @@ export async function GET(
         .single()
       diagnosis = diagnosisData
     }
-    
+
     if (reportError || !report) {
       return NextResponse.json(
         { error: 'レポートが見つかりません' },
@@ -74,25 +74,17 @@ export async function GET(
       .from('visit_photos')
       .select('photo_type, storage_path, public_url')
       .eq('visit_id', id)
-    
+
     // デバッグログ
-    console.log('[Report API] visit_photos query:', {
-      visitId: id,
-      photosCount: visitPhotos?.length,
-      photosError: photosError,
-      photos: visitPhotos?.slice(0, 3),
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      serviceKeyPrefix: process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20),
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    })
-    
+    // console.log('[Report API] visit_photos query:', { visitId: id, photosCount: visitPhotos?.length })
+
     // 直接SQLで確認
     const { data: rawCheck, error: rawError } = await supabase
       .from('visit_photos')
       .select('id, visit_id')
       .limit(5)
-    console.log('[Report API] Raw visit_photos check (any 5 rows):', { rawCheck, rawError })
-    
+    // console.log('[Report API] Raw visit_photos check (any 5 rows):', { rawCheck, rawError })
+
     if (visitPhotos && visitPhotos.length > 0) {
       for (const photo of visitPhotos) {
         if (photo.photo_type) {
@@ -110,11 +102,11 @@ export async function GET(
         }
       }
     }
-    
+
     // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'report/[id]/route.ts:GET',message:'Final photo URLs',data:{photoUrlKeys:Object.keys(photoUrls),hasPhotos:Object.keys(photoUrls).length>0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'G'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'report/[id]/route.ts:GET', message: 'Final photo URLs', data: { photoUrlKeys: Object.keys(photoUrls), hasPhotos: Object.keys(photoUrls).length > 0 }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'G' }) }).catch(() => { });
     // #endregion
-    
+
     // フォールバック: diagnosesテーブルのphotosカラム（旧形式）
     if (Object.keys(photoUrls).length === 0 && diagnosis?.photos && Array.isArray(diagnosis.photos)) {
       for (const photo of diagnosis.photos) {
@@ -130,36 +122,36 @@ export async function GET(
     }
 
     // 子供情報の取得（visitsからchildrenへのJOIN）
-    const child = report.visit?.child as { 
-      first_name?: string; 
-      last_name?: string; 
+    const child = report.visit?.child as {
+      first_name?: string;
+      last_name?: string;
       name?: string;
       birthday?: string;
       parent_name?: string;
       gender?: string;
     } | null
-    
+
     // visitから月齢取得
     const visitData = report.visit as {
       child_age_months?: number;
     } | null
-    
+
     // 名前の組み立て（last_name + first_name または name）
     const childFirstName = child?.first_name || ''
-    const childFullName = child?.name || 
-      [child?.last_name, child?.first_name].filter(Boolean).join(' ') || 
+    const childFullName = child?.name ||
+      [child?.last_name, child?.first_name].filter(Boolean).join(' ') ||
       ''
-    
+
     // 性別による敬称
     const honorific = child?.gender === 'male' ? 'くん' : child?.gender === 'female' ? 'ちゃん' : ''
-    
+
     // 表示用名前（下の名前 + くん/ちゃん）
     const childDisplayName = childFirstName ? `${childFirstName}${honorific}` : childFullName
-    
+
     // 年齢計算（birthdayから計算、またはvisitのchild_age_monthsから）
     let childAge = 0
     let childAgeMonths = visitData?.child_age_months
-    
+
     if (child?.birthday) {
       const birthDate = new Date(child.birthday)
       const today = new Date()
@@ -197,7 +189,7 @@ export async function GET(
     }
 
     return NextResponse.json(responseData)
-    
+
   } catch (error) {
     console.error('Report fetch error:', error)
     return NextResponse.json(

@@ -86,11 +86,7 @@ export async function POST(request: NextRequest) {
         .eq('id', resolvedVisitId)
     }
 
-    console.log('[Questionnaire] Saved:', {
-      visitId: resolvedVisitId,
-      sessionId,
-      answerCount: responsesToInsert.length,
-    })
+    // console.log('[Questionnaire] Saved:', { visitId: resolvedVisitId, sessionId, answerCount: responsesToInsert.length })
 
     return NextResponse.json({
       success: true,

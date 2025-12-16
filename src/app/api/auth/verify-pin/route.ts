@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
         const isValid = pin === STAFF_PIN
 
         if (isValid) {
-            console.log('[PIN Verify] PIN verified successfully')
+            // console.log('[PIN Verify] PIN verified successfully')
             return NextResponse.json({ valid: true })
         } else {
-            console.log('[PIN Verify] Invalid PIN attempt')
+            // console.log('[PIN Verify] Invalid PIN attempt')
             return NextResponse.json(
                 { valid: false, error: 'Invalid PIN' },
                 { status: 401 }

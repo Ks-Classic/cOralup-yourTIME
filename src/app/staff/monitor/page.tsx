@@ -130,7 +130,7 @@ export default function MonitorPage() {
           table: 'visits',
         },
         (payload) => {
-          console.log('Visit changed:', payload)
+          // console.log('Visit changed:', payload)
           fetchVisits()
         }
       )

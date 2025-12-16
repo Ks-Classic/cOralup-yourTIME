@@ -148,13 +148,13 @@ export default function IntegratedDiagnosisPage() {
   // APIから診断スキーマを取得
   useEffect(() => {
     const fetchSchema = async () => {
-      console.log('[DemoPage] スキーマ取得開始...')
+      // console.log('[DemoPage] スキーマ取得開始...')
       try {
         const res = await fetch('/api/diagnosis-schema?input_type=staff')
-        console.log('[DemoPage] API応答ステータス:', res.status)
+        // console.log('[DemoPage] API応答ステータス:', res.status)
         if (!res.ok) throw new Error('スキーマ取得失敗')
         const json = await res.json()
-        console.log('[DemoPage] 取得データ:', json.data?.items?.length, '項目')
+        // console.log('[DemoPage] 取得データ:', json.data?.items?.length, '項目')
 
         if (json.success && json.data) {
           // APIデータをアプリケーションの形式に変換
@@ -176,7 +176,7 @@ export default function IntegratedDiagnosisPage() {
 
           // 舌カテゴリの確認
           const tongueItems = apiItems.filter((i: any) => i.category === '舌')
-          console.log('[DemoPage] 舌カテゴリ:', tongueItems.length, '件', tongueItems.map((i: any) => i.question))
+          // console.log('[DemoPage] 舌カテゴリ:', tongueItems.length, '件', tongueItems.map((i: any) => i.question))
 
           setDiagnosisItems(apiItems)
           setCategoryList(json.data.categories)
@@ -184,7 +184,7 @@ export default function IntegratedDiagnosisPage() {
       } catch (e) {
         console.error('[DemoPage] スキーマ取得エラー:', e)
         // エラー時は静的データにフォールバック
-        console.log('[DemoPage] 静的データにフォールバック')
+        // console.log('[DemoPage] 静的データにフォールバック')
         setDiagnosisItems(staticDiagnosisItems)
       } finally {
         setIsSchemaLoading(false)

@@ -238,12 +238,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[Basic Info] Saved:', {
-      profileId: profile.id,
-      childId: child.id,
-      visitId,
-      sessionId: finalSessionId,
-    })
+    // console.log('[Basic Info] Saved:', { profileId: profile.id, childId: child.id, visitId, sessionId: finalSessionId })
 
     return NextResponse.json({
       success: true,

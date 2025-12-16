@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           await handleMessageEvent(event)
           break
         default:
-          console.log('[Staff Webhook] Unhandled event type:', event.type)
+        // console.log('[Staff Webhook] Unhandled event type:', event.type)
       }
     }
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
 async function handleFollowEvent(event: any) {
   const lineUserId = event.source.userId
-  console.log('[Staff Webhook] Follow event:', lineUserId)
+  // console.log('[Staff Webhook] Follow event:', lineUserId)
 
   try {
     // LINEプロフィールを取得
@@ -94,7 +94,7 @@ async function handleFollowEvent(event: any) {
       const profile = await profileResponse.json()
       displayName = profile.displayName || 'スタッフ'
       avatarUrl = profile.pictureUrl
-      console.log('[Staff Webhook] Profile fetched:', { displayName })
+      // console.log('[Staff Webhook] Profile fetched:', { displayName })
     }
 
     // 既存スタッフ確認（role='staff' または secondary_role='staff'）
@@ -125,7 +125,7 @@ async function handleFollowEvent(event: any) {
         .update(updateData)
         .eq('id', existing.id)
 
-      console.log('[Staff Webhook] Staff reactivated:', existing.id)
+      // console.log('[Staff Webhook] Staff reactivated:', existing.id)
 
       // 再登録メッセージ送信（ブックマーク案内付き）
       await sendLineMessage(
@@ -161,7 +161,7 @@ async function handleFollowEvent(event: any) {
           throw updateError
         }
 
-        console.log('[Staff Webhook] Profile updated with staff role:', updatedStaff.id)
+        // console.log('[Staff Webhook] Profile updated with staff role:', updatedStaff.id)
       } else {
         // 新規スタッフ登録
         const { data: newStaff, error: insertError } = await supabase
@@ -183,7 +183,7 @@ async function handleFollowEvent(event: any) {
           throw insertError
         }
 
-        console.log('[Staff Webhook] Staff created:', newStaff.id)
+        // console.log('[Staff Webhook] Staff created:', newStaff.id)
 
         // 登録完了メッセージ送信（名前入力案内 + ブックマーク案内）
         await sendLineMessage(
@@ -199,7 +199,7 @@ async function handleFollowEvent(event: any) {
 
 async function handleUnfollowEvent(event: any) {
   const lineUserId = event.source.userId
-  console.log('[Staff Webhook] Unfollow event:', lineUserId)
+  // console.log('[Staff Webhook] Unfollow event:', lineUserId)
 
   try {
     // スタッフを非アクティブに（削除はしない）
@@ -213,7 +213,7 @@ async function handleUnfollowEvent(event: any) {
     if (error) {
       console.error('[Staff Webhook] Error deactivating staff:', error)
     } else {
-      console.log('[Staff Webhook] Staff deactivated:', lineUserId)
+      // console.log('[Staff Webhook] Staff deactivated:', lineUserId)
     }
   } catch (error) {
     console.error('[Staff Webhook] handleUnfollowEvent error:', error)
@@ -229,7 +229,7 @@ async function handleMessageEvent(event: any) {
   }
 
   const text = message.text.trim()
-  console.log('[Staff Webhook] Message received:', { lineUserId, text })
+  // console.log('[Staff Webhook] Message received:', { lineUserId, text })
 
   try {
     // スタッフプロフィール取得（role='staff' または secondary_role='staff'）
@@ -271,11 +271,7 @@ async function handleMessageEvent(event: any) {
       return
     }
 
-    console.log('[Staff Webhook] Profile updated:', {
-      lineUserId,
-      lastName,
-      firstName,
-    })
+    // console.log('[Staff Webhook] Profile updated:', { lineUserId, lastName, firstName })
 
     // 登録完了メッセージ（Flex Message + テキスト）
     const staffHomeUrl = `${APP_URL}/staff/home`
@@ -397,7 +393,7 @@ async function parseJapaneseName(text: string): Promise<{ lastName: string; firs
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     // フォールバック: 2文字を姓として扱う
-    console.log('[Name Parse] No GEMINI_API_KEY, using fallback')
+    // console.log('[Name Parse] No GEMINI_API_KEY, using fallback')
     return { lastName: trimmed.substring(0, 2), firstName: trimmed.substring(2) }
   }
 

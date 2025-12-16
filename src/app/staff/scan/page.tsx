@@ -69,7 +69,7 @@ export default function StaffScanPage() {
           credentials: 'include', // Cookieを含める
         })
         const data = await res.json()
-        console.log('[Scan] Auth check:', { ok: res.ok, data })
+        // console.log('[Scan] Auth check:', { ok: res.ok, data })
         
         if (res.ok && data.authenticated) {
           setIsAuthenticated(true)

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const targetAge = searchParams.get('target_age') || 'all'
     const eventId = searchParams.get('event_id')
 
-    console.log('[/api/questionnaire/items] リクエスト:', { targetAge, eventId })
+    // console.log('[/api/questionnaire/items] リクエスト:', { targetAge, eventId })
 
     // 1. カテゴリ取得（Activeなもののみ）
     let categoryQuery = supabase
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       throw catError
     }
 
-    console.log('[/api/questionnaire/items] カテゴリ取得:', categories?.length, '件')
+    // console.log('[/api/questionnaire/items] カテゴリ取得:', categories?.length, '件')
 
     // 2. 項目取得（Activeなもののみ）
     const { data: items, error: itemError } = await supabase
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       throw itemError
     }
 
-    console.log('[/api/questionnaire/items] 項目取得:', items?.length, '件')
+    // console.log('[/api/questionnaire/items] 項目取得:', items?.length, '件')
 
     // 3. イベント別設定がある場合は適用
     let eventSettings: Record<string, { is_enabled: boolean; display_order?: number }> = {}

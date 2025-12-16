@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams
         const inputType = searchParams.get('input_type') // 'staff' | 'parent' | null
 
-        console.log('[/api/diagnosis-schema] リクエスト受信:', { inputType })
+        // console.log('[/api/diagnosis-schema] リクエスト受信:', { inputType })
 
         // カテゴリ取得（Activeなもののみ）
         let categoryQuery = supabase
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         const { data: categories, error: catError } = await categoryQuery
         if (catError) throw catError
 
-        console.log('[/api/diagnosis-schema] カテゴリ取得:', categories?.length, '件')
+        // console.log('[/api/diagnosis-schema] カテゴリ取得:', categories?.length, '件')
 
         // 項目取得（Activeなもののみ）
         let itemQuery = supabase
@@ -51,14 +51,14 @@ export async function GET(request: NextRequest) {
         const { data: items, error: itemError } = await itemQuery
         if (itemError) throw itemError
 
-        console.log('[/api/diagnosis-schema] 項目取得:', items?.length, '件')
+        // console.log('[/api/diagnosis-schema] 項目取得:', items?.length, '件')
 
         // 舌カテゴリの項目を確認
         const tongueItems = items?.filter(i => {
             const cat = categories?.find(c => c.id === i.category_id)
             return cat?.name === '舌'
         })
-        console.log('[/api/diagnosis-schema] 舌カテゴリ項目:', tongueItems?.length, '件', tongueItems?.map(i => i.question))
+        // console.log('[/api/diagnosis-schema] 舌カテゴリ項目:', tongueItems?.length, '件', tongueItems?.map(i => i.question))
 
         // フロントエンドで使いやすい形に整形
         // Note: optionsの型変換などはフロントエンド側で行うか、ここで行う

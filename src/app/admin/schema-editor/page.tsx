@@ -832,8 +832,8 @@ export default function SchemaEditorPage() {
         setSaveMessage({ type: 'success', text: '診断項目を保存しました' })
       } else {
         // 問診票スキーマをAPI経由で保存
-        console.log('[UI handleSave] hardDeleteCategoryIds:', hardDeleteCategoryIds)
-        console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
+        // console.log('[UI handleSave] hardDeleteCategoryIds:', hardDeleteCategoryIds)
+        // console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
 
         if (questionnaireSubTab === 'basic_info') {
           // 基本情報スキーマの保存

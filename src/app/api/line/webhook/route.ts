@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
           await handlePostbackEvent(event)
           break
         default:
-          console.log('Unhandled event type:', event.type)
+          // console.log('Unhandled event type:', event.type)
       }
     }
 
@@ -73,11 +73,11 @@ async function handleFollowEvent(event: any) {
   // フォロー時の処理
   const lineUserId = event.source.userId
 
-  console.log('User followed:', lineUserId)
+  // console.log('User followed:', lineUserId)
 
   try {
     // LINEプロフィールを取得
-    console.log('[LINE Webhook] Fetching profile with token:', LINE_CHANNEL_ACCESS_TOKEN ? `${LINE_CHANNEL_ACCESS_TOKEN.substring(0, 20)}...` : 'NOT SET')
+    // console.log('[LINE Webhook] Fetching profile with token:', LINE_CHANNEL_ACCESS_TOKEN ? `${LINE_CHANNEL_ACCESS_TOKEN.substring(0, 20)}...` : 'NOT SET')
     
     const profileResponse = await fetch(
       `https://api.line.me/v2/bot/profile/${lineUserId}`,
@@ -95,7 +95,7 @@ async function handleFollowEvent(event: any) {
       const profile = await profileResponse.json()
       displayName = profile.displayName
       avatarUrl = profile.pictureUrl
-      console.log('LINE profile fetched:', { displayName, avatarUrl })
+      // console.log('LINE profile fetched:', { displayName, avatarUrl })
     } else {
       const errorText = await profileResponse.text()
       console.error('[LINE Webhook] Profile fetch failed:', profileResponse.status, errorText)
@@ -163,7 +163,7 @@ async function handleFollowEvent(event: any) {
       throw error
     }
 
-    console.log('User registered to profiles:', data)
+    // console.log('User registered to profiles:', data)
 
     // ウェルカムメッセージを送信
     await sendWelcomeMessage(lineUserId, displayName)
@@ -278,7 +278,7 @@ async function handleMessageEvent(event: any) {
   const userId = event.source.userId
   const message = event.message
 
-  console.log('Message received:', { userId, message })
+  // console.log('Message received:', { userId, message })
 
   // テキストメッセージの場合
   if (message.type === 'text') {
@@ -291,7 +291,7 @@ async function handlePostbackEvent(event: any) {
   const userId = event.source.userId
   const postbackData = event.postback.data
 
-  console.log('Postback received:', { userId, postbackData })
+  // console.log('Postback received:', { userId, postbackData })
 
   // ポストバックデータの処理
   // 実際の実装では、適切な処理を行う
@@ -316,12 +316,12 @@ async function handleTextMessage(userId: string, text: string) {
 async function sendDiagnosisResult(userId: string) {
   // 診断結果送信処理
   // 実際の実装では、ユーザーの最新の診断結果を取得して送信
-  console.log('Sending diagnosis result to:', userId)
+  // console.log('Sending diagnosis result to:', userId)
 }
 
 async function sendHelpMessage(userId: string) {
   // ヘルプメッセージ送信処理
-  console.log('Sending help message to:', userId)
+  // console.log('Sending help message to:', userId)
 
   const helpMessage = {
     type: 'text',
@@ -337,7 +337,7 @@ async function sendHelpMessage(userId: string) {
 
 async function sendDefaultMessage(userId: string) {
   // デフォルトメッセージ送信処理
-  console.log('Sending default message to:', userId)
+  // console.log('Sending default message to:', userId)
 
   const defaultMessage = {
     type: 'text',

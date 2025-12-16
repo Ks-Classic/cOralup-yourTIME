@@ -302,7 +302,7 @@ ${dataForPrompt.diagnosisDetails || 'なし'}
           console.error('[AI Report] DB save error:', dbError)
           // DBエラーでも結果は返す
         } else {
-          console.log('[AI Report] Saved to ai_analysis_results:', analysisRecord?.id)
+          // console.log('[AI Report] Saved to ai_analysis_results:', analysisRecord?.id)
         }
       }
 

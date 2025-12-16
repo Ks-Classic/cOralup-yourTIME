@@ -137,12 +137,12 @@ export default function QuestionnairePageDemo() {
 
         const fetchSchema = async () => {
             setIsSchemaLoading(true)
-            console.log('[DemoQuestionnaire] スキーマ取得開始:', formType)
+            // console.log('[DemoQuestionnaire] スキーマ取得開始:', formType)
             try {
                 // 新API: /api/questionnaire/items を使用
                 const targetAge = formType === 'preschooler' ? 'preschool' : 'elementary'
                 const res = await fetch(`/api/questionnaire/items?target_age=${targetAge}`)
-                console.log('[DemoQuestionnaire] API応答ステータス:', res.status)
+                // console.log('[DemoQuestionnaire] API応答ステータス:', res.status)
 
                 if (res.ok) {
                     const json = await res.json()
@@ -150,10 +150,7 @@ export default function QuestionnairePageDemo() {
                         // DB形式からFormSchemaConfig形式に変換
                         const convertedSchema = convertToFormSchema(json.data)
                         setActiveFormSchema(convertedSchema)
-                        console.log('[DemoQuestionnaire] スキーマ取得成功:', {
-                            categories: json.data.categories.length,
-                            totalItems: json.data.meta?.total_items,
-                        })
+                        // console.log('[DemoQuestionnaire] スキーマ取得成功:', { categories: json.data.categories.length })
                         return
                     }
                 }
@@ -334,7 +331,7 @@ export default function QuestionnairePageDemo() {
                 console.error('基本情報の保存に失敗:', errorData)
                 // デモモードではDB保存失敗してもUIは進める
             } else {
-                console.log('基本情報をDBに保存しました')
+                // console.log('基本情報をDBに保存しました')
             }
 
             setSessionSummaryData({
@@ -398,16 +395,10 @@ export default function QuestionnairePageDemo() {
                 console.error('問診票の保存に失敗:', errorData)
                 // デモモードではDB保存失敗してもUIは進める
             } else {
-                console.log('問診票をDBに保存しました')
+                // console.log('問診票をDBに保存しました')
             }
 
-            console.log('問診票送信データ:', {
-                sessionId: sessionId,
-                formType,
-                basicInfo: basicInfoForm.getValues(),
-                questionnaire: values,
-                responsesCount: responses.length,
-            })
+            // console.log('問診票送信データ:', { sessionId, formType, responsesCount: responses.length })
 
             // 結果画面（QR表示）へ遷移
             router.push(`/parent/result/${sessionId}`)
@@ -423,10 +414,10 @@ export default function QuestionnairePageDemo() {
     const handleFillSampleData = useCallback(() => {
         if (currentStep === 1) {
             const sampleData = generateBasicInfoSampleData()
-            
+
             // サンプル入力フラグをセット（useEffectの復元をブロック）
             setIsSampleFilled(true)
-            
+
             // resetで一括設定
             basicInfoForm.reset(sampleData, { keepDefaultValues: false })
 

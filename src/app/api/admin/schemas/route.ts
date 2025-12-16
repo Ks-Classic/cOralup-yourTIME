@@ -406,8 +406,8 @@ export async function POST(request: NextRequest) {
       }
 
       // ハード削除
-      console.log('[schemas POST] hardDeleteItemIds:', hardDeleteItemIds)
-      console.log('[schemas POST] hardDeleteCategoryIds:', hardDeleteCategoryIds)
+      // console.log('[schemas POST] hardDeleteItemIds:', hardDeleteItemIds)
+      // console.log('[schemas POST] hardDeleteCategoryIds:', hardDeleteCategoryIds)
 
       // 1. 指定された項目を削除
       if (hardDeleteItemIds.length > 0) {

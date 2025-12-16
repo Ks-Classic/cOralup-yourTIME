@@ -65,7 +65,7 @@ export default function ParentLiffEntryPage() {
                     }
                 }
 
-                console.log('[LIFF Entry] Routing to:', targetPath, 'from liff.state:', liffState)
+                // console.log('[LIFF Entry] Routing to:', targetPath, 'from liff.state:', liffState)
                 setStatus('redirecting')
 
                 // リダイレクト

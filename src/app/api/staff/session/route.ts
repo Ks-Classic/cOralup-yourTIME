@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     const visitId = searchParams.get('visitId')
     const code = searchParams.get('code')
 
-    console.log('[Staff Session] Request:', { visitId, code })
+    // console.log('[Staff Session] Request:', { visitId, code })
 
     // モックモードの場合
     if (isMockMode) {
@@ -120,14 +120,14 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (error || !visit) {
-        console.log('[Staff Session] Not found:', { visitId, error })
+        // console.log('[Staff Session] Not found:', { visitId, error })
         return NextResponse.json(
           { success: false, error: 'not_found', message: '該当するセッションが見つかりません' },
           { status: 404 }
         )
       }
 
-      console.log('[Staff Session] Found:', { visitId: visit.id, status: visit.status })
+      // console.log('[Staff Session] Found:', { visitId: visit.id, status: visit.status })
 
       // 保護者プロフィールを取得
       let parentProfile = null

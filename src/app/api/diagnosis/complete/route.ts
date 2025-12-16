@@ -185,11 +185,7 @@ export async function POST(request: NextRequest) {
     // レポートURLはvisit_idベース
     const reportUrl = `${APP_URL}/report/${visitId}`
 
-    console.log('[Complete Diagnosis] Success:', {
-      visitId,
-      reportId: report.id,
-      lineNotificationSent: !!lineNotificationResult?.success,
-    })
+    // console.log('[Complete Diagnosis] Success:', { visitId, reportId: report.id, lineNotificationSent: !!lineNotificationResult?.success })
 
     return NextResponse.json({
       success: true,

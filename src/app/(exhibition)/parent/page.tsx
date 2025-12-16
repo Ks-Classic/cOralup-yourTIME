@@ -73,7 +73,7 @@ export default function ParentPage() {
           }
         }
 
-        console.log('[Parent LIFF] Routing to:', targetPath, 'from liff.state:', liffState)
+        // console.log('[Parent LIFF] Routing to:', targetPath, 'from liff.state:', liffState)
         setStatus('redirecting')
         router.replace(targetPath)
 

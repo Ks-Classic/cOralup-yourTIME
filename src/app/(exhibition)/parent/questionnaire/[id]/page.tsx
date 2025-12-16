@@ -150,18 +150,12 @@ export default function QuestionnairePage({ params }: { params: { id: string } }
             setActiveFormSchema(prev => {
               const changed = JSON.stringify(prev) !== JSON.stringify(convertedSchema)
               if (changed) {
-                console.log('[問診画面] スキーマ取得成功:', {
-                  categories: json.data.categories.length,
-                  totalItems: json.data.meta?.total_items,
-                })
+                // console.log('[問診画面] スキーマ取得成功:', { categories: json.data.categories.length })
                 return convertedSchema
               }
               return prev
             })
-            console.log('[問診画面] スキーマ取得レスポンス:', {
-              categories: json.data.categories.length,
-              totalItems: json.data.meta?.total_items,
-            })
+            // console.log('[問診画面] スキーマ取得レスポンス:', { categories: json.data.categories.length })
             return
           }
         }
@@ -259,13 +253,13 @@ export default function QuestionnairePage({ params }: { params: { id: string } }
         const age = calculateAge(birthDate)
 
         if (age !== calculatedAge) {
-          console.log('[basic-info] age update', { age, watchedYear, watchedMonth, watchedDay })
+          // console.log('[basic-info] age update', { age, watchedYear, watchedMonth, watchedDay })
           setCalculatedAge(age)
         }
 
         const newFormType = getFormType(age)
         if (newFormType !== formType) {
-          console.log('[basic-info] formType update', { newFormType })
+          // console.log('[basic-info] formType update', { newFormType })
           setFormType(newFormType)
         }
       } catch (err) {
@@ -318,7 +312,7 @@ export default function QuestionnairePage({ params }: { params: { id: string } }
       const childNameParts = data.childName.split(/\s+/)
       const childLastName = childNameParts[0] || ''
       const childFirstName = childNameParts.slice(1).join(' ') || ''
-      
+
       const parentNameParts = data.parentName.split(/\s+/)
       const parentLastName = parentNameParts[0] || ''
       const parentFirstName = parentNameParts.slice(1).join(' ') || ''
@@ -353,7 +347,7 @@ export default function QuestionnairePage({ params }: { params: { id: string } }
         // エラーでも続行（localStorageには保存済み）
       } else {
         const result = await res.json()
-        console.log('基本情報保存成功:', result)
+        // console.log('基本情報保存成功:', result)
       }
 
       setSessionSummaryData({
@@ -420,11 +414,7 @@ export default function QuestionnairePage({ params }: { params: { id: string } }
         throw new Error(errorData.error || '問診票の保存に失敗しました')
       }
 
-      console.log('問診票送信完了:', {
-        sessionId: sessionId,
-        formType,
-        responsesCount: responses.length,
-      })
+      // console.log('問診票送信完了:', { sessionId, formType, responsesCount: responses.length })
 
       // 結果画面（QR表示）へ遷移
       router.push(`/parent/result/${sessionId}`)

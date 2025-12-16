@@ -40,7 +40,7 @@ export default function LiffLoginPage() {
 
         // プロフィール取得
         const profile = await liff.getProfile()
-        console.log('[LIFF Login] Profile:', profile.userId)
+        // console.log('[LIFF Login] Profile:', profile.userId)
 
         // セッション発行API呼び出し
         const res = await fetch('/api/auth/staff-session', {

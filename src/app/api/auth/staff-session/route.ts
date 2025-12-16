@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error || !staff) {
-      console.log('[Staff Session] Staff not found:', lineUserId)
+      // console.log('[Staff Session] Staff not found:', lineUserId)
       return NextResponse.json(
         { error: 'not_registered' },
         { status: 404 }
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (staff.is_active === false) {
-      console.log('[Staff Session] Staff inactive:', lineUserId)
+      // console.log('[Staff Session] Staff inactive:', lineUserId)
       return NextResponse.json(
         { error: 'account_inactive' },
         { status: 403 }
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       .update({ last_activity_at: new Date().toISOString() })
       .eq('id', staff.id)
 
-    console.log('[Staff Session] Session created for:', staffName)
+    // console.log('[Staff Session] Session created for:', staffName)
 
     return NextResponse.json({
       success: true,

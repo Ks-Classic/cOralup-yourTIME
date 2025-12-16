@@ -35,7 +35,7 @@ export async function GET() {
             avatarUrl: s.avatar_url,
         }))
 
-        console.log('[Staff List] Fetched:', staff.length, 'staff members')
+        // console.log('[Staff List] Fetched:', staff.length, 'staff members')
 
         return NextResponse.json({ staff })
     } catch (error) {

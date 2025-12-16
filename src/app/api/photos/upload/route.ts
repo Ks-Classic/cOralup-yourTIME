@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const photoType = formData.get('photoType') as PhotoType | null
 
     // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'photos/upload/route.ts:POST',message:'Upload request received',data:{hasFile:!!file,fileSize:file?.size,visitId,sessionId,photoType},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'J'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'photos/upload/route.ts:POST', message: 'Upload request received', data: { hasFile: !!file, fileSize: file?.size, visitId, sessionId, photoType }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'J' }) }).catch(() => { });
     // #endregion
 
     if (!file) {
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'photos/upload/route.ts:POST',message:'DB insert result',data:{dbError:dbError?.message,photoRecordId:photoRecord?.id,visitId,photoType,storagePath:uploadData.path},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'K'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'photos/upload/route.ts:POST', message: 'DB insert result', data: { dbError: dbError?.message, photoRecordId: photoRecord?.id, visitId, photoType, storagePath: uploadData.path }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'K' }) }).catch(() => { });
     // #endregion
 
     if (dbError) {
@@ -159,12 +159,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[Photo Upload] Success:', {
-      path: uploadData.path,
-      photoType,
-      visitId,
-      sessionId,
-    })
+    // console.log('[Photo Upload] Success:', { path: uploadData.path, photoType, visitId, sessionId })
 
     return NextResponse.json({
       success: true,

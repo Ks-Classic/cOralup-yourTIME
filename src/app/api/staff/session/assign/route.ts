@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           throw createError
         }
 
-        console.log('[Assign Staff] Created new visit:', newVisit.id)
+        // console.log('[Assign Staff] Created new visit:', newVisit.id)
 
         return NextResponse.json({
           success: true,
@@ -109,11 +109,7 @@ export async function POST(request: NextRequest) {
       throw updateError
     }
 
-    console.log('[Assign Staff] Staff assigned:', {
-      visitId: targetVisitId,
-      staffId,
-      staffName,
-    })
+    // console.log('[Assign Staff] Staff assigned:', { visitId: targetVisitId, staffId, staffName })
 
     return NextResponse.json({
       success: true,

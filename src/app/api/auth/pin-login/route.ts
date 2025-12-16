@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
             .single()
 
         if (error || !staff) {
-            console.log('[PIN Login] Staff not found:', staffId)
+            // console.log('[PIN Login] Staff not found:', staffId)
             return NextResponse.json(
                 { success: false, error: 'Staff not found' },
                 { status: 404 }
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             .update({ last_activity_at: new Date().toISOString() })
             .eq('id', staff.id)
 
-        console.log('[PIN Login] Login successful:', staffName)
+        // console.log('[PIN Login] Login successful:', staffName)
 
         // Cookie設定してレスポンス
         const response = NextResponse.json({

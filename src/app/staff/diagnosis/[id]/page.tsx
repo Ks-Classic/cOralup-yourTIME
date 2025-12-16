@@ -201,13 +201,13 @@ export default function DiagnosisPageWithId() {
   // APIから診断スキーマを取得
   useEffect(() => {
     const fetchSchema = async () => {
-      console.log('[DemoPage] スキーマ取得開始...')
+      // console.log('[DemoPage] スキーマ取得開始...')
       try {
         const res = await fetch('/api/diagnosis-schema?input_type=staff')
-        console.log('[DemoPage] API応答ステータス:', res.status)
+        // console.log('[DemoPage] API応答ステータス:', res.status)
         if (!res.ok) throw new Error('スキーマ取得失敗')
         const json = await res.json()
-        console.log('[DemoPage] 取得データ:', json.data?.items?.length, '項目')
+        // console.log('[DemoPage] 取得データ:', json.data?.items?.length, '項目')
 
         if (json.success && json.data) {
           // APIデータをアプリケーションの形式に変換
@@ -229,7 +229,7 @@ export default function DiagnosisPageWithId() {
 
           // 舌カテゴリの確認
           const tongueItems = apiItems.filter((i: any) => i.category === '舌')
-          console.log('[DemoPage] 舌カテゴリ:', tongueItems.length, '件', tongueItems.map((i: any) => i.question))
+          // console.log('[DemoPage] 舌カテゴリ:', tongueItems.length, '件', tongueItems.map((i: any) => i.question))
 
           setDiagnosisItems(apiItems)
           setCategoryList(json.data.categories)
@@ -237,7 +237,7 @@ export default function DiagnosisPageWithId() {
       } catch (e) {
         console.error('[DemoPage] スキーマ取得エラー:', e)
         // エラー時は静的データにフォールバック
-        console.log('[DemoPage] 静的データにフォールバック')
+        // console.log('[DemoPage] 静的データにフォールバック')
         setDiagnosisItems(staticDiagnosisItems)
       } finally {
         setIsSchemaLoading(false)
@@ -293,7 +293,7 @@ export default function DiagnosisPageWithId() {
           })
           const assignData = await assignRes.json()
           if (assignData.success) {
-            console.log('[Diagnosis] Staff assigned:', assignData)
+            // console.log('[Diagnosis] Staff assigned:', assignData)
           }
         } catch (assignError) {
           console.error('[Diagnosis] Staff assignment error:', assignError)
@@ -354,7 +354,7 @@ export default function DiagnosisPageWithId() {
           notes,
         })
 
-        console.log('[Diagnosis] Visit data loaded:', visit)
+        // console.log('[Diagnosis] Visit data loaded:', visit)
       } catch (err) {
         console.error('[Diagnosis] Fetch error:', err)
         setVisitError('データの取得に失敗しました')
@@ -502,7 +502,7 @@ export default function DiagnosisPageWithId() {
       if (observedCount === 0) {
         console.warn('[Diagnosis] No category elements found for Intersection Observer')
       } else {
-        console.log(`[Diagnosis] Intersection Observer started, observing ${observedCount} categories`)
+        // console.log(`[Diagnosis] Intersection Observer started, observing ${observedCount} categories`)
       }
     }, 300) // アニメーション完了を待つ（300ms）
 
@@ -616,7 +616,7 @@ export default function DiagnosisPageWithId() {
 
   // プレビューから保存（楽観的UI更新 + バックグラウンドアップロード）
   const savePreviewPhoto = async () => {
-    console.log('[DEBUG] savePreviewPhoto called', { previewPhoto, isUploadingPhoto, visitId })
+    // console.log('[DEBUG] savePreviewPhoto called', { previewPhoto, isUploadingPhoto, visitId })
     if (!previewPhoto || isUploadingPhoto) return
 
     const photoType = previewPhoto.type
@@ -662,7 +662,7 @@ export default function DiagnosisPageWithId() {
       })
 
       const uploadData = await uploadRes.json()
-      console.log('[DEBUG] Upload response:', { ok: uploadRes.ok, status: uploadRes.status, uploadData })
+      // console.log('[DEBUG] Upload response:', { ok: uploadRes.ok, status: uploadRes.status, uploadData })
 
       if (!uploadRes.ok || !uploadData.success) {
         console.error('[Photo Upload] Failed:', uploadData)
@@ -670,7 +670,7 @@ export default function DiagnosisPageWithId() {
         return
       }
 
-      console.log('[Photo Upload] Success:', uploadData)
+      // console.log('[Photo Upload] Success:', uploadData)
 
       // アップロード成功後、URLをサーバーURLに更新
       setPhotos(prev => prev.map(p =>
@@ -938,11 +938,7 @@ export default function DiagnosisPageWithId() {
         hasReport: true,
       }))
 
-      console.log('[Diagnosis] Report generated:', {
-        reportId: reportData.reportId,
-        visitId: reportData.visitId,
-        url: reportData.url,
-      })
+      // console.log('[Diagnosis] Report generated:', { reportId: reportData.reportId, visitId: reportData.visitId, url: reportData.url })
     } catch (error) {
       console.error('Error generating report:', error)
       alert('レポートの生成に失敗しました: ' + (error as Error).message)
@@ -991,7 +987,7 @@ export default function DiagnosisPageWithId() {
         throw new Error(data.error || 'レポート送信に失敗しました')
       }
 
-      console.log('[Diagnosis] Report sent:', data)
+      // console.log('[Diagnosis] Report sent:', data)
 
       // LINE送信後、配信確認ダイアログを表示
       setShowLineDeliveryCheck(true)

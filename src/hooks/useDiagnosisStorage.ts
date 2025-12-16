@@ -181,7 +181,7 @@ export function cleanupOldDiagnosisData() {
     keysToRemove.forEach((key) => localStorage.removeItem(key))
 
     if (keysToRemove.length > 0) {
-      console.log(`Cleaned up ${keysToRemove.length} old diagnosis data entries`)
+      // console.log(`Cleaned up ${keysToRemove.length} old diagnosis data entries`)
     }
   } catch (error) {
     console.error('Failed to cleanup old diagnosis data:', error)

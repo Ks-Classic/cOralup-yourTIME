@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (profileError || !profile) {
-      console.log('[Parent Visit] Profile not found:', lineUserId)
+      // console.log('[Parent Visit] Profile not found:', lineUserId)
       return NextResponse.json({
         success: true,
         profile: null,
@@ -144,13 +144,7 @@ export async function GET(request: NextRequest) {
       questionnaireResponses = responses || []
     }
 
-    console.log('[Parent Visit] Found:', {
-      profileId: profile.id,
-      childrenCount: children.length,
-      latestChildId: latestChild?.id,
-      latestVisitId: latestVisit?.id,
-      responseCount: questionnaireResponses.length,
-    })
+    // console.log('[Parent Visit] Found:', { profileId: profile.id, childrenCount: children.length, latestVisitId: latestVisit?.id })
 
     return NextResponse.json({
       success: true,
@@ -244,10 +238,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[Parent Visit] Created:', {
-      visitId: visit.id,
-      sessionId,
-    })
+    // console.log('[Parent Visit] Created:', { visitId: visit.id, sessionId })
 
     return NextResponse.json({
       success: true,
