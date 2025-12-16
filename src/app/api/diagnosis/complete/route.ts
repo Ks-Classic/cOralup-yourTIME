@@ -88,7 +88,9 @@ export async function POST(request: NextRequest) {
 
     // 2. 親御さんのLINE User IDを取得
     let parentLineUserId: string | null = null
-    const child = visit.children as { id: string; first_name: string; last_name: string; parent_profile_id: string } | null
+    // Supabaseのネスト関係は配列で返される（.single()を使っても）
+    const childrenArray = visit.children as { id: string; first_name: string; last_name: string; parent_profile_id: string }[] | null
+    const child = childrenArray?.[0] || null
 
     if (child?.parent_profile_id) {
       const { data: parentProfile } = await supabase
@@ -168,7 +170,8 @@ export async function POST(request: NextRequest) {
       const childName = child
         ? `${child.last_name || ''} ${child.first_name || ''}`.trim() || 'お子様'
         : 'お子様'
-      const eventName = (visit.events as { id: string; name: string } | null)?.name
+      const eventsArray = visit.events as { id: string; name: string }[] | null
+      const eventName = eventsArray?.[0]?.name
 
       lineNotificationResult = await sendReportNotification({
         lineUserId: parentLineUserId,
@@ -274,14 +277,14 @@ async function sendReportNotification(params: {
           },
           ...(eventName
             ? [
-                {
-                  type: 'text' as const,
-                  text: `📍 ${eventName}`,
-                  size: 'xs' as const,
-                  color: '#999999',
-                  margin: 'md' as const,
-                },
-              ]
+              {
+                type: 'text' as const,
+                text: `📍 ${eventName}`,
+                size: 'xs' as const,
+                color: '#999999',
+                margin: 'md' as const,
+              },
+            ]
             : []),
         ],
         paddingAll: '15px',

@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (code) {
-        const visits = mockVisits.filter(v => 
+        const visits = mockVisits.filter(v =>
           v.id.toUpperCase().startsWith(code.toUpperCase())
         )
         return NextResponse.json({ success: true, visits })
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
           .order('answered_at', { ascending: true })
 
         questionnaireResponses = responses || []
-        
+
         // #region agent log
         const sampleResponses = (responses || []).slice(0, 3).map((r: any) => ({
           id: r.id,
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
           optionsType: typeof r.questionnaire_items?.options,
           question: r.questionnaire_items?.question?.slice(0, 30)
         }));
-        fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'staff/session/route.ts:GET',message:'Questionnaire responses with options',data:{count:responses?.length,sampleResponses},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'staff/session/route.ts:GET', message: 'Questionnaire responses with options', data: { count: responses?.length, sampleResponses }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C' }) }).catch(() => { });
         // #endregion
       }
 
@@ -266,11 +266,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = createServiceSupabaseClient()
 
     // セッション状態を更新
     const newStatus = action === 'start_diagnosis' ? 'diagnosis_started' : 'questionnaire_completed'
-    
+
     const { data: visit, error } = await supabase
       .from('visits')
       .update({

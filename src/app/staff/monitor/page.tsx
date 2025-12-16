@@ -8,6 +8,24 @@ import { AlertCircle, CheckCircle2, Clock, Camera, Brain, FileText, Send, UserCh
 import { getStepDisplayName, type DiagnosisStep } from '@/lib/visit-steps'
 import { cn } from '@/utils'
 
+interface VisitRaw {
+  id: string
+  session_id: string
+  current_step: DiagnosisStep | null
+  step_timestamps: Record<string, string>
+  booth_number: number | null
+  error_info: any
+  status: string
+  children?: {
+    first_name: string
+    last_name: string
+  }[]
+  staff?: {
+    display_name: string
+  }[]
+  created_at: string
+}
+
 interface Visit {
   id: string
   session_id: string
@@ -85,9 +103,15 @@ export default function MonitorPage() {
       if (error) {
         console.error('Error fetching visits:', error)
       } else {
-        setVisits(data || [])
+        // Supabaseのリレーションは配列で返されるので正規化
+        const normalizedData: Visit[] = (data as VisitRaw[] || []).map(v => ({
+          ...v,
+          children: v.children?.[0] || undefined,
+          staff: v.staff?.[0] || undefined,
+        }))
+        setVisits(normalizedData)
         // エラーがあるvisitsを抽出
-        const errorVisits = (data || []).filter(v => v.error_info && Array.isArray(v.error_info) && v.error_info.length > 0)
+        const errorVisits = normalizedData.filter(v => v.error_info && Array.isArray(v.error_info) && v.error_info.length > 0)
         setErrors(errorVisits)
       }
       setIsLoading(false)

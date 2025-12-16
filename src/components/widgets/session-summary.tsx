@@ -1,7 +1,7 @@
 import { formatDateTime } from '@/utils'
 import type { Database } from '@/types/database'
 
-type SessionRow = Database['public']['Tables']['sessions']['Row']
+type SessionRow = Database['public']['Tables']['visits']['Row']
 
 interface SessionSummaryProps {
   session?: SessionRow | null
