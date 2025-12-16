@@ -18,7 +18,7 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
 
   // 管理者チェック（暫定対応）
   const adminApiKey = process.env.ADMIN_API_KEY
-  const isAdmin = 
+  const isAdmin =
     (session && (session.role === 'admin' || session.role === 'staff')) ||
     !adminApiKey // 開発環境では許可
 
@@ -43,6 +43,7 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
       `
       id,
       visit_date,
+      created_at,
       status,
       session_id,
       staff_profile_id,
@@ -192,9 +193,9 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
                     const staff = visit.profiles as any
                     const age = child?.birthday
                       ? Math.floor(
-                          (Date.now() - new Date(child.birthday).getTime()) /
-                            (365.25 * 24 * 60 * 60 * 1000)
-                        )
+                        (Date.now() - new Date(child.birthday).getTime()) /
+                        (365.25 * 24 * 60 * 60 * 1000)
+                      )
                       : null
 
                     return (
@@ -225,9 +226,8 @@ export default async function AdminVisitsPage({ searchParams }: PageProps) {
                         </div>
                         <div className="flex items-center gap-3">
                           <span
-                            className={`text-xs px-2.5 py-1 rounded-full ${
-                              statusColors[visit.status] || 'bg-slate-700 text-slate-400'
-                            }`}
+                            className={`text-xs px-2.5 py-1 rounded-full ${statusColors[visit.status] || 'bg-slate-700 text-slate-400'
+                              }`}
                           >
                             {statusLabels[visit.status] || visit.status}
                           </span>
