@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, isMockMode } from '@/lib/supabase'
 
+// キャッシュを無効化して、毎回最新のDBからスタッフを取得
+export const dynamic = 'force-dynamic'
+
 // モック用スタッフデータ
 const mockStaffList = [
   { id: 'staff-1', first_name: '太郎', last_name: '山田', avatar_url: null },

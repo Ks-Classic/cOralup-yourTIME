@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// キャッシュを無効化して、毎回最新のDBからスタッフを取得
+export const dynamic = 'force-dynamic'
+
 // Supabase クライアント (Service Role)
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
