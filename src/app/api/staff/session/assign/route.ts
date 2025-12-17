@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStaffSession } from '@/lib/staff-auth'
+import { logger } from '@/lib/logger'
 
 // Supabase クライアント (Service Role)
 const supabase = createClient(
@@ -28,11 +29,13 @@ export async function POST(request: NextRequest) {
 
     const staffId = session.staffId
     const staffName = session.staffName
+    const logContext = { staffId, staffName, path: '/api/staff/session/assign' }
 
     const body = await request.json()
     const { visitId, sessionId } = body
 
     if (!visitId && !sessionId) {
+      logger.warn('Missing visitId or sessionId', logContext)
       return NextResponse.json(
         { error: 'visitId or sessionId is required' },
         { status: 400 }
@@ -65,11 +68,15 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (createError) {
-          console.error('[Assign Staff] Error creating visit:', createError)
+          logger.error('Error creating visit', logContext, createError)
           throw createError
         }
 
-        // console.log('[Assign Staff] Created new visit:', newVisit.id)
+        logger.info('Created new visit through assignment', {
+          ...logContext,
+          visitId: newVisit.id,
+          action: 'created'
+        })
 
         return NextResponse.json({
           success: true,
@@ -105,11 +112,15 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (updateError) {
-      console.error('[Assign Staff] Error updating visit:', updateError)
+      logger.error('Error updating visit', logContext, updateError)
       throw updateError
     }
 
-    // console.log('[Assign Staff] Staff assigned:', { visitId: targetVisitId, staffId, staffName })
+    logger.info('Staff assigned to visit', {
+      ...logContext,
+      visitId: targetVisitId,
+      action: 'updated'
+    })
 
     return NextResponse.json({
       success: true,
@@ -119,7 +130,7 @@ export async function POST(request: NextRequest) {
       action: 'updated',
     })
   } catch (error) {
-    console.error('[Assign Staff] Error:', error)
+    logger.error('Error assigning staff', { path: '/api/staff/session/assign' }, error)
     return NextResponse.json(
       { error: 'Failed to assign staff' },
       { status: 500 }

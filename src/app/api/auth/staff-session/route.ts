@@ -5,6 +5,7 @@ import {
   setStaffSessionCookie,
   clearStaffSessionCookie,
 } from '@/lib/staff-auth'
+import { logger } from '@/lib/logger'
 
 // Supabase クライアント (Service Role)
 const supabase = createClient(
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error || !staff) {
-      // console.log('[Staff Session] Staff not found:', lineUserId)
+      logger.warn('Staff not found in DB', { lineUserId })
       return NextResponse.json(
         { error: 'not_registered' },
         { status: 404 }
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (staff.is_active === false) {
-      // console.log('[Staff Session] Staff inactive:', lineUserId)
+      logger.warn('Staff account is inactive', { lineUserId, staffId: staff.id })
       return NextResponse.json(
         { error: 'account_inactive' },
         { status: 403 }
@@ -74,7 +75,11 @@ export async function POST(request: NextRequest) {
       .update({ last_activity_at: new Date().toISOString() })
       .eq('id', staff.id)
 
-    // console.log('[Staff Session] Session created for:', staffName)
+    logger.info('Staff session created', {
+      staffId: staff.id,
+      staffName,
+      role: staff.role
+    })
 
     return NextResponse.json({
       success: true,
@@ -87,7 +92,7 @@ export async function POST(request: NextRequest) {
       token,
     })
   } catch (error) {
-    console.error('[Staff Session] Error:', error)
+    logger.error('Error creating staff session', { path: '/api/auth/staff-session' }, error)
     return NextResponse.json(
       { error: 'internal_error' },
       { status: 500 }
@@ -103,7 +108,7 @@ export async function DELETE() {
     await clearStaffSessionCookie()
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[Staff Session] Logout error:', error)
+    logger.error('Error during logout', { path: '/api/auth/staff-session' }, error)
     return NextResponse.json(
       { error: 'logout_failed' },
       { status: 500 }
@@ -149,7 +154,7 @@ export async function GET(request: NextRequest) {
       )
     }
   } catch (error) {
-    console.error('[Staff Session] GET error:', error)
+    logger.error('Error verifying session', { path: '/api/auth/staff-session' }, error)
     return NextResponse.json(
       { error: 'internal_error' },
       { status: 500 }
@@ -199,7 +204,7 @@ export async function PUT(request: NextRequest) {
       )
     }
   } catch (error) {
-    console.error('[Staff Session] PUT error:', error)
+    logger.error('Error transferring session (PUT)', { path: '/api/auth/staff-session' }, error)
     return NextResponse.json(
       { error: 'internal_error' },
       { status: 500 }
