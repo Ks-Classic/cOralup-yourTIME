@@ -5,10 +5,14 @@ import { StatusSummary } from './StatusSummary';
 import { AlertPanel } from './AlertPanel';
 import { ActiveSessionCard } from './ActiveSessionCard';
 import Link from 'next/link';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Beaker } from 'lucide-react';
 
-export default function RealtimeMonitor() {
-    const { data, loading, lastUpdated } = useRealtimeStatus();
+interface RealtimeMonitorProps {
+    useSampleData?: boolean;
+}
+
+export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonitorProps) {
+    const { data, loading, lastUpdated } = useRealtimeStatus(useSampleData);
 
     if (loading && !data) {
         return (
@@ -22,6 +26,19 @@ export default function RealtimeMonitor() {
 
     return (
         <div className="space-y-6">
+            {/* サンプルデータバナー */}
+            {useSampleData && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-3">
+                    <Beaker className="w-5 h-5 text-amber-600" />
+                    <div>
+                        <span className="text-amber-800 font-medium">サンプルデータモード</span>
+                        <span className="text-amber-600 text-sm ml-2">
+                            ローカル開発用のモックデータを表示しています
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Header Info */}
             <div className="flex items-center justify-between text-sm text-slate-500 bg-white px-4 py-2 rounded-lg border border-slate-100 shadow-sm">
                 <div className="flex items-center gap-2">

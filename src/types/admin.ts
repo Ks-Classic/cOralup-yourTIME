@@ -9,6 +9,7 @@ export interface ActiveSession {
     updatedAt: string; // ISO string
     currentStatusSince: string;
     elapsedMinutes: number;
+    hasReport?: boolean;
     progress?: {
         photos: { current: number; total: number };
         diagnosisItems: { current: number; total: number };

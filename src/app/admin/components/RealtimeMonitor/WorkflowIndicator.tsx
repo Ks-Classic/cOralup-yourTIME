@@ -1,5 +1,13 @@
 import React from 'react';
 import { cn } from '@/utils';
+import {
+    ClipboardList,
+    QrCode,
+    Stethoscope,
+    CheckCircle2,
+    FileText,
+    Send
+} from 'lucide-react';
 
 interface WorkflowIndicatorProps {
     status: string;
@@ -8,14 +16,13 @@ interface WorkflowIndicatorProps {
 }
 
 export function WorkflowIndicator({ status, hasReport = false, size = 'md' }: WorkflowIndicatorProps) {
-    // 6 steps
     const steps = [
-        { key: 'questionnaire_in_progress', label: '問診' },
-        { key: 'questionnaire_completed', label: 'QR' },
-        { key: 'in_progress', label: '診断' },
-        { key: 'diagnosis_completed', label: '完了' },
-        { key: 'report_created', label: 'レポート' },
-        { key: 'report_sent', label: '送信' },
+        { key: 'questionnaire_in_progress', label: '問診', icon: ClipboardList },
+        { key: 'questionnaire_completed', label: 'QR待', icon: QrCode },
+        { key: 'in_progress', label: '診断', icon: Stethoscope },
+        { key: 'diagnosis_completed', label: '完了', icon: CheckCircle2 },
+        { key: 'report_created', label: 'レポ', icon: FileText },
+        { key: 'report_sent', label: '送信', icon: Send },
     ];
 
     const getStepState = (stepKey: string): 'completed' | 'current' | 'pending' => {
@@ -25,19 +32,21 @@ export function WorkflowIndicator({ status, hasReport = false, size = 'md' }: Wo
         // Special handling for report_created
         if (stepKey === 'report_created') {
             if (status === 'report_sent') return 'completed';
-            if (status === 'diagnosis_completed' && hasReport) return 'current';
-            if (currentStatusIndex >= statusOrder.indexOf('diagnosis_completed') && hasReport) return 'completed';
+            if (status === 'diagnosis_completed' && hasReport) return 'current'; // This logic might need strict 'hasReport' check if available
+            // Simplified: if sent, report must have been created. If diagnosis completed, report creation is next.
+            if (currentStatusIndex >= statusOrder.indexOf('report_sent')) return 'completed';
             return 'pending';
         }
 
         // Special handling for report_sent
         if (stepKey === 'report_sent') {
             if (status === 'report_sent') return 'current';
+            if (currentStatusIndex >= statusOrder.indexOf('report_sent')) return 'completed'; // Should be 'current' if final state? 'report_sent' is final.
             return 'pending';
         }
 
         const stepStatusIndex = statusOrder.indexOf(stepKey);
-        // If stepKey is not in statusOrder (e.g. invalid status), default to pending
+        // If stepKey is not in statusOrder, default to pending
         if (stepStatusIndex === -1) return 'pending';
 
         if (stepStatusIndex < currentStatusIndex) return 'completed';
@@ -45,33 +54,48 @@ export function WorkflowIndicator({ status, hasReport = false, size = 'md' }: Wo
         return 'pending';
     };
 
-    const getStepLabel = (stepKey: string) => {
-        return steps.find(s => s.key === stepKey)?.label;
-    };
-
     return (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center">
             {steps.map((step, index) => {
                 const state = getStepState(step.key);
+                const Icon = step.icon;
+
+                // Color mapping
+                const completedColor = "text-emerald-500 bg-emerald-50 border-emerald-200";
+                const currentColor = "text-white bg-emerald-500 border-emerald-600 shadow-md ring-2 ring-emerald-100";
+                const pendingColor = "text-slate-300 bg-slate-50 border-slate-100";
+
+                // Line color
+                const lineCompleted = "bg-emerald-300";
+                const linePending = "bg-slate-100";
+
                 return (
                     <React.Fragment key={step.key}>
-                        <div className="flex flex-col items-center group relative">
-                            <span className={cn(
-                                'text-lg leading-none transition-colors duration-300',
-                                state === 'completed' && 'text-emerald-500',
-                                state === 'current' && 'text-emerald-600 animate-pulse font-bold',
-                                state === 'pending' && 'text-slate-300',
+                        <div className="flex flex-col items-center gap-1 min-w-[36px]">
+                            <div className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300",
+                                state === 'completed' && completedColor,
+                                state === 'current' && currentColor,
+                                state === 'pending' && pendingColor,
                             )}>
-                                {state === 'completed' ? '●' : state === 'current' ? '◉' : '○'}
-                            </span>
-                            {/* Tooltip on hover */}
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                {step.label}
+                                <Icon className="w-4 h-4" />
                             </div>
+                            <span className={cn(
+                                "text-[10px] font-medium transition-colors duration-300",
+                                state === 'current' ? "text-emerald-600 font-bold" :
+                                    state === 'completed' ? "text-emerald-600/70" : "text-slate-300"
+                            )}>
+                                {step.label}
+                            </span>
                         </div>
 
                         {index < steps.length - 1 && (
-                            <span className="text-slate-300 text-sm">─</span>
+                            <div className="w-4 h-0.5 mx-0.5 mb-4">
+                                <div className={cn(
+                                    "h-full w-full rounded-full transition-colors duration-500",
+                                    state === 'completed' ? lineCompleted : linePending
+                                )} />
+                            </div>
                         )}
                     </React.Fragment>
                 );

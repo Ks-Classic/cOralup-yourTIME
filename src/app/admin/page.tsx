@@ -14,6 +14,8 @@ function AdminDashboardContent() {
   const pathname = usePathname();
 
   const tab = searchParams.get('tab') || 'realtime';
+  // 開発環境の場合はデフォルトでサンプルデータを表示
+  const [useSampleData, setUseSampleData] = useState(process.env.NODE_ENV === 'development');
 
   const tabs = [
     { id: 'realtime', label: 'リアルタイム', icon: Activity },
@@ -135,7 +137,26 @@ function AdminDashboardContent() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {tab === 'realtime' && <RealtimeMonitor />}
+          {tab === 'realtime' && (
+            <div className="space-y-4">
+              {/* Demo Toggle (Only in Dev or explicit) */}
+              <div className="flex justify-end">
+                <label className="flex items-center cursor-pointer gap-2 text-sm text-slate-500 hover:text-slate-700">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={useSampleData}
+                      onChange={(e) => setUseSampleData(e.target.checked)}
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </div>
+                  <span>サンプルデータ</span>
+                </label>
+              </div>
+              <RealtimeMonitor useSampleData={useSampleData} />
+            </div>
+          )}
 
           {tab === 'history' && (
             <div className="space-y-6">

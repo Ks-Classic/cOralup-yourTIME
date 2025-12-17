@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN!
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
 
 interface CompleteDiagnosisRequest {
@@ -88,12 +88,16 @@ export async function POST(request: NextRequest) {
 
     // 2. 親御さんのLINE User IDを取得
     let parentLineUserId: string | null = null
-    // Supabaseのネスト関係は配列で返される（.single()を使っても）
-    const childrenArray = visit.children as { id: string; first_name: string; last_name: string; parent_profile_id: string }[] | null
-    const child = childrenArray?.[0] || null
 
-    console.log('[Complete Diagnosis] Debug - children:', JSON.stringify(childrenArray))
-    console.log('[Complete Diagnosis] Debug - child:', JSON.stringify(child))
+    // Supabaseのレスポンス形式に対応（1対1またはN対1の関係ではオブジェクト、1対Nでは配列が返る）
+    // visits -> children は N対1（visitはchildを持つ）なので通常はオブジェクトだが、
+    // クエリの書き方によっては配列になることもあるため、両方に対応
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const childRaw = visit.children as any
+    const child = Array.isArray(childRaw) ? childRaw[0] : childRaw
+
+    console.log('[Complete Diagnosis] Debug - child raw:', JSON.stringify(childRaw))
+    console.log('[Complete Diagnosis] Debug - child processed:', JSON.stringify(child))
 
     if (child?.parent_profile_id) {
       const { data: parentProfile, error: profileError } = await supabase
@@ -174,6 +178,11 @@ export async function POST(request: NextRequest) {
 
     // 5. LINE通知を送信（オプション）
     let lineNotificationResult = null
+
+    if (sendLineNotification && !parentLineUserId) {
+      console.warn('[Complete Diagnosis] KPI Warning: LINE notification requested but skipped (No parentLineUserId)', { visitId })
+    }
+
     if (sendLineNotification && parentLineUserId) {
       const childName = child
         ? `${child.last_name || ''} ${child.first_name || ''}`.trim() || 'お子様'
@@ -346,7 +355,7 @@ async function sendReportNotification(params: {
     const sentAt = new Date().toISOString()
 
     // ログを記録
-    await supabase.from('line_message_logs').insert({
+    const { error: logInsertError } = await supabase.from('line_message_logs').insert({
       visit_id: visitId,
       session_id: sessionId || null,
       line_user_id: lineUserId,
@@ -357,6 +366,10 @@ async function sendReportNotification(params: {
       error_message: response.ok ? null : JSON.stringify(responseData),
       sent_at: sentAt,
     })
+
+    if (logInsertError) {
+      console.error('[LINE Notification] Failed to insert log:', logInsertError)
+    }
 
     if (!response.ok) {
       console.error('[LINE Notification] Failed:', responseData)

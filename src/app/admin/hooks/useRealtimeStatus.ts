@@ -7,54 +7,196 @@ const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export function useRealtimeStatus() {
+// ローカル開発用サンプルデータ生成
+function generateSampleData(): RealtimeStatusResponse {
+    const now = new Date();
+
+    const sampleActiveSessions: ActiveSession[] = [
+        {
+            id: 'sample-1',
+            sessionId: 'ABC123',
+            status: 'in_progress',
+            childName: '田中 太郎',
+            childAge: 6,
+            staffName: '山田',
+            createdAt: new Date(now.getTime() - 25 * 60 * 1000).toISOString(),
+            updatedAt: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
+            currentStatusSince: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
+            elapsedMinutes: 12,
+            progress: { photos: { current: 2, total: 3 }, diagnosisItems: { current: 15, total: 25 } }
+        },
+        {
+            id: 'sample-2',
+            sessionId: 'DEF456',
+            status: 'questionnaire_completed',
+            childName: '佐藤 花子',
+            childAge: 4,
+            staffName: null,
+            createdAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+            updatedAt: new Date(now.getTime() - 18 * 60 * 1000).toISOString(),
+            currentStatusSince: new Date(now.getTime() - 18 * 60 * 1000).toISOString(),
+            elapsedMinutes: 18,
+        },
+        {
+            id: 'sample-3',
+            sessionId: 'GHI789',
+            status: 'questionnaire_in_progress',
+            childName: '高橋 一郎',
+            childAge: 3,
+            staffName: null,
+            createdAt: new Date(now.getTime() - 8 * 60 * 1000).toISOString(),
+            updatedAt: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
+            currentStatusSince: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
+            elapsedMinutes: 5,
+        },
+        {
+            id: 'sample-4',
+            sessionId: 'JKL012',
+            status: 'diagnosis_completed',
+            childName: '伊藤 美咲',
+            childAge: 7,
+            staffName: '佐藤',
+            createdAt: new Date(now.getTime() - 45 * 60 * 1000).toISOString(),
+            updatedAt: new Date(now.getTime() - 3 * 60 * 1000).toISOString(),
+            currentStatusSince: new Date(now.getTime() - 3 * 60 * 1000).toISOString(),
+            elapsedMinutes: 3,
+            progress: { photos: { current: 3, total: 3 }, diagnosisItems: { current: 25, total: 25 } }
+        },
+        {
+            id: 'sample-5',
+            sessionId: 'MNO345',
+            status: 'questionnaire_completed',
+            childName: '渡辺 健太',
+            childAge: 5,
+            staffName: null,
+            createdAt: new Date(now.getTime() - 50 * 60 * 1000).toISOString(),
+            updatedAt: new Date(now.getTime() - 28 * 60 * 1000).toISOString(),
+            currentStatusSince: new Date(now.getTime() - 28 * 60 * 1000).toISOString(),
+            elapsedMinutes: 28,
+        },
+    ];
+
+    const sampleRecentCompleted: CompletedSession[] = [
+        {
+            id: 'completed-1',
+            sessionId: 'PQR678',
+            childName: '山本 次郎',
+            childAge: 8,
+            staffName: '鈴木',
+            completedAt: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
+            reportSentAt: new Date(now.getTime() - 10 * 60 * 1000).toISOString(),
+        },
+        {
+            id: 'completed-2',
+            sessionId: 'STU901',
+            childName: '小林 さくら',
+            childAge: 6,
+            staffName: '高橋',
+            completedAt: new Date(now.getTime() - 35 * 60 * 1000).toISOString(),
+            reportSentAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+        },
+        {
+            id: 'completed-3',
+            sessionId: 'VWX234',
+            childName: '中村 大輝',
+            childAge: 4,
+            staffName: '田中',
+            completedAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
+            reportSentAt: new Date(now.getTime() - 55 * 60 * 1000).toISOString(),
+        },
+    ];
+
+    const sampleAlerts: Alert[] = [
+        {
+            id: 'alert-sample-5',
+            sessionId: 'MNO345',
+            childName: '渡辺 健太',
+            childAge: 5,
+            type: 'critical',
+            condition: 'qr_waiting_long',
+            elapsedMinutes: 28,
+            message: 'QR待ち時間が限界を超えています - スタッフの対応をお願いします'
+        },
+        {
+            id: 'alert-sample-2',
+            sessionId: 'DEF456',
+            childName: '佐藤 花子',
+            childAge: 4,
+            type: 'warning',
+            condition: 'qr_waiting_long',
+            elapsedMinutes: 18,
+            message: 'QR待ち時間が長くなっています'
+        },
+    ];
+
+    return {
+        timestamp: now.toISOString(),
+        summary: {
+            lineRegistered: 25,
+            questionnaireCompleted: 2,
+            inProgress: 1,
+            diagnosisCompleted: 1,
+            reportSent: 18
+        },
+        activeSessions: sampleActiveSessions,
+        recentCompleted: sampleRecentCompleted,
+        alerts: sampleAlerts
+    };
+}
+
+export function useRealtimeStatus(useSampleData = false) {
     const [data, setData] = useState<RealtimeStatusResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     const fetchData = useCallback(async () => {
+        // サンプルデータモードの場合
+        if (useSampleData) {
+            setData(generateSampleData());
+            setLastUpdated(new Date());
+            setLoading(false);
+            return;
+        }
+
         try {
             const now = new Date();
 
             // 1. Fetch Visits (Active & Recent Completed)
-            // active: status != 'report_sent' OR (status == 'report_sent' AND updated_at within 1 hour?)
-            // distinct active vs history logic.
-            // Doc says:
-            // Active: 'questionnaire_in_progress' to 'report_sent'(recent)
-            // Actually strictly 'Active' is non-final. 'report_sent' is final.
+            // Need photos and reports count/existence
+            // Note: Supabase JS select can get relation counts/data.
+            // Assuming relations: visits -> photos (via visit_id), visits -> reports (via visit_id)
 
-            // Let's fetch "today's" visits.
             const todayStart = new Date(now);
             todayStart.setHours(0, 0, 0, 0);
 
             const { data: visits, error: visitsError } = await supabase
                 .from('visits')
                 .select(`
-          id,
-          session_id,
-          status,
-          created_at,
-          updated_at,
-          staff_profile_id,
-          children (
-            first_name,
-            last_name,
-            birthday
-          ),
-          profiles!visits_staff_profile_id_fkey (
-            last_name,
-            first_name,
-            display_name
-          )
-        `)
+                  id,
+                  session_id,
+                  status,
+                  created_at,
+                  updated_at,
+                  staff_profile_id,
+                  children (
+                    first_name,
+                    last_name,
+                    birthday
+                  ),
+                  profiles!visits_staff_profile_id_fkey (
+                    last_name,
+                    first_name,
+                    display_name
+                  ),
+                  reports (id)
+                `)
                 .gte('created_at', todayStart.toISOString())
                 .order('created_at', { ascending: false });
 
             if (visitsError) throw visitsError;
 
-            // 2. Fetch Profiles (for LINE registered count) - this might be expensive if many users.
-            // Alternative: Count profiles created today.
+            // 2. Fetch Profiles for summary count
             const { count: lineRegisteredCount, error: profileError } = await supabase
                 .from('profiles')
                 .select('*', { count: 'exact', head: true })
@@ -79,7 +221,10 @@ export function useRealtimeStatus() {
                 const status = visit.status;
                 const childName = visit.children ? `${visit.children.last_name || ''} ${visit.children.first_name || ''}`.trim() : 'Unknown';
                 const age = visit.children?.birthday ? Math.floor((now.getTime() - new Date(visit.children.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
-                const staffName = visit.profiles ? (visit.profiles.display_name || `${visit.profiles.last_name} ${visit.profiles.first_name}`) : null;
+                const staffName = visit.profiles ? (visit.profiles.display_name || `${visit.profiles.last_name || ''} ${visit.profiles.first_name || ''}`) : null;
+
+                // Extra data
+                const hasReport = visit.reports && visit.reports.length > 0;
 
                 // Summary Counts
                 if (status === 'questionnaire_completed') summary.questionnaireCompleted++;
@@ -88,11 +233,9 @@ export function useRealtimeStatus() {
                 if (status === 'report_sent') summary.reportSent++;
 
                 // Determine if Active or Completed
-                const isCompleted = status === 'report_sent'; // Defined as final step
+                const isCompleted = status === 'report_sent';
 
                 // Calculate Times
-                // We need 'currentStatusSince'. Ideally we track status changes in a log table, but for now we might use 'updated_at' if that reflects status change.
-                // Assuming updated_at is roughly when status changed.
                 const effectiveDate = new Date(visit.updated_at || visit.created_at);
                 const elapsedMs = now.getTime() - effectiveDate.getTime();
                 const elapsedMinutes = Math.floor(elapsedMs / 60000);
@@ -107,12 +250,16 @@ export function useRealtimeStatus() {
                         staffName,
                         createdAt: visit.created_at,
                         updatedAt: visit.updated_at,
-                        currentStatusSince: visit.updated_at, // Approximate
+                        currentStatusSince: visit.updated_at,
                         elapsedMinutes,
-                        // progress: ... // TODO: fetch progress
+                        hasReport,
+                        // progress: { // Photos count removed as per request
+                        //     photos: { current: 0, total: 3 }, 
+                        //     diagnosisItems: { current: 0, total: 0 }
+                        // }
                     });
 
-                    // Alert Logic
+                    // Alert Logic (Partial implementation for brevity, same as before)
                     if (status === 'questionnaire_completed' && elapsedMinutes >= 15) {
                         alerts.push({
                             id: `alert-${visit.id}`,
@@ -145,7 +292,7 @@ export function useRealtimeStatus() {
                         childName,
                         childAge: age,
                         staffName: staffName || '',
-                        completedAt: visit.updated_at, // Approximate
+                        completedAt: visit.updated_at,
                         reportSentAt: visit.updated_at // Approximate
                     });
                 }
@@ -155,7 +302,7 @@ export function useRealtimeStatus() {
                 timestamp: now.toISOString(),
                 summary,
                 activeSessions,
-                recentCompleted: recentCompleted.slice(0, 10), // Top 10
+                recentCompleted: recentCompleted.slice(0, 10),
                 alerts
             });
             setLastUpdated(now);

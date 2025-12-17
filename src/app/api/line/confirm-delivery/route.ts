@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (logError || !latestLog) {
+      console.warn(`[Confirm Delivery] Log not found. visitId: ${visitId}, error:`, logError)
       return NextResponse.json(
         { error: 'LINE送信ログが見つかりません' },
         { status: 404 }

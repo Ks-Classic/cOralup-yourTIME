@@ -47,7 +47,7 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                     </div>
 
                     <div className="flex flex-col items-center">
-                        <WorkflowIndicator status={session.status} />
+                        <WorkflowIndicator status={session.status} hasReport={session.hasReport} />
                     </div>
                 </div>
 
@@ -93,7 +93,7 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                 </div>
 
                 <div className="flex justify-center py-1">
-                    <WorkflowIndicator status={session.status} size="sm" />
+                    <WorkflowIndicator status={session.status} hasReport={session.hasReport} size="sm" />
                 </div>
 
                 <div className="flex justify-between items-center text-sm">
