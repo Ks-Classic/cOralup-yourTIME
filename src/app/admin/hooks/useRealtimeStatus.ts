@@ -23,6 +23,7 @@ function generateSampleData(): RealtimeStatusResponse {
             updatedAt: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
             currentStatusSince: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
             elapsedMinutes: 12,
+            hasReport: false,
             progress: { photos: { current: 2, total: 3 }, diagnosisItems: { current: 15, total: 25 } }
         },
         {
@@ -36,6 +37,8 @@ function generateSampleData(): RealtimeStatusResponse {
             updatedAt: new Date(now.getTime() - 18 * 60 * 1000).toISOString(),
             currentStatusSince: new Date(now.getTime() - 18 * 60 * 1000).toISOString(),
             elapsedMinutes: 18,
+            hasReport: false,
+            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } }
         },
         {
             id: 'sample-3',
@@ -48,6 +51,8 @@ function generateSampleData(): RealtimeStatusResponse {
             updatedAt: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
             currentStatusSince: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
             elapsedMinutes: 5,
+            hasReport: false,
+            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } }
         },
         {
             id: 'sample-4',
@@ -60,6 +65,7 @@ function generateSampleData(): RealtimeStatusResponse {
             updatedAt: new Date(now.getTime() - 3 * 60 * 1000).toISOString(),
             currentStatusSince: new Date(now.getTime() - 3 * 60 * 1000).toISOString(),
             elapsedMinutes: 3,
+            hasReport: true,
             progress: { photos: { current: 3, total: 3 }, diagnosisItems: { current: 25, total: 25 } }
         },
         {
@@ -73,6 +79,8 @@ function generateSampleData(): RealtimeStatusResponse {
             updatedAt: new Date(now.getTime() - 28 * 60 * 1000).toISOString(),
             currentStatusSince: new Date(now.getTime() - 28 * 60 * 1000).toISOString(),
             elapsedMinutes: 28,
+            hasReport: false,
+            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } }
         },
     ];
 
