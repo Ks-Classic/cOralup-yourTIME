@@ -35,6 +35,32 @@ interface CompleteDiagnosisRequest {
  * 2. reportsテーブルにレポート作成
  * 3. 親御さんにLINE通知（オプション）
  */
+// 型定義: Supabaseのレスポンスに合わせて定義
+// childrenは結合クエリの結果なので、単一オブジェクトまたは配列の可能性がある
+interface ChildData {
+  id: string
+  first_name: string
+  last_name: string
+  parent_profile_id: string | null
+}
+
+interface VisitWithChildren {
+  id: string
+  session_id: string
+  child_id: string
+  event_id: string
+  children: ChildData | ChildData[] | null
+  events: { id: string; name: string } | { id: string; name: string }[] | null
+}
+
+/**
+ * Supabaseの結合クエリ結果（単一 or 配列）を単一オブジェクトに正規化するヘルパー
+ */
+function normalizeSingleData<T>(data: T | T[] | null): T | null {
+  if (!data) return null
+  return Array.isArray(data) ? data[0] : data
+}
+
 export async function POST(request: NextRequest) {
   try {
     // スタッフ認証確認
@@ -57,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Visit情報を取得
-    const { data: visit, error: visitError } = await supabase
+    const { data: rawVisit, error: visitError } = await supabase
       .from('visits')
       .select(`
         id,
@@ -78,7 +104,7 @@ export async function POST(request: NextRequest) {
       .eq('id', visitId)
       .single()
 
-    if (visitError || !visit) {
+    if (visitError || !rawVisit) {
       console.error('[Complete Diagnosis] Visit not found:', visitError)
       return NextResponse.json(
         { success: false, error: 'visit_not_found' },
@@ -86,16 +112,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 型アサーションで扱う（unknownを経由して型安全性を担保）
+    const visit = rawVisit as unknown as VisitWithChildren
+
     // 2. 親御さんのLINE User IDを取得
     let parentLineUserId: string | null = null
 
-    // Supabaseのレスポンス形式に対応（1対1またはN対1の関係ではオブジェクト、1対Nでは配列が返る）
-    // visits -> children は N対1（visitはchildを持つ）なので通常はオブジェクトだが、
-    // クエリの書き方によっては配列になることもあるため、両方に対応
-    const childRaw = visit.children as any
-    const child = Array.isArray(childRaw) ? childRaw[0] : childRaw
+    // ヘルパー関数で安全にデータ取得（配列でもオブジェクトでも対応）
+    const child = normalizeSingleData(visit.children)
 
-    console.log('[Complete Diagnosis] Debug - child raw:', JSON.stringify(childRaw))
     console.log('[Complete Diagnosis] Debug - child processed:', JSON.stringify(child))
 
     if (child?.parent_profile_id) {
