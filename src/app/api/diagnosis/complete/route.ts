@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
     // Supabaseのレスポンス形式に対応（1対1またはN対1の関係ではオブジェクト、1対Nでは配列が返る）
     // visits -> children は N対1（visitはchildを持つ）なので通常はオブジェクトだが、
     // クエリの書き方によっては配列になることもあるため、両方に対応
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const childRaw = visit.children as any
     const child = Array.isArray(childRaw) ? childRaw[0] : childRaw
 
