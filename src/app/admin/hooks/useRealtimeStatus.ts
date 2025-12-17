@@ -189,6 +189,7 @@ export function useRealtimeStatus(useSampleData = false) {
                     first_name,
                     display_name
                   ),
+                  photos (id),
                   reports (id)
                 `)
                 .gte('created_at', todayStart.toISOString())
@@ -224,6 +225,7 @@ export function useRealtimeStatus(useSampleData = false) {
                 const staffName = visit.profiles ? (visit.profiles.display_name || `${visit.profiles.last_name || ''} ${visit.profiles.first_name || ''}`) : null;
 
                 // Extra data
+                const photosCount = visit.photos ? visit.photos.length : 0;
                 const hasReport = visit.reports && visit.reports.length > 0;
 
                 // Summary Counts
@@ -253,10 +255,10 @@ export function useRealtimeStatus(useSampleData = false) {
                         currentStatusSince: visit.updated_at,
                         elapsedMinutes,
                         hasReport,
-                        // progress: { // Photos count removed as per request
-                        //     photos: { current: 0, total: 3 }, 
-                        //     diagnosisItems: { current: 0, total: 0 }
-                        // }
+                        progress: {
+                            photos: { current: photosCount, total: 3 }, // Assuming 3 standard photos
+                            diagnosisItems: { current: 0, total: 0 }
+                        }
                     });
 
                     // Alert Logic (Partial implementation for brevity, same as before)
