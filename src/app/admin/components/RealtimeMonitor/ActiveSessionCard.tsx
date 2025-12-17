@@ -65,7 +65,7 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                         </div>
                     </div>
 
-                    {session.progress && (
+                    {session.progress?.photos && (
                         <div className="min-w-[60px] text-right bg-slate-50 px-2 py-1 rounded border border-slate-100">
                             <div className="text-xs text-slate-500 mb-0.5">写真</div>
                             <div className="text-sm font-bold text-slate-700 leading-none">
@@ -101,7 +101,7 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                         )}>
                             {session.elapsedMinutes}<span className="text-xs font-normal ml-0.5">分</span>
                         </div>
-                        {session.progress && (
+                        {session.progress?.photos && (
                             <div className="text-xs text-slate-500 mt-0.5">
                                 📸 {session.progress.photos.current}/{session.progress.photos.total}
                             </div>

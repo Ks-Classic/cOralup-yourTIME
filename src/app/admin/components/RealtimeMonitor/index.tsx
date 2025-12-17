@@ -12,7 +12,19 @@ interface RealtimeMonitorProps {
 }
 
 export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonitorProps) {
-    const { data, loading, lastUpdated } = useRealtimeStatus(useSampleData);
+    const { data, loading, error, lastUpdated } = useRealtimeStatus(useSampleData);
+
+    if (error) {
+        return (
+            <div className="p-6 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                <h3 className="font-bold text-lg mb-2">データの読み込みエラー</h3>
+                <p className="text-sm mb-4">リアルタイムデータの取得中にエラーが発生しました。</p>
+                <pre className="bg-white p-3 rounded border border-red-100 text-xs overflow-auto max-h-40">
+                    {error.message || JSON.stringify(error, null, 2)}
+                </pre>
+            </div>
+        );
+    }
 
     if (loading && !data) {
         return (
