@@ -197,7 +197,6 @@ export function useRealtimeStatus(useSampleData = false) {
                     first_name,
                     display_name
                   ),
-                  photos (id),
                   reports (id)
                 `)
                 .gte('created_at', todayStart.toISOString())
@@ -233,7 +232,7 @@ export function useRealtimeStatus(useSampleData = false) {
                 const staffName = visit.profiles ? (visit.profiles.display_name || `${visit.profiles.last_name || ''} ${visit.profiles.first_name || ''}`) : null;
 
                 // Extra data
-                const photosCount = visit.photos ? visit.photos.length : 0;
+                const photosCount = 0; // Temp fix: disable photo count until DB relation is fixed
                 const hasReport = visit.reports && visit.reports.length > 0;
 
                 // Summary Counts
