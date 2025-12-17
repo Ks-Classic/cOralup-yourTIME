@@ -60,6 +60,12 @@ export function WorkflowIndicator({ status, hasReport = false, size = 'md' }: Wo
                 const state = getStepState(step.key);
                 const Icon = step.icon;
 
+                // Size adjustments
+                const isSmall = size === 'sm';
+                const iconSizeBase = isSmall ? "w-6 h-6" : "w-8 h-8";
+                const iconSizeInner = isSmall ? "w-3 h-3" : "w-4 h-4";
+                const textSize = isSmall ? "text-[8px]" : "text-[10px]";
+
                 // Color mapping
                 const completedColor = "text-emerald-500 bg-emerald-50 border-emerald-200";
                 const currentColor = "text-white bg-emerald-500 border-emerald-600 shadow-md ring-2 ring-emerald-100";
@@ -73,15 +79,19 @@ export function WorkflowIndicator({ status, hasReport = false, size = 'md' }: Wo
                     <React.Fragment key={step.key}>
                         <div className="flex flex-col items-center gap-1 min-w-[36px]">
                             <div className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300",
+                                "rounded-full flex items-center justify-center border transition-all duration-300",
+                                iconSizeBase,
                                 state === 'completed' && completedColor,
                                 state === 'current' && currentColor,
                                 state === 'pending' && pendingColor,
                             )}>
-                                <Icon className="w-4 h-4" />
+                                <Icon className={iconSizeInner} />
                             </div>
+                            {/* Hide labels on small size unless it's the current step, to save space */}
                             <span className={cn(
-                                "text-[10px] font-medium transition-colors duration-300",
+                                "font-medium transition-colors duration-300 whitespace-nowrap",
+                                textSize,
+                                isSmall && state !== 'current' ? "hidden" : "block",
                                 state === 'current' ? "text-emerald-600 font-bold" :
                                     state === 'completed' ? "text-emerald-600/70" : "text-slate-300"
                             )}>
@@ -90,7 +100,10 @@ export function WorkflowIndicator({ status, hasReport = false, size = 'md' }: Wo
                         </div>
 
                         {index < steps.length - 1 && (
-                            <div className="w-4 h-0.5 mx-0.5 mb-4">
+                            <div className={cn(
+                                "h-0.5 mx-0.5 mb-4",
+                                isSmall ? "w-2" : "w-4"
+                            )}>
                                 <div className={cn(
                                     "h-full w-full rounded-full transition-colors duration-500",
                                     state === 'completed' ? lineCompleted : linePending

@@ -21,52 +21,55 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
             'p-4 bg-white rounded-lg border shadow-sm transition-all duration-200 hover:shadow-md',
             hasAlert ? 'border-amber-200 bg-amber-50' : 'border-slate-100'
         )}>
-            {/* PC Layout */}
-            <div className="hidden md:flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                    <div className="min-w-[180px]">
-                        <div className="font-bold text-slate-900 text-lg">
-                            {session.childName} <span className="text-base font-normal text-slate-500">({session.childAge}歳)</span>
-                        </div>
-                        <div className="text-sm text-slate-500 mt-1 flex items-center gap-2">
-                            <span className={cn(
-                                "px-2 py-0.5 rounded text-xs font-medium",
-                                session.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
-                                    session.status === 'questionnaire_completed' ? "bg-orange-100 text-orange-700" :
-                                        "bg-slate-100 text-slate-700"
-                            )}>
-                                {statusLabels[session.status] || session.status}
-                            </span>
-                            {session.staffName && (
-                                <>
-                                    <span className="text-slate-300">|</span>
-                                    <span>担当: {session.staffName}</span>
-                                </>
-                            )}
-                        </div>
-                    </div>
+            {/* PC Layout - Grid */}
+            <div className="hidden md:grid grid-cols-12 gap-4 items-center">
 
-                    <div className="flex flex-col items-center">
-                        <WorkflowIndicator status={session.status} hasReport={session.hasReport} />
+                {/* Left: Name and Basic Info (3 cols) */}
+                <div className="col-span-3">
+                    <div className="font-bold text-slate-900 text-lg whitespace-nowrap overflow-hidden text-ellipsis">
+                        {session.childName} <span className="text-base font-normal text-slate-500">({session.childAge}歳)</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mt-1 flex items-center gap-2">
+                        <span className={cn(
+                            "px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap",
+                            session.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
+                                session.status === 'questionnaire_completed' ? "bg-orange-100 text-orange-700" :
+                                    "bg-slate-100 text-slate-700"
+                        )}>
+                            {statusLabels[session.status] || session.status}
+                        </span>
+                        {session.staffName && (
+                            <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden text-ellipsis">
+                                <span className="text-slate-300">|</span>
+                                <span>{session.staffName}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                {/* Center: Workflow Indicator (6 cols) */}
+                <div className="col-span-6 flex justify-center">
+                    <WorkflowIndicator status={session.status} hasReport={session.hasReport} />
+                </div>
+
+                {/* Right: Time and Photos (3 cols) */}
+                <div className="col-span-3 flex items-center justify-end gap-4">
                     <div className="text-right">
                         <div className={cn("text-2xl font-bold font-mono",
                             hasAlert ? "text-amber-600 animate-pulse" : "text-slate-700"
                         )}>
-                            {session.elapsedMinutes}<span className="text-sm font-sans font-normal text-slate-500 ml-1">分経過</span>
+                            {session.elapsedMinutes}<span className="text-sm font-sans font-normal text-slate-500 ml-1">分</span>
                         </div>
                         <div className="text-xs text-slate-400">
-                            {new Date(session.currentStatusSince).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} ~
+                            ~ {new Date(session.currentStatusSince).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
                         </div>
                     </div>
 
                     {session.progress && (
-                        <div className="min-w-[80px] text-right">
-                            <div className="text-sm font-medium text-slate-600">
-                                📸 {session.progress.photos.current}/{session.progress.photos.total}
+                        <div className="min-w-[60px] text-right bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                            <div className="text-xs text-slate-500 mb-0.5">写真</div>
+                            <div className="text-sm font-bold text-slate-700 leading-none">
+                                {session.progress.photos.current}<span className="text-slate-400 text-xs font-normal">/{session.progress.photos.total}</span>
                             </div>
                         </div>
                     )}
@@ -74,42 +77,40 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
             </div>
 
             {/* Mobile Layout */}
-            <div className="md:hidden space-y-3">
+            <div className="md:hidden space-y-4">
                 <div className="flex justify-between items-start">
                     <div>
-                        <div className="font-bold text-slate-900">
-                            {session.childName} ({session.childAge}歳)
+                        <div className="font-bold text-slate-900 text-lg">
+                            {session.childName} <span className="text-sm font-normal text-slate-500">({session.childAge}歳)</span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">
-                            {session.staffName || '担当未定'}
+                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                            <span>{session.staffName || '担当未定'}</span>
+                            <span className={cn(
+                                "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                                session.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
+                                    "bg-slate-100 text-slate-700"
+                            )}>
+                                {statusLabels[session.status] || session.status}
+                            </span>
                         </div>
                     </div>
-                    <div className={cn(
-                        "text-lg font-bold font-mono",
-                        hasAlert ? "text-amber-600" : "text-slate-700"
-                    )}>
-                        {session.elapsedMinutes}分
+                    <div className="flex flex-col items-end">
+                        <div className={cn(
+                            "text-xl font-bold font-mono",
+                            hasAlert ? "text-amber-600" : "text-slate-700"
+                        )}>
+                            {session.elapsedMinutes}<span className="text-xs font-normal ml-0.5">分</span>
+                        </div>
+                        {session.progress && (
+                            <div className="text-xs text-slate-500 mt-0.5">
+                                📸 {session.progress.photos.current}/{session.progress.photos.total}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex justify-center py-1">
+                <div className="flex justify-center py-2 bg-slate-50/50 rounded-lg overflow-x-auto">
                     <WorkflowIndicator status={session.status} hasReport={session.hasReport} size="sm" />
-                </div>
-
-                <div className="flex justify-between items-center text-sm">
-                    <span className={cn(
-                        "px-2 py-0.5 rounded text-xs font-medium",
-                        session.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
-                            session.status === 'questionnaire_completed' ? "bg-orange-100 text-orange-700" :
-                                "bg-slate-100 text-slate-700"
-                    )}>
-                        {statusLabels[session.status] || session.status}
-                    </span>
-                    {session.progress && (
-                        <span className="text-slate-500 text-xs">
-                            📸 {session.progress.photos.current}/{session.progress.photos.total}
-                        </span>
-                    )}
                 </div>
             </div>
         </div>
