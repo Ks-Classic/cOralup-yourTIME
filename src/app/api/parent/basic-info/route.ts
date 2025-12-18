@@ -190,11 +190,12 @@ export async function POST(request: NextRequest) {
     let visitId: string | null = null
 
     if (sessionId) {
-      // 既存セッションのvisitを更新
+      // 既存セッションのvisitを更新（問診中のもののみ許可）
       const { data: existingVisit } = await supabase
         .from('visits')
         .select('id')
         .eq('session_id', sessionId)
+        .in('status', ['waiting', 'questionnaire_in_progress', 'in_progress'])
         .single()
 
       if (existingVisit) {

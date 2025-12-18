@@ -154,9 +154,9 @@ export default async function StaffHomePage() {
                 const child = visit.children as any
                 const age = child?.birthday
                   ? Math.floor(
-                      (Date.now() - new Date(child.birthday).getTime()) /
-                        (365.25 * 24 * 60 * 60 * 1000)
-                    )
+                    (Date.now() - new Date(child.birthday).getTime()) /
+                    (365.25 * 24 * 60 * 60 * 1000)
+                  )
                   : null
 
                 const statusColors: Record<string, string> = {
@@ -180,7 +180,7 @@ export default async function StaffHomePage() {
                 return (
                   <Link
                     key={visit.id}
-                    href={`/staff/history/${visit.session_id}`}
+                    href={`/staff/history/${visit.id}`}
                     className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
@@ -206,9 +206,8 @@ export default async function StaffHomePage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          statusColors[visit.status] || 'bg-gray-100 text-gray-600'
-                        }`}
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[visit.status] || 'bg-gray-100 text-gray-600'
+                          }`}
                       >
                         {statusLabels[visit.status] || visit.status}
                       </span>

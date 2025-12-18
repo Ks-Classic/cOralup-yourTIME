@@ -1304,7 +1304,7 @@ export default function DiagnosisPageWithId() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/staff')}
+                onClick={() => router.push('/staff/home')}
                 className="text-gray-600"
               >
                 戻る

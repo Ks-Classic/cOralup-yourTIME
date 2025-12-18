@@ -411,7 +411,7 @@ export default function LiffQuestionnairePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lineUserId: liffProfile.userId,
-          sessionId: visitData?.sessionId,
+          sessionId: !isNewChild && visitData?.status === 'questionnaire_in_progress' ? visitData.sessionId : undefined,
           childId: !isNewChild && selectedChildId ? selectedChildId : undefined,
           parentName: `${data.parentLastName} ${data.parentFirstName}`,
           parentLastName: data.parentLastName,

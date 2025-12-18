@@ -75,12 +75,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // visitsステータスを更新
+    // visitsステータスを更新（Two-Layer Status System）
     if (resolvedVisitId) {
       await supabase
         .from('visits')
         .update({
-          status: 'questionnaire_completed',
+          status: 'in_progress',
+          current_step: 'questionnaire_completed',
           updated_at: new Date().toISOString(),
         })
         .eq('id', resolvedVisitId)
