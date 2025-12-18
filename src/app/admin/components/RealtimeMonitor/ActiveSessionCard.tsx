@@ -8,11 +8,23 @@ interface ActiveSessionCardProps {
 }
 
 const statusLabels: Record<string, string> = {
-    questionnaire_in_progress: '問診中',
+    waiting: '待機中',
+    in_progress: '対応中',
+    completed: '完了',
+    published: '公開済',
+    cancelled: '中止',
+};
+
+const stepLabels: Record<string, string> = {
+    line_registered: 'LINE登録',
+    questionnaire_started: '問診中',
     questionnaire_completed: 'QR待ち',
-    in_progress: '診断中',
-    diagnosis_completed: '診断完了',
-    report_sent: '送信済',
+    diagnosis_started: '診断中',
+    photos_uploaded: '写真OK',
+    analysis_completed: '診断完了',
+    report_generated: 'レポート済',
+    line_sent: '送信済',
+    line_confirmed: '確認済'
 };
 
 export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps) {
@@ -33,10 +45,13 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                         <span className={cn(
                             "px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap",
                             session.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
-                                session.status === 'questionnaire_completed' ? "bg-orange-100 text-orange-700" :
-                                    "bg-slate-100 text-slate-700"
+                                session.status === 'completed' ? "bg-green-100 text-green-700" :
+                                    session.status === 'published' ? "bg-purple-100 text-purple-700" :
+                                        "bg-slate-100 text-slate-700"
                         )}>
-                            {statusLabels[session.status] || session.status}
+                            {session.currentStep && stepLabels[session.currentStep]
+                                ? stepLabels[session.currentStep]
+                                : statusLabels[session.status] || session.status}
                         </span>
                         {session.staffName && (
                             <div className="flex items-center gap-1 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -88,9 +103,13 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                             <span className={cn(
                                 "px-1.5 py-0.5 rounded text-[10px] font-medium",
                                 session.status === 'in_progress' ? "bg-blue-100 text-blue-700" :
-                                    "bg-slate-100 text-slate-700"
+                                    session.status === 'completed' ? "bg-green-100 text-green-700" :
+                                        session.status === 'published' ? "bg-purple-100 text-purple-700" :
+                                            "bg-slate-100 text-slate-700"
                             )}>
-                                {statusLabels[session.status] || session.status}
+                                {session.currentStep && stepLabels[session.currentStep]
+                                    ? stepLabels[session.currentStep]
+                                    : statusLabels[session.status] || session.status}
                             </span>
                         </div>
                     </div>
