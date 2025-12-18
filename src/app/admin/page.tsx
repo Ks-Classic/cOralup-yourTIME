@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/utils';
 import RealtimeMonitor from './components/RealtimeMonitor';
 import { VisitsHistory } from './components/VisitsHistory';
-import { Activity, ClipboardList, PenTool, LayoutDashboard, LineChart, Wrench, Trash2, RefreshCcw, Plus } from 'lucide-react';
+import { Activity, ClipboardList, PenTool, LayoutDashboard, LineChart, Wrench, Trash2, RefreshCcw, Plus, Bot } from 'lucide-react';
 
 // 開発ツールパネル
 function DevToolsPanel() {
@@ -403,7 +403,8 @@ function AdminDashboardContent() {
     { id: 'realtime', label: 'リアルタイム', icon: Activity },
     { id: 'history', label: '履歴管理', icon: ClipboardList },
     { id: 'schema', label: 'スキーマ編集', icon: PenTool, href: '/admin/schema-editor' },
-    { id: 'devtools', label: '開発ツール', icon: Wrench, devOnly: true },
+    { id: 'ai-settings', label: 'AI設定', icon: Bot },
+    { id: 'devtools', label: '開発ツール', icon: Wrench },
     { id: 'analytics', label: '分析', icon: LineChart, disabled: true },
   ];
 
@@ -552,8 +553,50 @@ function AdminDashboardContent() {
 
           {tab === 'devtools' && <DevToolsPanel />}
 
+          {tab === 'ai-settings' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg border border-slate-200 p-6">
+                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Bot className="w-6 h-6 text-purple-500" />
+                  AI分析設定
+                </h2>
+                <div className="space-y-4">
+                  <p className="text-slate-600">
+                    AIプロンプトのテスト・調整、本番プロンプトの管理ができます。
+                  </p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Link
+                      href="/dev/ai-test"
+                      className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200 hover:shadow-md transition-shadow block"
+                    >
+                      <h3 className="font-medium text-slate-700 mb-2 flex items-center gap-2">
+                        🤖 AIテストツール
+                      </h3>
+                      <p className="text-sm text-slate-500 mb-3">
+                        問診・診断データからAI分析をテスト実行できます。
+                        プリセット、プロンプト編集、履歴機能付き。
+                      </p>
+                      <span className="text-xs bg-purple-500 text-white px-2 py-1 rounded">
+                        開く →
+                      </span>
+                    </Link>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <h3 className="font-medium text-slate-700 mb-2">📝 プロンプト管理（本番）</h3>
+                      <p className="text-sm text-slate-500 mb-3">
+                        本番環境で使用するプロンプトをDBに保存・管理。
+                      </p>
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                        Coming Soon
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Fallback for unknown tabs */}
-          {!['realtime', 'history', 'devtools'].includes(tab) && (
+          {!['realtime', 'history', 'devtools', 'ai-settings'].includes(tab) && (
             <div className="text-center py-20 bg-white rounded-lg border border-slate-200">
               <p className="text-slate-500">タブが見つかりません: {tab}</p>
               <button
