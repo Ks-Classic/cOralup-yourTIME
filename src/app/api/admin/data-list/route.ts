@@ -40,6 +40,12 @@ export async function GET(request: NextRequest) {
             id,
             first_name,
             last_name
+          ),
+          staff:staff_profile_id (
+            id,
+            display_name,
+            first_name,
+            last_name
           )
         `)
                 .order('created_at', { ascending: false })

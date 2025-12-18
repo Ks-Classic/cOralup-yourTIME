@@ -270,9 +270,10 @@ function DataListViewer() {
             <tr>
               {activeTab === 'visits' && (
                 <>
-                  <th className="text-left px-4 py-2 font-medium text-slate-600">名前</th>
-                  <th className="text-left px-4 py-2 font-medium text-slate-600">Session ID</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">子供</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">担当</th>
                   <th className="text-left px-4 py-2 font-medium text-slate-600">Status</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">Step</th>
                   <th className="text-left px-4 py-2 font-medium text-slate-600">Test</th>
                   <th className="text-left px-4 py-2 font-medium text-slate-600">作成日時</th>
                   <th className="text-left px-4 py-2 font-medium text-slate-600"></th>
@@ -311,7 +312,9 @@ function DataListViewer() {
                 <td className="px-4 py-2">
                   {item.children ? `${item.children.last_name} ${item.children.first_name}` : '-'}
                 </td>
-                <td className="px-4 py-2 font-mono text-xs text-slate-500">{item.session_id}</td>
+                <td className="px-4 py-2 text-slate-500 text-xs">
+                  {item.staff?.display_name || item.staff?.last_name || '-'}
+                </td>
                 <td className="px-4 py-2">
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded",
@@ -322,6 +325,11 @@ function DataListViewer() {
                         : "bg-slate-100 text-slate-600"
                   )}>
                     {item.status}
+                  </span>
+                </td>
+                <td className="px-4 py-2">
+                  <span className="text-xs text-slate-500">
+                    {item.current_step || '-'}
                   </span>
                 </td>
                 <td className="px-4 py-2">
