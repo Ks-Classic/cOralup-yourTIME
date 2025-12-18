@@ -83,13 +83,13 @@ function DevToolsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-        <h3 className="text-amber-800 font-semibold flex items-center gap-2">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-blue-800 font-semibold flex items-center gap-2">
           <Wrench className="w-5 h-5" />
-          開発・テスト用ツール
+          テストデータ管理ツール
         </h3>
-        <p className="text-amber-700 text-sm mt-1">
-          これらの機能は開発・テスト環境専用です。本番環境では非表示にしてください。
+        <p className="text-blue-700 text-sm mt-1">
+          テスト用データの生成・リセット・削除ができます。本番イベント前に「一括削除」でテストデータをクリーンアップしてください。
         </p>
       </div>
 
