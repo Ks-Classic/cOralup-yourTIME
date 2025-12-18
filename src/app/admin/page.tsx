@@ -170,9 +170,217 @@ function DevToolsPanel() {
           </pre>
         </div>
       )}
+
+      {/* データ一覧 */}
+      <DataListViewer />
     </div>
   );
 }
+
+// データ一覧ビューア
+function DataListViewer() {
+  const [activeTab, setActiveTab] = useState<'visits' | 'children' | 'profiles'>('visits');
+  const [data, setData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; name: string } | null>(null);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/data-list?type=${activeTab}&limit=50`);
+      const result = await res.json();
+      if (result.success) {
+        setData(result.data);
+      }
+    } catch (error) {
+      console.error('Fetch error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
+
+  const handleDelete = async (type: string, id: string) => {
+    if (!confirm('本当に削除しますか？関連データもすべて削除されます。')) return;
+
+    try {
+      const res = await fetch('/api/admin/data-list', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, id }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        fetchData();
+      } else {
+        alert('削除に失敗しました');
+      }
+    } catch (error) {
+      alert('エラーが発生しました');
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const tabs = [
+    { id: 'visits', label: 'Visits', count: data.length },
+    { id: 'children', label: 'Children', count: data.length },
+    { id: 'profiles', label: 'Profiles (Parent)', count: data.length },
+  ];
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <div className="flex gap-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={cn(
+                "text-sm font-medium pb-1 border-b-2 transition-colors",
+                activeTab === tab.id
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={fetchData}
+          disabled={isLoading}
+          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+        >
+          <RefreshCcw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+          更新
+        </button>
+      </div>
+
+      <div className="overflow-x-auto max-h-96">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 sticky top-0">
+            <tr>
+              {activeTab === 'visits' && (
+                <>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">名前</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">Session ID</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">Status</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">Test</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">作成日時</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600"></th>
+                </>
+              )}
+              {activeTab === 'children' && (
+                <>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">名前</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">親</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">Test</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">作成日時</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600"></th>
+                </>
+              )}
+              {activeTab === 'profiles' && (
+                <>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">表示名</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">氏名</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">LINE ID</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600">作成日時</th>
+                  <th className="text-left px-4 py-2 font-medium text-slate-600"></th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {data.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  データがありません
+                </td>
+              </tr>
+            )}
+            {activeTab === 'visits' && data.map((item) => (
+              <tr key={item.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2">
+                  {item.children ? `${item.children.last_name} ${item.children.first_name}` : '-'}
+                </td>
+                <td className="px-4 py-2 font-mono text-xs text-slate-500">{item.session_id}</td>
+                <td className="px-4 py-2">
+                  <span className={cn(
+                    "text-xs px-2 py-0.5 rounded",
+                    item.status === 'completed' || item.status === 'published'
+                      ? "bg-emerald-100 text-emerald-700"
+                      : item.status === 'in_progress'
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-slate-100 text-slate-600"
+                  )}>
+                    {item.status}
+                  </span>
+                </td>
+                <td className="px-4 py-2">
+                  {item.is_test_data && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">TEST</span>}
+                </td>
+                <td className="px-4 py-2 text-slate-500">{formatDate(item.created_at)}</td>
+                <td className="px-4 py-2">
+                  <button
+                    onClick={() => handleDelete('visit', item.id)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    削除
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {activeTab === 'children' && data.map((item) => (
+              <tr key={item.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2">{item.last_name} {item.first_name}</td>
+                <td className="px-4 py-2 text-slate-500">{item.profiles?.display_name || '-'}</td>
+                <td className="px-4 py-2">
+                  {item.is_test_data && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">TEST</span>}
+                </td>
+                <td className="px-4 py-2 text-slate-500">{formatDate(item.created_at)}</td>
+                <td className="px-4 py-2">
+                  <button
+                    onClick={() => handleDelete('child', item.id)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    削除
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {activeTab === 'profiles' && data.map((item) => (
+              <tr key={item.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2">{item.display_name || '-'}</td>
+                <td className="px-4 py-2">{item.last_name} {item.first_name}</td>
+                <td className="px-4 py-2 font-mono text-xs text-slate-400">
+                  {item.line_user_id ? `${item.line_user_id.slice(0, 8)}...` : '-'}
+                </td>
+                <td className="px-4 py-2 text-slate-500">{formatDate(item.created_at)}</td>
+                <td className="px-4 py-2">
+                  <button
+                    onClick={() => handleDelete('profile', item.id)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    削除
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 
 function AdminDashboardContent() {
   const searchParams = useSearchParams();
