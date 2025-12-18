@@ -38,6 +38,7 @@
     "@supabase/supabase-js": "^2.39.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "dotenv": "^17.2.3",
     "framer-motion": "^10.16.16",
     "html2canvas": "^1.4.1",
     "html5-qrcode": "^2.3.8",

@@ -95,7 +95,7 @@ export function VisitsHistory() {
             if (status) {
                 query = query.eq('status', status)
             } else {
-                query = query.in('status', ['diagnosis_completed', 'report_sent'])
+                query = query.in('status', ['completed', 'published'])
             }
 
             const { data: visitsData } = await query
@@ -142,17 +142,17 @@ export function VisitsHistory() {
     const statusColors: Record<string, string> = {
         waiting: 'bg-amber-100 text-amber-700',
         in_progress: 'bg-blue-100 text-blue-700',
-        completed: 'bg-emerald-100 text-emerald-700',
-        report_sent: 'bg-purple-100 text-purple-700',
-        diagnosis_completed: 'bg-green-100 text-green-700',
+        completed: 'bg-green-100 text-green-700',
+        published: 'bg-purple-100 text-purple-700',
+        cancelled: 'bg-slate-100 text-slate-700',
     }
 
     const statusLabels: Record<string, string> = {
         waiting: '待機中',
-        in_progress: '診断中',
-        completed: '完了',
-        report_sent: '送信済',
-        diagnosis_completed: '診断完了',
+        in_progress: '対応中',
+        completed: '現場完了',
+        published: '公開済',
+        cancelled: '中止',
     }
 
     return (
@@ -183,9 +183,9 @@ export function VisitsHistory() {
                             onChange={(e) => handleFilterChange('status', e.target.value)}
                         >
                             <option value="">全て</option>
-                            <option value="diagnosis_completed">診断完了</option>
-                            <option value="report_sent">送信済</option>
-                            <option value="in_progress">診断中</option>
+                            <option value="completed">現場完了</option>
+                            <option value="published">公開済</option>
+                            <option value="in_progress">対応中</option>
                             <option value="waiting">待機中</option>
                         </select>
                     </div>

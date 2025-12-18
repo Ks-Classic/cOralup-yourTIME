@@ -1,7 +1,12 @@
+
+export type VisitStatus = 'waiting' | 'in_progress' | 'completed' | 'published' | 'cancelled';
+export type VisitStep = 'line_registered' | 'questionnaire_started' | 'questionnaire_completed' | 'diagnosis_started' | 'photos_uploaded' | 'analysis_completed' | 'report_generated' | 'line_sent' | 'line_confirmed';
+
 export interface ActiveSession {
     id: string; // visit_id (UUID)
     sessionId: string; // session_id (short ID)
-    status: string;
+    status: VisitStatus;
+    currentStep?: VisitStep;
     childName: string;
     childAge: number;
     staffName: string | null;
@@ -9,6 +14,7 @@ export interface ActiveSession {
     updatedAt: string; // ISO string
     currentStatusSince: string;
     elapsedMinutes: number;
+    visitDate: string; // Added for sort
     hasReport?: boolean;
     progress?: {
         photos: { current: number; total: number };
@@ -24,6 +30,7 @@ export interface CompletedSession {
     staffName: string;
     completedAt: string;
     reportSentAt: string | null;
+    status: VisitStatus;
 }
 
 export interface Alert {
@@ -52,8 +59,7 @@ export interface RealtimeStatusResponse {
 }
 
 export interface SessionEvent {
-    type: 'line_registered' | 'questionnaire_completed' | 'diagnosis_started'
-    | 'report_created' | 'line_sent' | 'diagnosis_completed';
+    type: VisitStep;
     sessionId: string;
     childName: string;
     childAge: number;

@@ -59,6 +59,7 @@
 | 6.3 | イベント一覧画面 | `src/app/admin/events/page.tsx` | 📋 | |
 | 6.4 | イベント作成画面 | `src/app/admin/events/new/page.tsx` | 📋 | |
 | 6.5 | イベント編集画面 | `src/app/admin/events/[id]/edit/page.tsx` | 📋 | |
+| 6.6 | ステータス管理標準化 | Status(LifeCycle)とStepの分離 | ✅ | |
 
 ### 08-crm: CRMデータ整備
 

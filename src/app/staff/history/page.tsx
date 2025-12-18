@@ -92,15 +92,15 @@ export default async function StaffHistoryPage() {
                   const child = visit.children as any
                   const age = child?.birthday
                     ? Math.floor(
-                        (Date.now() - new Date(child.birthday).getTime()) /
-                          (365.25 * 24 * 60 * 60 * 1000)
-                      )
+                      (Date.now() - new Date(child.birthday).getTime()) /
+                      (365.25 * 24 * 60 * 60 * 1000)
+                    )
                     : null
 
                   return (
                     <Link
                       key={visit.id}
-                      href={`/staff/history/${visit.session_id}`}
+                      href={`/staff/history/${visit.id}`}
                       className="flex items-center justify-between p-4 hover:bg-slate-700/30 transition-colors"
                     >
                       <div>
@@ -122,9 +122,8 @@ export default async function StaffHistoryPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span
-                          className={`text-xs px-2.5 py-1 rounded-full ${
-                            statusColors[visit.status] || 'bg-slate-700 text-slate-400'
-                          }`}
+                          className={`text-xs px-2.5 py-1 rounded-full ${statusColors[visit.status] || 'bg-slate-700 text-slate-400'
+                            }`}
                         >
                           {statusLabels[visit.status] || visit.status}
                         </span>

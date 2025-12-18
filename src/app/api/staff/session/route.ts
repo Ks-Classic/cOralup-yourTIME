@@ -271,12 +271,13 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceSupabaseClient()
 
     // セッション状態を更新
-    const newStatus = action === 'start_diagnosis' ? 'diagnosis_started' : 'questionnaire_completed'
+    const currentStep = action === 'start_diagnosis' ? 'diagnosis_started' : 'questionnaire_completed'
 
     const { data: visit, error } = await supabase
       .from('visits')
       .update({
-        status: newStatus,
+        status: 'in_progress',
+        current_step: currentStep,
         staff_profile_id: staffId,
         updated_at: new Date().toISOString(),
       })

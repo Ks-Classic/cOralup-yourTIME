@@ -16,6 +16,7 @@ function generateSampleData(): RealtimeStatusResponse {
             id: 'sample-1',
             sessionId: 'ABC123',
             status: 'in_progress',
+            currentStep: 'diagnosis_started',
             childName: '田中 太郎',
             childAge: 6,
             staffName: '山田',
@@ -24,12 +25,14 @@ function generateSampleData(): RealtimeStatusResponse {
             currentStatusSince: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
             elapsedMinutes: 12,
             hasReport: false,
-            progress: { photos: { current: 2, total: 3 }, diagnosisItems: { current: 15, total: 25 } }
+            progress: { photos: { current: 2, total: 3 }, diagnosisItems: { current: 15, total: 25 } },
+            visitDate: new Date(now.getTime() - 25 * 60 * 1000).toISOString()
         },
         {
             id: 'sample-2',
             sessionId: 'DEF456',
-            status: 'questionnaire_completed',
+            status: 'in_progress',
+            currentStep: 'questionnaire_completed',
             childName: '佐藤 花子',
             childAge: 4,
             staffName: null,
@@ -38,12 +41,14 @@ function generateSampleData(): RealtimeStatusResponse {
             currentStatusSince: new Date(now.getTime() - 18 * 60 * 1000).toISOString(),
             elapsedMinutes: 18,
             hasReport: false,
-            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } }
+            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
+            visitDate: new Date(now.getTime() - 30 * 60 * 1000).toISOString()
         },
         {
             id: 'sample-3',
             sessionId: 'GHI789',
-            status: 'questionnaire_in_progress',
+            status: 'in_progress',
+            currentStep: 'questionnaire_started',
             childName: '高橋 一郎',
             childAge: 3,
             staffName: null,
@@ -52,12 +57,14 @@ function generateSampleData(): RealtimeStatusResponse {
             currentStatusSince: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
             elapsedMinutes: 5,
             hasReport: false,
-            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } }
+            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
+            visitDate: new Date(now.getTime() - 8 * 60 * 1000).toISOString()
         },
         {
             id: 'sample-4',
             sessionId: 'JKL012',
-            status: 'diagnosis_completed',
+            status: 'completed',
+            currentStep: 'analysis_completed',
             childName: '伊藤 美咲',
             childAge: 7,
             staffName: '佐藤',
@@ -66,12 +73,14 @@ function generateSampleData(): RealtimeStatusResponse {
             currentStatusSince: new Date(now.getTime() - 3 * 60 * 1000).toISOString(),
             elapsedMinutes: 3,
             hasReport: true,
-            progress: { photos: { current: 3, total: 3 }, diagnosisItems: { current: 25, total: 25 } }
+            progress: { photos: { current: 3, total: 3 }, diagnosisItems: { current: 25, total: 25 } },
+            visitDate: new Date(now.getTime() - 45 * 60 * 1000).toISOString()
         },
         {
             id: 'sample-5',
             sessionId: 'MNO345',
-            status: 'questionnaire_completed',
+            status: 'in_progress',
+            currentStep: 'questionnaire_completed',
             childName: '渡辺 健太',
             childAge: 5,
             staffName: null,
@@ -80,7 +89,8 @@ function generateSampleData(): RealtimeStatusResponse {
             currentStatusSince: new Date(now.getTime() - 28 * 60 * 1000).toISOString(),
             elapsedMinutes: 28,
             hasReport: false,
-            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } }
+            progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
+            visitDate: new Date(now.getTime() - 50 * 60 * 1000).toISOString()
         },
     ];
 
@@ -93,6 +103,7 @@ function generateSampleData(): RealtimeStatusResponse {
             staffName: '鈴木',
             completedAt: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
             reportSentAt: new Date(now.getTime() - 10 * 60 * 1000).toISOString(),
+            status: 'published'
         },
         {
             id: 'completed-2',
@@ -102,6 +113,7 @@ function generateSampleData(): RealtimeStatusResponse {
             staffName: '高橋',
             completedAt: new Date(now.getTime() - 35 * 60 * 1000).toISOString(),
             reportSentAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+            status: 'published'
         },
         {
             id: 'completed-3',
@@ -111,6 +123,7 @@ function generateSampleData(): RealtimeStatusResponse {
             staffName: '田中',
             completedAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
             reportSentAt: new Date(now.getTime() - 55 * 60 * 1000).toISOString(),
+            status: 'published'
         },
     ];
 
@@ -184,6 +197,7 @@ export function useRealtimeStatus(useSampleData = false) {
                   id,
                   session_id,
                   status,
+                  current_step,
                   created_at,
                   updated_at,
                   staff_profile_id,
@@ -197,7 +211,7 @@ export function useRealtimeStatus(useSampleData = false) {
                     first_name,
                     display_name
                   ),
-                  reports (id)
+                  reports!reports_visit_id_fkey (id)
                 `)
                 .gte('created_at', todayStart.toISOString())
                 .order('created_at', { ascending: false });
@@ -227,24 +241,24 @@ export function useRealtimeStatus(useSampleData = false) {
 
             visits?.forEach((visit: any) => {
                 const status = visit.status;
+                const currentStep = visit.current_step;
                 const childName = visit.children ? `${visit.children.last_name || ''} ${visit.children.first_name || ''}`.trim() : 'Unknown';
                 const age = visit.children?.birthday ? Math.floor((now.getTime() - new Date(visit.children.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
                 const staffName = visit.profiles ? (visit.profiles.display_name || `${visit.profiles.last_name || ''} ${visit.profiles.first_name || ''}`) : null;
 
-                // Extra data
-                const photosCount = 0; // Temp fix: disable photo count until DB relation is fixed
+                const photosCount = 0;
                 const hasReport = visit.reports && visit.reports.length > 0;
 
                 // Summary Counts
-                if (status === 'questionnaire_completed') summary.questionnaireCompleted++;
-                if (status === 'in_progress') summary.inProgress++;
-                if (status === 'diagnosis_completed') summary.diagnosisCompleted++;
-                if (status === 'report_sent') summary.reportSent++;
+                // Note: Keep lineRegisteredCount from profiles or visits? 
+                // Using mapping:
+                if (status === 'in_progress' && (currentStep === 'questionnaire_completed' || !currentStep)) summary.questionnaireCompleted++;
+                if (status === 'in_progress' && (currentStep === 'diagnosis_started' || currentStep === 'photos_uploaded')) summary.inProgress++;
+                if (status === 'completed') summary.diagnosisCompleted++;
+                if (status === 'published') summary.reportSent++;
 
-                // Determine if Active or Completed
-                const isCompleted = status === 'report_sent';
+                const isCompleted = status === 'published' || status === 'cancelled';
 
-                // Calculate Times
                 const effectiveDate = new Date(visit.updated_at || visit.created_at);
                 const elapsedMs = now.getTime() - effectiveDate.getTime();
                 const elapsedMinutes = Math.floor(elapsedMs / 60000);
@@ -254,22 +268,24 @@ export function useRealtimeStatus(useSampleData = false) {
                         id: visit.id,
                         sessionId: visit.session_id,
                         status,
+                        currentStep,
                         childName,
                         childAge: age,
                         staffName,
                         createdAt: visit.created_at,
                         updatedAt: visit.updated_at,
-                        currentStatusSince: visit.updated_at,
+                        currentStatusSince: visit.updated_at, // Use updated_at for status duration
                         elapsedMinutes,
                         hasReport,
                         progress: {
-                            photos: { current: photosCount, total: 3 }, // Assuming 3 standard photos
+                            photos: { current: photosCount, total: 3 },
                             diagnosisItems: { current: 0, total: 0 }
-                        }
+                        },
+                        visitDate: visit.created_at
                     });
 
-                    // Alert Logic (Partial implementation for brevity, same as before)
-                    if (status === 'questionnaire_completed' && elapsedMinutes >= 15) {
+                    // Alerts
+                    if (currentStep === 'questionnaire_completed' && elapsedMinutes >= 15) {
                         alerts.push({
                             id: `alert-${visit.id}`,
                             sessionId: visit.session_id,
@@ -278,10 +294,10 @@ export function useRealtimeStatus(useSampleData = false) {
                             type: elapsedMinutes >= 25 ? 'critical' : 'warning',
                             condition: 'qr_waiting_long',
                             elapsedMinutes,
-                            message: elapsedMinutes >= 25 ? 'QR待ち時間が限界を超えています' : 'QR待ち時間が長くなっています'
+                            message: elapsedMinutes >= 25 ? '診断待ち時間が限界を超えています' : '診断待ち時間が長くなっています'
                         });
                     }
-                    if (status === 'in_progress' && elapsedMinutes >= 25) {
+                    if (currentStep === 'diagnosis_started' && elapsedMinutes >= 25) {
                         alerts.push({
                             id: `alert-${visit.id}`,
                             sessionId: visit.session_id,
@@ -294,7 +310,6 @@ export function useRealtimeStatus(useSampleData = false) {
                         });
                     }
                 } else {
-                    // Completed
                     recentCompleted.push({
                         id: visit.id,
                         sessionId: visit.session_id,
@@ -302,7 +317,8 @@ export function useRealtimeStatus(useSampleData = false) {
                         childAge: age,
                         staffName: staffName || '',
                         completedAt: visit.updated_at,
-                        reportSentAt: visit.updated_at // Approximate
+                        reportSentAt: status === 'published' ? visit.updated_at : null,
+                        status
                     });
                 }
             });

@@ -195,7 +195,8 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('visits')
       .update({
-        status: 'diagnosis_completed',
+        status: 'completed',
+        current_step: 'analysis_completed',
         updated_at: new Date().toISOString(),
       })
       .eq('id', visitId)
@@ -413,7 +414,7 @@ async function sendReportNotification(params: {
     await supabase
       .from('visits')
       .update({
-        status: 'report_sent',
+        status: 'published',
         report_sent_at: sentAt,
         current_step: 'line_sent',
         step_timestamps: timestamps,

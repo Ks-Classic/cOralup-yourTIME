@@ -227,6 +227,7 @@ export async function POST(request: NextRequest) {
         event_id: eventId || process.env.DEFAULT_EVENT_ID || null,
         organization_id: process.env.CORALUP_ORG_ID || null,
         status: 'waiting',
+        current_step: 'line_registered',
         visit_date: new Date().toISOString(),
       })
       .select()

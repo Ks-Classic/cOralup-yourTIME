@@ -173,7 +173,8 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('visits')
         .update({
-          status: 'report_sent',
+          status: 'published',
+          current_step: 'line_sent',
           report_sent_at: sentAt,
         })
         .eq('id', visitId)
@@ -181,7 +182,8 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('visits')
         .update({
-          status: 'report_sent',
+          status: 'published',
+          current_step: 'line_sent',
           report_sent_at: sentAt,
         })
         .eq('session_id', sessionId)

@@ -204,7 +204,8 @@ export async function POST(request: NextRequest) {
           .update({
             child_id: child.id,
             child_age_months: ageMonths,
-            status: 'questionnaire_in_progress',
+            status: 'in_progress',
+            current_step: 'questionnaire_started',
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingVisit.id)
@@ -225,7 +226,8 @@ export async function POST(request: NextRequest) {
           child_age_months: ageMonths,
           event_id: process.env.DEFAULT_EVENT_ID || null,
           organization_id: process.env.CORALUP_ORG_ID || null,
-          status: 'questionnaire_in_progress',
+          status: 'in_progress',
+          current_step: 'questionnaire_started',
           visit_date: new Date().toISOString(),
         })
         .select()
