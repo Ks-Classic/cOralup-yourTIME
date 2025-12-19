@@ -24,6 +24,7 @@ export const visits = pgTable('visits', {
     lineUserId: varchar('line_user_id', { length: 255 }),
     boothNumber: integer('booth_number'),
     errorInfo: jsonb('error_info'),
+    reportSentAt: timestamp('report_sent_at', { withTimezone: true }),
     isTestData: boolean('is_test_data').default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

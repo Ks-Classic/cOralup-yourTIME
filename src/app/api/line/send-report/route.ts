@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits, lineMessageLogs } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
-
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 interface SendReportRequest {
   lineUserId: string
@@ -131,24 +127,24 @@ export async function POST(request: NextRequest) {
     })
 
     const responseData = await response.json().catch(() => ({}))
-    const sentAt = new Date().toISOString()
+    const sentAt = new Date()
 
     if (!response.ok) {
       const errorText = JSON.stringify(responseData)
       console.error('LINE API error:', errorText)
 
       // 失敗ログを記録
-      await supabase.from('line_message_logs').insert({
-        visit_id: visitId || null,
-        session_id: sessionId || null,
-        line_user_id: lineUserId,
-        message_type: 'report',
-        message_content: flexMessage,
+      await db.insert(lineMessageLogs).values({
+        visitId: visitId || null,
+        sessionId: sessionId || null,
+        lineUserId,
+        messageType: 'report',
+        messageContent: JSON.stringify(flexMessage),
         status: 'failed',
         response: responseData,
-        error_message: errorText,
-        sent_at: sentAt,
-      })
+        errorMessage: errorText,
+        sentAt,
+      } as typeof lineMessageLogs.$inferInsert)
 
       return NextResponse.json(
         { error: 'LINE通知の送信に失敗しました', details: errorText },
@@ -157,36 +153,36 @@ export async function POST(request: NextRequest) {
     }
 
     // 成功ログを記録
-    await supabase.from('line_message_logs').insert({
-      visit_id: visitId || null,
-      session_id: sessionId || null,
-      line_user_id: lineUserId,
-      message_type: 'report',
-      message_content: flexMessage,
+    await db.insert(lineMessageLogs).values({
+      visitId: visitId || null,
+      sessionId: sessionId || null,
+      lineUserId,
+      messageType: 'report',
+      messageContent: JSON.stringify(flexMessage),
       status: 'success',
       response: responseData,
-      sent_at: sentAt,
-    })
+      sentAt,
+    } as typeof lineMessageLogs.$inferInsert)
 
     // visits.status と report_sent_at を更新
     if (visitId) {
-      await supabase
-        .from('visits')
-        .update({
+      await db
+        .update(visits)
+        .set({
           status: 'published',
-          current_step: 'line_sent',
-          report_sent_at: sentAt,
-        })
-        .eq('id', visitId)
+          currentStep: 'line_sent',
+          reportSentAt: sentAt,
+        } as Partial<typeof visits.$inferInsert>)
+        .where(eq(visits.id, visitId))
     } else if (sessionId) {
-      await supabase
-        .from('visits')
-        .update({
+      await db
+        .update(visits)
+        .set({
           status: 'published',
-          current_step: 'line_sent',
-          report_sent_at: sentAt,
-        })
-        .eq('session_id', sessionId)
+          currentStep: 'line_sent',
+          reportSentAt: sentAt,
+        } as Partial<typeof visits.$inferInsert>)
+        .where(eq(visits.sessionId, sessionId))
     }
 
     return NextResponse.json({
@@ -203,5 +199,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-
