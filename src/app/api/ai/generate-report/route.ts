@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 
 // Gemini APIの初期化
-const genAI = process.env.GEMINI_API_KEY 
+const genAI = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null
 
@@ -16,11 +16,13 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     const body = await request.json()
     const { sessionId, visitId, questionnaire, postureAnalysis, oralAnalysis, staffNotes, testMode, testData, customPrompt } = body
 
+    let rData: any[] | null = null
+    let qData: any | null = null
     let dataForPrompt = {
       childName: '',
       childAge: '',
@@ -33,7 +35,11 @@ export async function POST(request: NextRequest) {
       oralScore: '',
       oralIssues: '',
       staffNotes: '',
-      diagnosisDetails: ''
+      diagnosisDetails: '',
+      // セクションごとの変数
+      postureDetails: '',
+      oralDetails: '',
+      questionnaireDetails: ''
     }
 
     // テストモード: 直接データを使用
@@ -47,93 +53,170 @@ export async function POST(request: NextRequest) {
       dataForPrompt.postureIssues = testData.postureIssues?.join(', ') || 'なし'
       dataForPrompt.oralIssues = testData.oralIssues?.join(', ') || 'なし'
       dataForPrompt.staffNotes = testData.staffNotes || ''
-      
-      // 問診・診断データをフォーマット
-      const details: string[] = []
-      if (testData.questionnaire) {
-        for (const [key, value] of Object.entries(testData.questionnaire)) {
-          details.push(`[問診] ${key}: ${value}`)
+
+      // データの振り分け
+      const qDetails: string[] = []
+      const pDetails: string[] = []
+      const oDetails: string[] = []
+      const allD: string[] = []
+
+      // 新形式: questionnaireMeta { itemId: { question, value } }
+      if (testData.questionnaireMeta) {
+        for (const [, meta] of Object.entries(testData.questionnaireMeta as Record<string, { question: string, value: string }>)) {
+          const line = `${meta.question}: ${meta.value}`
+          qDetails.push(line)
+          allD.push(`[問診] ${line}`)
         }
       }
-      if (testData.diagnosis) {
-        for (const [key, value] of Object.entries(testData.diagnosis)) {
-          details.push(`[診断] ${key}: ${value}`)
+
+      // 新形式: diagnosisMeta { itemId: { question, value } }
+      if (testData.diagnosisMeta) {
+        for (const [, meta] of Object.entries(testData.diagnosisMeta as Record<string, { question: string, value: string }>)) {
+          const line = `${meta.question}: ${meta.value}`
+          // 質問名やカテゴリ名で振り分け（簡易実装）
+          if (meta.question.includes('姿勢') || meta.question.includes('肩') || meta.question.includes('足') ||
+            meta.question.includes('骨盤') || meta.question.includes('軸') || meta.question.includes('頭位') ||
+            meta.question.includes('下肢') || meta.question.includes('外反') || meta.question.includes('浮指') ||
+            meta.question.includes('扁平足') || meta.question.includes('正面間')) {
+            pDetails.push(line)
+          } else {
+            oDetails.push(line)
+          }
+          allD.push(`[診断] ${line}`)
         }
       }
-      dataForPrompt.diagnosisDetails = details.join('\n')
-      
-    } else if (sessionId) {
-      // 1. DBからデータを取得
-      const { data: qData, error: qError } = await supabase
+
+      dataForPrompt.questionnaireDetails = qDetails.join('\n')
+      dataForPrompt.postureDetails = pDetails.join('\n')
+      dataForPrompt.oralDetails = oDetails.join('\n')
+      dataForPrompt.diagnosisDetails = allD.join('\n')
+
+    } else if (sessionId || visitId) {
+      // 本番モード: DBからデータを取得
+      // visitIdがあればそれを使用、なければsessionIdから取得
+      let targetSessionId = sessionId
+      let visitData: any = null
+
+      if (visitId) {
+        // visitIdからsessionIdとchild_age_monthsを取得
+        const { data: visit, error: visitError } = await supabase
+          .from('visits')
+          .select('session_id, child_age_months')
+          .eq('id', visitId)
+          .single()
+
+        if (visitError) {
+          console.error('Visit fetch error:', visitError)
+          return NextResponse.json({ error: 'Visitデータの取得に失敗しました' }, { status: 500 })
+        }
+        targetSessionId = visit.session_id
+        visitData = visit
+      } else if (targetSessionId) {
+        // sessionIdからvisitデータを取得して月齢を取得
+        const { data: visit } = await supabase
+          .from('visits')
+          .select('child_age_months')
+          .eq('session_id', targetSessionId)
+          .single()
+        visitData = visit
+      }
+
+      // 1. 問診データを取得
+      const { data: qResult, error: qError } = await supabase
         .from('questionnaires')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('session_id', targetSessionId)
         .single()
 
+      qData = qResult
+
+      // 2. 診断データを取得
       const { data: dData, error: dError } = await supabase
         .from('diagnoses')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('session_id', targetSessionId)
         .single()
 
-      // 正規化された診断回答を取得 (項目名やカテゴリ名も含める)
-      const { data: rData, error: rError } = await supabase
+      // 3. 診断回答データを取得（itemのidも取得して変数マッピングに使用）
+      const { data: respData, error: rError } = await supabase
         .from('diagnosis_responses')
         .select(`
           value,
           diagnosis_items (
+            id,
             question,
             diagnosis_categories (
               name
             )
           )
         `)
-        .eq('session_id', sessionId)
+        .eq('session_id', targetSessionId)
+
+      rData = respData
 
       if (qError || dError) {
         console.error('Data fetch error:', qError, dError)
-        return NextResponse.json(
-          { error: 'データの取得に失敗しました' },
-          { status: 500 }
-        )
+        return NextResponse.json({ error: 'データの取得に失敗しました' }, { status: 500 })
       }
 
-      // プロンプト用データ構築
+      // 年齢の設定（月齢があれば使用）
+      if (visitData?.child_age_months) {
+        dataForPrompt.childAgeMonths = visitData.child_age_months
+        dataForPrompt.childAge = String(Math.floor(visitData.child_age_months / 12))
+      } else {
+        dataForPrompt.childAge = qData?.child_age || ''
+      }
+
       dataForPrompt.childName = qData?.child_name || ''
-      dataForPrompt.childAge = qData?.child_age || ''
       dataForPrompt.childGender = qData?.child_gender || ''
       dataForPrompt.medicalHistory = Array.isArray(qData?.medical_history) ? qData.medical_history.join(', ') : (qData?.medical_history || 'なし')
       dataForPrompt.concerns = Array.isArray(qData?.concerns) ? qData.concerns.join(', ') : (qData?.concerns || 'なし')
 
+      // 問診データの詳細化
+      const qLines: string[] = []
+      if (qData) {
+        if (qData.medical_history) qLines.push(`既往歴: ${Array.isArray(qData.medical_history) ? qData.medical_history.join(', ') : qData.medical_history}`)
+        if (qData.concerns) qLines.push(`気になる症状: ${Array.isArray(qData.concerns) ? qData.concerns.join(', ') : qData.concerns}`)
+        if (qData.eating_habits) qLines.push(`食事の習慣: ${qData.eating_habits}`)
+        if (qData.sleeping_habits) qLines.push(`睡眠の様子: ${qData.sleeping_habits}`)
+      }
+
       const pAnalysis = dData?.posture_analysis || {}
       const oAnalysis = dData?.oral_analysis || {}
-
       dataForPrompt.postureScore = pAnalysis.overall_score || pAnalysis.overallScore || '不明'
       dataForPrompt.postureIssues = Array.isArray(pAnalysis.issues) ? pAnalysis.issues.join(', ') : 'なし'
       dataForPrompt.oralScore = oAnalysis.overall_score || oAnalysis.overallScore || '不明'
       dataForPrompt.oralIssues = Array.isArray(oAnalysis.issues) ? oAnalysis.issues.join(', ') : 'なし'
       dataForPrompt.staffNotes = dData?.staff_notes || ''
 
-      // 詳細回答のフォーマット
+      // DBデータのセクション振り分け
+      const pDetails: string[] = []
+      const oDetails: string[] = []
+      const allD: string[] = []
+
       if (rData && rData.length > 0) {
-        dataForPrompt.diagnosisDetails = rData.map((r: any) => {
+        rData.forEach((r: any) => {
           const category = r.diagnosis_items?.diagnosis_categories?.name || 'その他'
           const question = r.diagnosis_items?.question || ''
-          let answer = r.value
-          try {
-            // JSONの場合はパースして表示
-            const parsed = JSON.parse(r.value)
-            if (typeof parsed === 'object') {
-              answer = JSON.stringify(parsed)
-            } else {
-              answer = parsed
-            }
-          } catch (e) {
-            // そのまま
+          const answer = r.value
+          const line = `${question}: ${answer}`
+
+          // 姿勢・全身・足 これら以外はすべて口腔（受皿を広くする）
+          const isPosture = category.includes('姿勢') || category.includes('全身') || category.includes('足') || category.includes('体')
+
+          if (isPosture) {
+            pDetails.push(line)
+          } else {
+            oDetails.push(line)
           }
-          return `[${category}] ${question}: ${answer}`
-        }).join('\n')
+          allD.push(`[${category}] ${line}`)
+        })
       }
+
+      dataForPrompt.questionnaireDetails = qLines.join('\n') || 'なし'
+      dataForPrompt.postureDetails = pDetails.join('\n') || 'なし'
+      dataForPrompt.oralDetails = oDetails.join('\n') || 'なし'
+      dataForPrompt.diagnosisDetails = allD.join('\n') || 'なし'
 
     } else {
       // 既存ロジック: リクエストボディから直接使用
@@ -164,94 +247,179 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Gemini APIでレポート生成
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
-
-    // 年齢表示の構築
-    const ageDisplay = dataForPrompt.childAgeMonths > 0 
-      ? `${dataForPrompt.childAge}歳${dataForPrompt.childAgeMonths}ヶ月`
-      : `${dataForPrompt.childAge}歳`
-    
-    // 年齢に応じた注意事項
-    const ageNum = parseInt(dataForPrompt.childAge) || 5
-    const ageConsiderations = []
-    if (ageNum <= 2) {
-      ageConsiderations.push('乳児期のため、発達段階を考慮した評価が必要です')
-      ageConsiderations.push('足の形状（扁平足など）は発達途上であり、経過観察が基本です')
-    } else if (ageNum <= 4) {
-      ageConsiderations.push('幼児期のため、一部の評価項目は参考程度としてください')
-      ageConsiderations.push('習癖（指しゃぶり等）はこの年齢では一般的な場合があります')
-    } else if (ageNum <= 6) {
-      ageConsiderations.push('乳歯から永久歯への生え変わり時期を考慮してください')
-    }
-
-    // プロンプト構築（カスタムプロンプトがある場合は変数を置換）
-    let prompt: string
-    
-    if (customPrompt) {
-      // カスタムプロンプトの変数を置換
-      prompt = customPrompt
-        .replace(/\{\{childName\}\}/g, dataForPrompt.childName)
-        .replace(/\{\{ageDisplay\}\}/g, ageDisplay)
-        .replace(/\{\{childGender\}\}/g, dataForPrompt.childGender)
-        .replace(/\{\{postureScore\}\}/g, dataForPrompt.postureScore)
-        .replace(/\{\{oralScore\}\}/g, dataForPrompt.oralScore)
-        .replace(/\{\{postureIssues\}\}/g, dataForPrompt.postureIssues)
-        .replace(/\{\{oralIssues\}\}/g, dataForPrompt.oralIssues)
-        .replace(/\{\{staffNotes\}\}/g, dataForPrompt.staffNotes || 'なし')
-        .replace(/\{\{diagnosisDetails\}\}/g, dataForPrompt.diagnosisDetails || 'なし')
-        .replace(/\{\{ageConsiderations\}\}/g, ageConsiderations.length > 0 
-          ? `【年齢に関する考慮事項】\n${ageConsiderations.join('\n')}`
-          : '')
+    // 年齢表示の構築（月齢がある場合は○歳○ヶ月形式で表示）
+    let ageDisplay: string
+    if (dataForPrompt.childAgeMonths > 0) {
+      const years = Math.floor(dataForPrompt.childAgeMonths / 12)
+      const months = dataForPrompt.childAgeMonths % 12
+      ageDisplay = months > 0 ? `${years}歳${months}ヶ月` : `${years}歳`
+    } else if (dataForPrompt.childAge) {
+      ageDisplay = `${dataForPrompt.childAge}歳`
     } else {
-      // デフォルトプロンプト
-      prompt = `
-あなたは口腔育成の専門家として、診断結果から親御さん向けのレポートを生成してください。
-
-【重要な指示】
-- 専門用語は避け、親御さんにわかりやすい表現を使ってください
-- ポジティブな点も必ず言及してください
-- 問題点は深刻になりすぎない表現で伝えてください
-- 「です・ます」調で統一してください
-
-対象のお子様情報:
-- お名前: ${dataForPrompt.childName}
-- 年齢: ${ageDisplay}
-- 性別: ${dataForPrompt.childGender}
-- 既往歴: ${dataForPrompt.medicalHistory || 'なし'}
-- 気になる症状: ${dataForPrompt.concerns || 'なし'}
-
-${ageConsiderations.length > 0 ? `【年齢に関する考慮事項】\n${ageConsiderations.join('\n')}\n` : ''}
-
-姿勢分析結果:
-- 全体評価: ${dataForPrompt.postureScore}/10
-- 問題点: ${dataForPrompt.postureIssues}
-
-口腔分析結果:
-- 全体評価: ${dataForPrompt.oralScore}/10
-- 問題点: ${dataForPrompt.oralIssues}
-
-スタッフの所見: ${dataForPrompt.staffNotes || 'なし'}
-
-詳細診断項目:
-${dataForPrompt.diagnosisDetails || 'なし'}
-
-以下の形式でJSONとしてレポートを出力してください:
-{
-  "summary": "全体の要約（150-200文字程度、ポジティブな点から始める）",
-  "analysis": "詳細な分析内容（姿勢と口腔の相関関係を含む、300文字程度）",
-  "recommendations": ["具体的で実践しやすい改善提案1", "改善提案2", "改善提案3"],
-  "nextSteps": ["次のステップ1", "次のステップ2"],
-  "encouragingMessage": "親御さんへの温かい励ましのメッセージ（50-100文字）"
-}
-      `.trim()
+      ageDisplay = ''
     }
+
+    // プロンプト構築（DBまたはカスタムテンプレートを使用）
+    let prompt: string
+    let finalTemplate = customPrompt
+    let variableConfig: any[] = body.variableConfig || []
+    let modelName: string = body.modelName || process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
+
+    // カスタムプロンプトが提供されていない場合、DBから有効なプロンプトを取得
+    if (!finalTemplate) {
+      const { data: dbPrompt } = await supabase
+        .from('ai_prompts')
+        .select('prompt_template, variable_config, model_name')
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (dbPrompt) {
+        finalTemplate = dbPrompt.prompt_template
+        variableConfig = dbPrompt.variable_config || []
+        // DBに保存されたモデル名を優先使用
+        if (dbPrompt.model_name) {
+          modelName = dbPrompt.model_name
+        }
+      }
+    }
+
+    // デバッグ情報を収集
+    const debugInfo: {
+      allItemsMapKeys?: string[]
+      allItemsMapEntries?: Record<string, string>
+      variableReplacements?: Array<{
+        variableName: string
+        requestedItemIds: string[]
+        foundItems: string[]
+        notFoundItems: string[]
+        replacement: string
+      }>
+      finalPromptPreview?: string
+    } = {}
+
+    if (finalTemplate) {
+      // テンプレート変数の置換 (ageDisplayのみ)
+      prompt = finalTemplate
+        .replace(/\{\{\s*ageDisplay\s*\}\}/g, ageDisplay || '')
+
+      // 動的な変数を置換 (Variable Maker の設定)
+      if (variableConfig && variableConfig.length > 0) {
+        // すべての回答データをフラットなマップにする（検索用）
+        const allItemsMap = new Map<string, string>()
+
+        // 1. 問診データをマップに追加
+        if (typeof qData !== 'undefined' && qData) {
+          Object.entries(qData).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+              allItemsMap.set(key, `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+            }
+          })
+        } else if (testData?.questionnaireMeta) {
+          // テストモード: 新形式（questionnaireMeta: { itemId: { question, value } }）
+          Object.entries(testData.questionnaireMeta).forEach(([itemId, meta]: [string, any]) => {
+            // itemIdと質問名の両方をキーとして登録
+            allItemsMap.set(itemId, `${meta.question}: ${meta.value}`)
+            allItemsMap.set(meta.question, `${meta.question}: ${meta.value}`)
+          })
+        }
+
+        // 2. 診断データをマップに追加
+        if (typeof rData !== 'undefined' && rData && rData.length > 0) {
+          // 本番モード: DBから取得したデータ
+          rData.forEach((r: any) => {
+            const id = r.diagnosis_items?.id
+            const question = r.diagnosis_items?.question
+            const value = r.value
+            if (id) allItemsMap.set(id, `${question}: ${value}`)
+            if (question) allItemsMap.set(question, `${question}: ${value}`)
+          })
+        } else if (testData?.diagnosisMeta) {
+          // テストモード: 新形式（diagnosisMeta: { itemId: { question, value } }）
+          Object.entries(testData.diagnosisMeta).forEach(([itemId, meta]: [string, any]) => {
+            // itemIdと質問名の両方をキーとして登録
+            allItemsMap.set(itemId, `${meta.question}: ${meta.value}`)
+            allItemsMap.set(meta.question, `${meta.question}: ${meta.value}`)
+          })
+        }
+
+        // デバッグ: マップの内容を記録
+        if (testMode) {
+          debugInfo.allItemsMapKeys = Array.from(allItemsMap.keys())
+          debugInfo.allItemsMapEntries = Object.fromEntries(allItemsMap)
+          debugInfo.variableReplacements = []
+        }
+
+        variableConfig.forEach((cfg: any) => {
+          if (!cfg.name) return
+
+          const targetLines: string[] = []
+          const itemIds = cfg.itemIds || []
+          const priorityItemIds = cfg.priorityItemIds || []
+          const foundItems: string[] = []
+          const notFoundItems: string[] = []
+
+          itemIds.forEach((id: string) => {
+            const line = allItemsMap.get(id)
+            if (line) {
+              const isPriority = priorityItemIds.includes(id)
+              targetLines.push(isPriority ? `[★最重要] ${line}` : line)
+              foundItems.push(id)
+            } else {
+              notFoundItems.push(id)
+            }
+          })
+
+          const replacement = targetLines.join('\n') || 'なし'
+          const regex = new RegExp(`\\{\\{${cfg.name}\\}\\}`, 'g')
+          prompt = prompt.replace(regex, replacement)
+
+          // デバッグ情報を記録
+          if (testMode) {
+            debugInfo.variableReplacements?.push({
+              variableName: cfg.name,
+              requestedItemIds: itemIds,
+              foundItems,
+              notFoundItems,
+              replacement
+            })
+          }
+        })
+
+        // デバッグ: 最終プロンプトのプレビュー（最初の500文字）
+        if (testMode) {
+          debugInfo.finalPromptPreview = prompt.substring(0, 1000)
+          console.log('[AI Report Debug] Variable replacement info:', JSON.stringify(debugInfo, null, 2))
+        }
+      }
+    } else {
+      // プロンプトが見つからない場合の最小限のフォールバック
+      // 通常は管理画面で設定されたプロンプトが使用されるべき
+      prompt = `
+`.trim()
+    }
+
+    // Gemini APIでレポート生成（選択されたモデルを使用）
+    const model = genAI.getGenerativeModel({ model: modelName })
 
     const result = await model.generateContent(prompt)
     const response = await result.response
     const text = response.text()
 
-    // JSONを抽出してパース
+    // テストモードやJSONでない場合はそのまま返す
+    if (testMode || !text.trim().startsWith('{')) {
+      return NextResponse.json({
+        summary: '', // 互換性のため空文字
+        analysis: text, // 全文をここに入れる
+        recommendations: [],
+        nextSteps: [],
+        encouragingMessage: '',
+        rawText: text, // 明示的に生テキストも返す
+        // テストモード時にデバッグ情報を含める
+        debug: testMode ? debugInfo : undefined
+      })
+    }
+
+    // JSONを抽出してパース (既存の互換性維持)
     try {
       // レスポンスからJSON部分を抽出
       const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -261,71 +429,19 @@ ${dataForPrompt.diagnosisDetails || 'なし'}
 
       const reportResult = JSON.parse(jsonMatch[0])
 
-      // レスポンスの検証
-      if (!reportResult.summary ||
-        !reportResult.analysis ||
-        !Array.isArray(reportResult.recommendations) ||
-        !Array.isArray(reportResult.nextSteps) ||
-        !reportResult.encouragingMessage) {
-        throw new Error('レスポンスの形式が不正です')
-      }
-
-      const processingTime = Date.now() - startTime
-
-      // ai_analysis_resultsテーブルに保存
-      if (sessionId || visitId) {
-        const { data: analysisRecord, error: dbError } = await supabase
-          .from('ai_analysis_results')
-          .upsert(
-            {
-              visit_id: visitId || null,
-              session_id: sessionId || null,
-              summary: reportResult.summary,
-              detailed_analysis: { analysis: reportResult.analysis },
-              improvement_suggestions: reportResult.recommendations,
-              next_steps: reportResult.nextSteps,
-              encouragement_message: reportResult.encouragingMessage,
-              model_version: 'gemini-pro',
-              prompt_version: 'v1.0',
-              processing_time_ms: processingTime,
-              status: 'completed',
-              updated_at: new Date().toISOString(),
-            },
-            {
-              onConflict: sessionId ? 'session_id' : 'visit_id',
-            }
-          )
-          .select()
-          .single()
-
-        if (dbError) {
-          console.error('[AI Report] DB save error:', dbError)
-          // DBエラーでも結果は返す
-        } else {
-          // console.log('[AI Report] Saved to ai_analysis_results:', analysisRecord?.id)
-        }
-      }
+      // DB保存ロジックなどは、JSON形式の場合のみ実行（今回は省略）
 
       return NextResponse.json(reportResult)
     } catch (parseError) {
-      console.error('JSON parse error:', parseError)
-      console.error('Raw response:', text)
-
-      // エラー時はデフォルトレポートを返す（変更なし）
-      const defaultReport = {
-        summary: 'お子様の口腔・姿勢状態を分析いたしました。',
-        analysis: '詳細な分析を行うため、専門医への相談をおすすめします。',
-        recommendations: [
-          '定期的な歯科検診を受診してください',
-          '日常の姿勢に気をつけるよう指導してください'
-        ],
-        nextSteps: [
-          'かかりつけの歯科医に相談する'
-        ],
-        encouragingMessage: 'お子様の健康な成長を一緒にサポートしていきましょう。',
-      }
-
-      return NextResponse.json(defaultReport, { status: 200 })
+      console.warn('JSON parse warning, returning raw text:', parseError)
+      return NextResponse.json({
+        summary: '',
+        analysis: text,
+        recommendations: [],
+        nextSteps: [],
+        encouragingMessage: '',
+        rawText: text
+      })
     }
   } catch (error) {
     console.error('Error in report generation:', error)
