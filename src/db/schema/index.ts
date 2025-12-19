@@ -22,3 +22,6 @@ export * from './diagnoses'
 
 // AI
 export * from './ai'
+
+// Forms
+export * from './forms'

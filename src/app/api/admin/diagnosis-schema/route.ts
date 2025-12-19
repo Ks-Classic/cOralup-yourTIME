@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-// サーバーサイド用のSupabaseクライアント
-const getSupabaseAdmin = () => {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Supabase環境変数が設定されていません')
-  }
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+import { db } from '@/db'
+import { diagnosisCategories, diagnosisItems } from '@/db/schema'
+import { eq, asc } from 'drizzle-orm'
 
 interface DiagnosisItemPayload {
   id: string
@@ -35,153 +26,89 @@ export async function POST(request: NextRequest) {
     const body: SavePayload = await request.json()
     const { categoryOrder, items } = body
 
-    const supabase = getSupabaseAdmin()
+    // 1. カテゴリの順序と項目を更新
+    for (let i = 0; i < categoryOrder.length; i++) {
+      const categoryName = categoryOrder[i]
+      const existingCat = await db.select().from(diagnosisCategories).where(eq(diagnosisCategories.name, categoryName)).limit(1)
 
-    // 1. カテゴリの順序と項目を並列で処理するための準備
-    const categoryUpdatePromises = categoryOrder.map(async (categoryName, i) => {
-      // カテゴリが存在するか確認して更新または作成
-      const { data: existingCategory } = await supabase
-        .from('diagnosis_categories')
-        .select('id')
-        .eq('name', categoryName)
-        .single()
-
-      if (existingCategory) {
-        return supabase
-          .from('diagnosis_categories')
-          .update({ display_order: i })
-          .eq('id', existingCategory.id)
+      if (existingCat[0]) {
+        await db.update(diagnosisCategories).set({
+          displayOrder: i
+        } as Partial<typeof diagnosisCategories.$inferInsert>).where(eq(diagnosisCategories.id, existingCat[0].id))
       } else {
-        return supabase
-          .from('diagnosis_categories')
-          .insert({
-            name: categoryName,
-            display_order: i,
-            is_active: true
-          })
+        await db.insert(diagnosisCategories).values({
+          name: categoryName,
+          displayOrder: i,
+          isActive: true
+        } as typeof diagnosisCategories.$inferInsert)
       }
-    })
+    }
 
-    // カテゴリ更新を並列実行
-    await Promise.all(categoryUpdatePromises)
+    // 更新後のカテゴリIDマップ作成
+    const allCats = await db.select().from(diagnosisCategories)
+    const categoryMap = new Map(allCats.map(c => [c.name, c.id]))
 
-    // 2. 項目の更新を並列実行
-    // まずカテゴリIDマップを作成して高速化
-    const { data: allCategories } = await supabase
-      .from('diagnosis_categories')
-      .select('id, name')
-
-    const categoryMap = new Map(allCategories?.map(c => [c.name, c.id]))
-
-    const itemUpdatePromises = items.map(async (item) => {
+    for (const item of items) {
       const categoryId = categoryMap.get(item.category)
+      if (!categoryId) continue
 
-      if (!categoryId) {
-        console.warn(`カテゴリが見つかりません: ${item.category}`)
-        return null
-      }
-
-      const itemData = {
-        category_id: categoryId,
+      const itemData: any = {
+        categoryId: categoryId,
         question: item.question,
-        answer_type: item.answerType,
+        answerType: item.answerType,
         options: item.options || null,
-        is_required: item.required,
-        input_type: item.inputType,
+        isRequired: item.required,
+        inputType: item.inputType,
         note: item.note || null,
-        is_active: item.isVisible
+        isActive: item.isVisible
       }
 
-      // IDがUUID形式（既存）なら更新、そうでなければ（新規）挿入
-      // item.idがUUIDかどうかの簡易チェック
       const isExisting = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)
 
       if (isExisting) {
-        return supabase
-          .from('diagnosis_items')
-          .update(itemData)
-          .eq('id', item.id)
+        await db.update(diagnosisItems).set(itemData).where(eq(diagnosisItems.id, item.id))
       } else {
-        // 新規作成（IDは自動生成させるので含めない）
-        return supabase
-          .from('diagnosis_items')
-          .insert(itemData)
+        await db.insert(diagnosisItems).values(itemData)
       }
-    })
-
-    // 全項目の更新を並列実行
-    await Promise.all(itemUpdatePromises)
+    }
 
     return NextResponse.json({ success: true, message: '診断スキーマを保存しました' })
-
   } catch (error) {
     console.error('診断スキーマ保存エラー:', error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '保存に失敗しました' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: '保存に失敗しました' }, { status: 500 })
   }
 }
 
 // GET: 診断スキーマを取得
 export async function GET() {
   try {
-    const supabase = getSupabaseAdmin()
+    const categories = await db.select().from(diagnosisCategories).orderBy(asc(diagnosisCategories.displayOrder))
+    const items = await db.select().from(diagnosisItems).orderBy(asc(diagnosisItems.displayOrder))
 
-    // カテゴリと項目を取得
-    const { data: categories, error: catError } = await supabase
-      .from('diagnosis_categories')
-      .select('*')
-      .order('display_order')
-
-    if (catError) throw catError
-
-    const { data: items, error: itemError } = await supabase
-      .from('diagnosis_items')
-      .select('*')
-      .order('display_order')
-
-    if (itemError) throw itemError
-
-    // カテゴリ順序を生成
-    const categoryOrder = categories?.map(c => c.name) || []
-
-    // カテゴリ別に整理
+    const categoryOrder = categories.map(c => c.name)
     const categorized: Record<string, any[]> = {}
-    for (const item of items || []) {
-      const category = categories?.find(c => c.id === item.category_id)
+
+    for (const item of items) {
+      const category = categories.find(c => c.id === item.categoryId)
       if (category) {
-        if (!categorized[category.name]) {
-          categorized[category.name] = []
-        }
+        if (!categorized[category.name]) categorized[category.name] = []
         categorized[category.name].push({
           id: item.id,
           category: category.name,
           question: item.question,
-          answerType: item.answer_type,
+          answerType: item.answerType,
           options: item.options,
-          required: item.is_required,
-          inputType: item.input_type,
+          required: item.isRequired,
+          inputType: item.inputType,
           note: item.note,
-          isVisible: item.is_active
+          isVisible: item.isActive
         })
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { categoryOrder, categorized }
-    })
-
+    return NextResponse.json({ success: true, data: { categoryOrder, categorized } })
   } catch (error) {
     console.error('診断スキーマ取得エラー:', error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '取得に失敗しました' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: '取得に失敗しました' }, { status: 500 })
   }
 }
-
-
-
-

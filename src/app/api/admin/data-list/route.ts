@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits, children, profiles, questionnaireResponses, diagnosisResponses, reports, visitPhotos } from '@/db/schema'
+import { eq, desc, inArray } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * GET: データ一覧を取得
- * - visits, children, profiles(parent)の一覧
  */
 export async function GET(request: NextRequest) {
     try {
@@ -25,79 +21,50 @@ export async function GET(request: NextRequest) {
         let data: any[] = []
 
         if (type === 'visits') {
-            const { data: visits, error } = await supabase
-                .from('visits')
-                .select(`
-          id,
-          session_id,
-          status,
-          current_step,
-          visit_date,
-          is_test_data,
-          created_at,
-          updated_at,
-          children (
-            id,
-            first_name,
-            last_name
-          ),
-          staff:staff_profile_id (
-            id,
-            display_name,
-            first_name,
-            last_name
-          )
-        `)
-                .order('created_at', { ascending: false })
+            const visitRows = await db
+                .select({
+                    id: visits.id,
+                    sessionId: visits.sessionId,
+                    status: visits.status,
+                    currentStep: visits.currentStep,
+                    visitDate: visits.visitDate,
+                    isTestData: visits.isTestData,
+                    createdAt: visits.createdAt,
+                    updatedAt: visits.updatedAt,
+                    childId: visits.childId,
+                    staffProfileId: visits.staffProfileId,
+                })
+                .from(visits)
+                .orderBy(desc(visits.createdAt))
                 .limit(limit)
 
-            if (error) throw error
-            data = visits || []
+            data = await Promise.all(visitRows.map(async (v) => {
+                const child = v.childId ? (await db.select({ id: children.id, firstName: children.firstName, lastName: children.lastName }).from(children).where(eq(children.id, v.childId)).limit(1))[0] : null
+                const staff = v.staffProfileId ? (await db.select({ id: profiles.id, displayName: profiles.displayName, firstName: profiles.firstName, lastName: profiles.lastName }).from(profiles).where(eq(profiles.id, v.staffProfileId)).limit(1))[0] : null
+                return { ...v, children: child, staff }
+            }))
         }
 
         if (type === 'children') {
-            const { data: children, error } = await supabase
-                .from('children')
-                .select(`
-          id,
-          first_name,
-          last_name,
-          birthday,
-          gender,
-          is_test_data,
-          created_at,
-          updated_at,
-          profiles:parent_profile_id (
-            id,
-            display_name
-          )
-        `)
-                .order('created_at', { ascending: false })
+            const childRows = await db
+                .select()
+                .from(children)
+                .orderBy(desc(children.createdAt))
                 .limit(limit)
 
-            if (error) throw error
-            data = children || []
+            data = await Promise.all(childRows.map(async (c) => {
+                const parent = c.parentProfileId ? (await db.select({ id: profiles.id, displayName: profiles.displayName }).from(profiles).where(eq(profiles.id, c.parentProfileId)).limit(1))[0] : null
+                return { ...c, profiles: parent }
+            }))
         }
 
         if (type === 'profiles') {
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select(`
-          id,
-          display_name,
-          first_name,
-          last_name,
-          role,
-          line_user_id,
-          created_at,
-          updated_at
-        `)
-                .eq('role', 'parent')
-                .order('created_at', { ascending: false })
+            data = await db
+                .select()
+                .from(profiles)
+                .where(eq(profiles.role, 'parent'))
+                .orderBy(desc(profiles.createdAt))
                 .limit(limit)
-
-            if (error) throw error
-            data = profiles || []
         }
 
         return NextResponse.json({ success: true, data, count: data.length })
@@ -127,82 +94,56 @@ export async function DELETE(request: NextRequest) {
         let deletedCount = 0
 
         if (type === 'visit') {
-            // 関連データも削除
-            await supabase.from('questionnaire_responses').delete().eq('visit_id', id)
-            await supabase.from('diagnosis_responses').delete().eq('visit_id', id)
-            await supabase.from('reports').delete().eq('visit_id', id)
-            await supabase.from('visit_photos').delete().eq('visit_id', id)
+            await db.delete(questionnaireResponses).where(eq(questionnaireResponses.visitId, id))
+            await db.delete(diagnosisResponses).where(eq(diagnosisResponses.visitId, id))
+            await db.delete(reports).where(eq(reports.visitId, id))
+            await db.delete(visitPhotos).where(eq(visitPhotos.visitId, id))
 
-            const { count } = await supabase
-                .from('visits')
-                .delete({ count: 'exact' })
-                .eq('id', id)
-            deletedCount = count || 0
+            const result = await db.delete(visits).where(eq(visits.id, id)).returning()
+            deletedCount = result.length
         }
 
         if (type === 'child') {
-            // 関連visitsも削除
-            const { data: childVisits } = await supabase
-                .from('visits')
-                .select('id')
-                .eq('child_id', id)
+            const childVisitRows = await db.select({ id: visits.id }).from(visits).where(eq(visits.childId, id))
+            const visitIds = childVisitRows.map(v => v.id)
 
-            if (childVisits) {
-                for (const v of childVisits) {
-                    await supabase.from('questionnaire_responses').delete().eq('visit_id', v.id)
-                    await supabase.from('diagnosis_responses').delete().eq('visit_id', v.id)
-                    await supabase.from('reports').delete().eq('visit_id', v.id)
-                    await supabase.from('visit_photos').delete().eq('visit_id', v.id)
-                }
-                await supabase.from('visits').delete().in('id', childVisits.map(v => v.id))
+            if (visitIds.length > 0) {
+                await db.delete(questionnaireResponses).where(inArray(questionnaireResponses.visitId, visitIds))
+                await db.delete(diagnosisResponses).where(inArray(diagnosisResponses.visitId, visitIds))
+                await db.delete(reports).where(inArray(reports.visitId, visitIds))
+                await db.delete(visitPhotos).where(inArray(visitPhotos.visitId, visitIds))
+                await db.delete(visits).where(inArray(visits.id, visitIds))
             }
 
-            const { count } = await supabase
-                .from('children')
-                .delete({ count: 'exact' })
-                .eq('id', id)
-            deletedCount = count || 0
+            const result = await db.delete(children).where(eq(children.id, id)).returning()
+            deletedCount = result.length
         }
 
         if (type === 'profile') {
-            // 関連children, visitsも削除（カスケード）
-            const { data: profileChildren } = await supabase
-                .from('children')
-                .select('id')
-                .eq('parent_profile_id', id)
+            const childRows = await db.select({ id: children.id }).from(children).where(eq(children.parentProfileId, id))
+            const childIds = childRows.map(c => c.id)
 
-            if (profileChildren) {
-                for (const c of profileChildren) {
-                    const { data: childVisits } = await supabase
-                        .from('visits')
-                        .select('id')
-                        .eq('child_id', c.id)
+            if (childIds.length > 0) {
+                const visitRows = await db.select({ id: visits.id }).from(visits).where(inArray(visits.childId, childIds))
+                const visitIds = visitRows.map(v => v.id)
 
-                    if (childVisits) {
-                        for (const v of childVisits) {
-                            await supabase.from('questionnaire_responses').delete().eq('visit_id', v.id)
-                            await supabase.from('diagnosis_responses').delete().eq('visit_id', v.id)
-                            await supabase.from('reports').delete().eq('visit_id', v.id)
-                            await supabase.from('visit_photos').delete().eq('visit_id', v.id)
-                        }
-                        await supabase.from('visits').delete().in('id', childVisits.map(v => v.id))
-                    }
+                if (visitIds.length > 0) {
+                    await db.delete(questionnaireResponses).where(inArray(questionnaireResponses.visitId, visitIds))
+                    await db.delete(diagnosisResponses).where(inArray(diagnosisResponses.visitId, visitIds))
+                    await db.delete(reports).where(inArray(reports.visitId, visitIds))
+                    await db.delete(visitPhotos).where(inArray(visitPhotos.visitId, visitIds))
+                    await db.delete(visits).where(inArray(visits.id, visitIds))
                 }
-                await supabase.from('children').delete().in('id', profileChildren.map(c => c.id))
+                await db.delete(children).where(inArray(children.id, childIds))
             }
 
-            const { count } = await supabase
-                .from('profiles')
-                .delete({ count: 'exact' })
-                .eq('id', id)
-            deletedCount = count || 0
+            const result = await db.delete(profiles).where(eq(profiles.id, id)).returning()
+            deletedCount = result.length
         }
-
-        console.log('[Data Delete]', { type, id, deletedCount })
 
         return NextResponse.json({ success: true, deletedCount })
     } catch (error) {
-        console.error('[Data Delete] Error:', error)
+        console.error('[Data List DELETE] Error:', error)
         return NextResponse.json({ success: false, error: 'server_error' }, { status: 500 })
     }
 }
