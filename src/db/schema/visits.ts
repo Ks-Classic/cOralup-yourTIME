@@ -52,9 +52,14 @@ export const reports = pgTable('reports', {
     id: uuid('id').primaryKey().defaultRandom(),
     visitId: uuid('visit_id').references(() => visits.id, { onDelete: 'cascade' }),
     sessionId: varchar('session_id', { length: 50 }),
+    diagnosisId: uuid('diagnosis_id'), // diagnosisへの参照用
     reportType: varchar('report_type', { length: 50 }),
+    status: varchar('status', { length: 50 }), // completed, sent 等
     content: text('content'),
     aiSummary: text('ai_summary'),
+    ageConsideration: text('age_consideration'),
+    postureAnalysis: jsonb('posture_analysis'),
+    oralAnalysis: jsonb('oral_analysis'),
     generatedAt: timestamp('generated_at', { withTimezone: true }),
     sentToLine: boolean('sent_to_line').default(false),
     sentAt: timestamp('sent_at', { withTimezone: true }),

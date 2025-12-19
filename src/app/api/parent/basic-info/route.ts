@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { profiles, children, visits } from '@/db/schema'
+import { eq, or, and, inArray } from 'drizzle-orm'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic'
 
 interface BasicInfoRequest {
   lineUserId: string
   sessionId?: string
   childId?: string  // 既存の子供を更新する場合に指定
-  parentName: string
+  parentName?: string
   parentLastName?: string
   parentFirstName?: string
   parentLastNameKana?: string
   parentFirstNameKana?: string
   parentPhone: string
-  childName: string
+  childName?: string
   childLastName?: string
   childFirstName?: string
   childFurigana?: string
@@ -66,123 +65,90 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. 親プロフィールを取得または作成（role='parent' または secondary_role='parent'）
-    let { data: profile } = await supabase
-      .from('profiles')
-      .select('id, role, secondary_role')
-      .eq('line_user_id', lineUserId)
-      .or('role.eq.parent,secondary_role.eq.parent')
-      .single()
+    const profileRows = await db
+      .select()
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.lineUserId, lineUserId),
+          or(eq(profiles.role, 'parent'), eq(profiles.secondaryRole, 'parent'))
+        )
+      )
+      .limit(1)
+
+    let profile = profileRows[0]
 
     if (!profile) {
       // 新規作成
-      const { data: newProfile, error: createError } = await supabase
-        .from('profiles')
-        .insert({
-          line_user_id: lineUserId,
+      const insertedProfiles = await db
+        .insert(profiles)
+        .values({
+          lineUserId,
           role: 'parent',
-          first_name: parentFirstName,
-          last_name: parentLastName,
-          first_name_kana: parentFirstNameKana,
-          last_name_kana: parentLastNameKana,
-          phone_number: parentPhone,
+          firstName: parentFirstName,
+          lastName: parentLastName,
+          firstNameKana: parentFirstNameKana,
+          lastNameKana: parentLastNameKana,
+          phoneNumber: parentPhone,
           prefecture,
-          is_active: true,
-        })
-        .select()
-        .single()
-
-      if (createError) {
-        console.error('[Basic Info] Profile create error:', createError)
-        return NextResponse.json(
-          { success: false, error: 'profile_creation_failed' },
-          { status: 500 }
-        )
-      }
-
-      profile = newProfile
+          isActive: true,
+        } as typeof profiles.$inferInsert)
+        .returning()
+      profile = insertedProfiles[0]
     } else {
       // 更新
-      await supabase
-        .from('profiles')
-        .update({
-          first_name: parentFirstName,
-          last_name: parentLastName,
-          first_name_kana: parentFirstNameKana,
-          last_name_kana: parentLastNameKana,
-          phone_number: parentPhone,
+      const updatedProfiles = await db
+        .update(profiles)
+        .set({
+          firstName: parentFirstName,
+          lastName: parentLastName,
+          firstNameKana: parentFirstNameKana,
+          lastNameKana: parentLastNameKana,
+          phoneNumber: parentPhone,
           prefecture,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id)
+          updatedAt: new Date(),
+        } as Partial<typeof profiles.$inferInsert>)
+        .where(eq(profiles.id, profile.id))
+        .returning()
+      profile = updatedProfiles[0]
     }
 
     // 2. 子供情報を処理
-    // childIdが指定されていれば既存の子供を更新、なければ新規作成
-    let child: { id: string } | null = null
-
-    // 年齢（月）を計算
     const birthday = new Date(childBirthday)
     const now = new Date()
     const ageMonths = (now.getFullYear() - birthday.getFullYear()) * 12 + (now.getMonth() - birthday.getMonth())
 
-    if (childId) {
-      // 既存の子供を更新
-      const { data: existingChild, error: fetchError } = await supabase
-        .from('children')
-        .select('id')
-        .eq('id', childId)
-        .eq('parent_profile_id', profile.id)
-        .single()
+    let childIdToUse = childId
+    let child
 
-      if (fetchError || !existingChild) {
-        console.error('[Basic Info] Child not found:', childId)
-        return NextResponse.json(
-          { success: false, error: 'child_not_found' },
-          { status: 404 }
-        )
-      }
+    const childData = {
+      parentProfileId: profile.id,
+      firstName: childFirstName,
+      lastName: childLastName,
+      firstNameKana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
+      lastNameKana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
+      birthday: childBirthday,
+      gender: childGender,
+      nickname: childNickname,
+      updatedAt: new Date(),
+    }
 
-      await supabase
-        .from('children')
-        .update({
-          first_name: childFirstName,
-          last_name: childLastName,
-          first_name_kana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
-          last_name_kana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
-          birthday: childBirthday,
-          gender: childGender,
-          nickname: childNickname,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', childId)
+    if (childIdToUse) {
+      const updatedChildren = await db
+        .update(children)
+        .set(childData as Partial<typeof children.$inferInsert>)
+        .where(and(eq(children.id, childIdToUse), eq(children.parentProfileId, profile.id)))
+        .returning()
+      child = updatedChildren[0]
+    }
 
-      child = existingChild
-    } else {
-      // 新規作成（常に新しい子供を作成）
-      const { data: newChild, error: childError } = await supabase
-        .from('children')
-        .insert({
-          parent_profile_id: profile.id,
-          first_name: childFirstName,
-          last_name: childLastName,
-          first_name_kana: childFirstNameKana || childFurigana?.split(/\s+/)[1] || childFurigana,
-          last_name_kana: childLastNameKana || childFurigana?.split(/\s+/)[0] || '',
-          birthday: childBirthday,
-          gender: childGender,
-          nickname: childNickname,
-        })
-        .select()
-        .single()
-
-      if (childError) {
-        console.error('[Basic Info] Child create error:', childError)
-        return NextResponse.json(
-          { success: false, error: 'child_creation_failed' },
-          { status: 500 }
-        )
-      }
-
-      child = newChild
+    if (!child) {
+      const insertedChildren = await db
+        .insert(children)
+        .values(childData as typeof children.$inferInsert)
+        .returning()
+      child = insertedChildren[0]
+      childIdToUse = child.id
     }
 
     // 3. セッションとvisitを処理
@@ -190,58 +156,53 @@ export async function POST(request: NextRequest) {
     let visitId: string | null = null
 
     if (sessionId) {
-      // 既存セッションのvisitを更新（問診中のもののみ許可）
-      const { data: existingVisit } = await supabase
-        .from('visits')
-        .select('id')
-        .eq('session_id', sessionId)
-        .in('status', ['waiting', 'questionnaire_in_progress', 'in_progress'])
-        .single()
+      const existingVisitRows = await db
+        .select({ id: visits.id })
+        .from(visits)
+        .where(
+          and(
+            eq(visits.sessionId, sessionId),
+            inArray(visits.status, ['waiting', 'questionnaire_in_progress', 'in_progress'])
+          )
+        )
+        .limit(1)
+
+      const existingVisit = existingVisitRows[0]
 
       if (existingVisit) {
         visitId = existingVisit.id
-        await supabase
-          .from('visits')
-          .update({
-            child_id: child.id,
-            child_age_months: ageMonths,
+        await db
+          .update(visits)
+          .set({
+            childId: child.id,
+            childAgeMonths: ageMonths,
             status: 'in_progress',
-            current_step: 'questionnaire_started',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingVisit.id)
+            currentStep: 'questionnaire_started',
+            updatedAt: new Date(),
+          } as Partial<typeof visits.$inferInsert>)
+          .where(eq(visits.id, visitId))
       }
     }
 
     // visitがなければ新規作成
     if (!visitId) {
-      // セッションID生成（後方互換用）
       finalSessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-      // visitsテーブルに作成（sessionsテーブルは廃止、visit_idを主キーとして使用）
-      const { data: newVisit, error: visitError } = await supabase
-        .from('visits')
-        .insert({
-          session_id: finalSessionId,
-          child_id: child.id,
-          child_age_months: ageMonths,
-          event_id: process.env.DEFAULT_EVENT_ID || null,
-          organization_id: process.env.CORALUP_ORG_ID || null,
+      const insertedVisits = await db
+        .insert(visits)
+        .values({
+          sessionId: finalSessionId,
+          childId: child.id,
+          childAgeMonths: ageMonths,
+          eventId: (process.env.DEFAULT_EVENT_ID as any) || null,
+          organizationId: (process.env.CORALUP_ORG_ID as any) || null,
           status: 'in_progress',
-          current_step: 'questionnaire_started',
-          visit_date: new Date().toISOString(),
-        })
-        .select()
-        .single()
-
-      if (visitError) {
-        console.error('[Basic Info] Visit create error:', visitError)
-      } else {
-        visitId = newVisit.id
-      }
+          currentStep: 'questionnaire_started',
+          visitDate: new Date(),
+        } as typeof visits.$inferInsert)
+        .returning()
+      visitId = insertedVisits[0].id
     }
-
-    // console.log('[Basic Info] Saved:', { profileId: profile.id, childId: child.id, visitId, sessionId: finalSessionId })
 
     return NextResponse.json({
       success: true,

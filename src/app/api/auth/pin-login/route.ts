@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { profiles } from '@/db/schema'
+import { eq, or, and } from 'drizzle-orm'
 import { createStaffSessionToken } from '@/lib/staff-auth'
 
 // 環境変数からPINを取得
-const STAFF_PIN = process.env.STAFF_PIN || '0000'
+const STAFF_PIN = process.env.STAFF_PIN_CODE || process.env.STAFF_PIN || '1234'
 
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic'
 
 /**
  * POST: PIN + スタッフIDでログイン
@@ -35,22 +33,27 @@ export async function POST(request: NextRequest) {
         }
 
         // スタッフ情報取得
-        const { data: staff, error } = await supabase
-            .from('profiles')
-            .select('id, display_name, first_name, last_name, role, secondary_role, is_active')
-            .eq('id', staffId)
-            .or('role.eq.staff,secondary_role.eq.staff')
-            .single()
+        const staffRows = await db
+            .select()
+            .from(profiles)
+            .where(
+                and(
+                    eq(profiles.id, staffId),
+                    or(eq(profiles.role, 'staff'), eq(profiles.secondaryRole, 'staff'))
+                )
+            )
+            .limit(1)
 
-        if (error || !staff) {
-            // console.log('[PIN Login] Staff not found:', staffId)
+        const staff = staffRows[0]
+
+        if (!staff) {
             return NextResponse.json(
                 { success: false, error: 'Staff not found' },
                 { status: 404 }
             )
         }
 
-        if (staff.is_active === false) {
+        if (staff.isActive === false) {
             return NextResponse.json(
                 { success: false, error: 'Account inactive' },
                 { status: 403 }
@@ -59,24 +62,22 @@ export async function POST(request: NextRequest) {
 
         // スタッフ名を決定
         const staffName =
-            staff.display_name ||
-            `${staff.last_name || ''}${staff.first_name || ''}`.trim() ||
+            staff.displayName ||
+            `${staff.lastName || ''}${staff.firstName || ''}`.trim() ||
             'スタッフ'
 
         // セッショントークン生成
         const token = await createStaffSessionToken({
             staffId: staff.id,
             staffName,
-            role: staff.role || 'staff',
+            role: (staff.role as string) || 'staff',
         })
 
         // 最終活動日時を更新
-        await supabase
-            .from('profiles')
-            .update({ last_activity_at: new Date().toISOString() })
-            .eq('id', staff.id)
-
-        // console.log('[PIN Login] Login successful:', staffName)
+        await db
+            .update(profiles)
+            .set({ lastActivityAt: new Date() } as Partial<typeof profiles.$inferInsert>)
+            .where(eq(profiles.id, staff.id))
 
         // Cookie設定してレスポンス
         const response = NextResponse.json({
