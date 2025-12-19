@@ -54,3 +54,6 @@ export {
     aiPrompts,
     aiAnalysisLogs,
 } from './schema'
+
+// Re-export drizzle-orm operators for convenience
+export { eq, ne, gt, gte, lt, lte, like, ilike, and, or, not, inArray, isNull, isNotNull, sql, asc, desc } from 'drizzle-orm'
