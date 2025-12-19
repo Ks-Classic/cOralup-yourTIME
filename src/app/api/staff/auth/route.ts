@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient, isMockMode } from '@/lib/supabase'
+import { db } from '@/db'
+import { profiles } from '@/db/schema'
+import { or, eq } from 'drizzle-orm'
+import { isMockMode } from '@/lib/supabase'
 
 // キャッシュを無効化して、毎回最新のDBからスタッフを取得
 export const dynamic = 'force-dynamic'
@@ -42,30 +45,40 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Supabaseからスタッフ一覧を取得（role='staff' または secondary_role='staff'）
-    const supabase = createServerSupabaseClient()
-    const { data: staffList, error } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, avatar_url, role, secondary_role')
-      .or('role.eq.staff,secondary_role.eq.staff')
-      .order('last_name')
-
-    if (error) {
-      console.error('スタッフ一覧取得エラー:', error)
-      return NextResponse.json(
-        { success: false, error: 'db_error', message: 'スタッフ情報の取得に失敗しました' },
-        { status: 500 }
+    // DBからスタッフ一覧を取得（role='staff' または secondary_role='staff'）
+    const staffRows = await db
+      .select({
+        id: profiles.id,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        avatarUrl: profiles.avatarUrl,
+        role: profiles.role,
+        secondaryRole: profiles.secondaryRole,
+      })
+      .from(profiles)
+      .where(
+        or(eq(profiles.role, 'staff'), eq(profiles.secondaryRole, 'staff'))
       )
-    }
+      .orderBy(profiles.lastName)
 
     // スタッフが登録されていない場合はモックデータを返す
-    if (!staffList || staffList.length === 0) {
+    if (!staffRows || staffRows.length === 0) {
       return NextResponse.json({
         success: true,
         staffList: mockStaffList,
         isMock: true,
       })
     }
+
+    // Supabase形式に変換
+    const staffList = staffRows.map(s => ({
+      id: s.id,
+      first_name: s.firstName,
+      last_name: s.lastName,
+      avatar_url: s.avatarUrl,
+      role: s.role,
+      secondary_role: s.secondaryRole,
+    }))
 
     return NextResponse.json({
       success: true,
@@ -79,4 +92,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

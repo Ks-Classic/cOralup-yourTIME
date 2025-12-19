@@ -20,6 +20,7 @@ export const visits = pgTable('visits', {
     status: varchar('status', { length: 50 }).default('active'),
     currentStep: varchar('current_step', { length: 50 }),
     stepTimestamps: jsonb('step_timestamps'),
+    receptionNumber: varchar('reception_number', { length: 20 }),
     lineUserId: varchar('line_user_id', { length: 255 }),
     boothNumber: integer('booth_number'),
     errorInfo: jsonb('error_info'),

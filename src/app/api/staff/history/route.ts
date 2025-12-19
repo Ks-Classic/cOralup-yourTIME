@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits, children } from '@/db/schema'
+import { eq, desc } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 
 export const dynamic = 'force-dynamic'
-
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * GET: スタッフの対応履歴を取得
@@ -28,36 +24,64 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    const { data, error, count } = await supabase
-      .from('visits')
-      .select(
-        `
-        id,
-        visit_date,
-        status,
-        session_id,
-        reception_number,
-        children (
-          id,
-          first_name,
-          last_name,
-          birthday
-        )
-      `,
-        { count: 'exact' }
-      )
-      .eq('staff_profile_id', session.staffId)
-      .order('visit_date', { ascending: false })
-      .range(offset, offset + limit - 1)
+    // Get visits for this staff
+    const visitRows = await db
+      .select({
+        id: visits.id,
+        visitDate: visits.visitDate,
+        status: visits.status,
+        sessionId: visits.sessionId,
+        receptionNumber: visits.receptionNumber,
+        childId: visits.childId,
+      })
+      .from(visits)
+      .where(eq(visits.staffProfileId, session.staffId))
+      .orderBy(desc(visits.visitDate))
+      .limit(limit)
+      .offset(offset)
 
-    if (error) {
-      console.error('[Staff History API] Error:', error)
-      throw error
-    }
+    // Get children for each visit
+    const data = await Promise.all(
+      visitRows.map(async (v) => {
+        let childData = null
+        if (v.childId) {
+          const childRows = await db
+            .select({
+              id: children.id,
+              firstName: children.firstName,
+              lastName: children.lastName,
+              birthday: children.birthday,
+            })
+            .from(children)
+            .where(eq(children.id, v.childId))
+            .limit(1)
+          childData = childRows[0] || null
+        }
+        return {
+          id: v.id,
+          visit_date: v.visitDate,
+          status: v.status,
+          session_id: v.sessionId,
+          reception_number: v.receptionNumber,
+          children: childData ? {
+            id: childData.id,
+            first_name: childData.firstName,
+            last_name: childData.lastName,
+            birthday: childData.birthday,
+          } : null,
+        }
+      })
+    )
+
+    // Get total count
+    const countRows = await db
+      .select({ id: visits.id })
+      .from(visits)
+      .where(eq(visits.staffProfileId, session.staffId))
 
     return NextResponse.json({
       data,
-      total: count,
+      total: countRows.length,
       limit,
       offset,
     })
@@ -69,13 +93,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
-
-
-
-
-
-
-
-
-

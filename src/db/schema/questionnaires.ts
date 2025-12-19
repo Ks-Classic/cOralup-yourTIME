@@ -37,6 +37,26 @@ export const questionnaireItems = pgTable('questionnaire_items', {
 })
 
 // ========================================
+// Questionnaires (問診票 - レガシー, JSONB形式)
+// ========================================
+export const questionnaires = pgTable('questionnaires', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: varchar('session_id', { length: 50 }).unique(),
+    visitId: uuid('visit_id').references(() => visits.id),
+    childName: varchar('child_name', { length: 100 }).notNull(),
+    childAge: integer('child_age').notNull(),
+    childGender: varchar('child_gender', { length: 10 }).notNull(),
+    parentName: varchar('parent_name', { length: 100 }).notNull(),
+    parentPhone: varchar('parent_phone', { length: 20 }).notNull(),
+    medicalHistory: text('medical_history').array(),
+    concerns: text('concerns').array(),
+    idealGoals: text('ideal_goals').array(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
+// ========================================
 // Questionnaire Responses (問診回答)
 // ========================================
 export const questionnaireResponses = pgTable('questionnaire_responses', {

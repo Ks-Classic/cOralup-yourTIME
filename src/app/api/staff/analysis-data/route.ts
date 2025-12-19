@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { db } from '@/db'
+import { visits, questionnaires, diagnoses, reports } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 /**
  * GET /api/staff/analysis-data?sessionId=xxx
@@ -22,39 +19,77 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // セッションデータを取得
-    const { data: session, error: sessionError } = await supabase
-      .from('visits')
-      .select('*')
-      .eq('id', sessionId)
-      .single()
+    // セッションデータを取得（visit_id = sessionId として使用）
+    const sessionRows = await db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, sessionId))
+      .limit(1)
 
-    if (sessionError) {
+    if (sessionRows.length === 0) {
       return NextResponse.json(
         { error: 'セッションが見つかりません' },
         { status: 404 }
       )
     }
 
+    const session = sessionRows[0]
+
     // 問診票データを取得
-    const { data: questionnaire } = await supabase
-      .from('questionnaires')
-      .select('*')
-      .eq('session_id', session.session_id)
-      .single()
+    let questionnaire = null
+    if (session.sessionId) {
+      const qRows = await db
+        .select()
+        .from(questionnaires)
+        .where(eq(questionnaires.sessionId, session.sessionId))
+        .limit(1)
+      questionnaire = qRows[0] || null
+    }
 
     // 診断データを取得
-    const { data: diagnosis } = await supabase
-      .from('diagnoses')
-      .select('*')
-      .eq('session_id', session.session_id)
-      .single()
+    let diagnosis = null
+    if (session.sessionId) {
+      const dRows = await db
+        .select()
+        .from(diagnoses)
+        .where(eq(diagnoses.sessionId, session.sessionId))
+        .limit(1)
+      diagnosis = dRows[0] || null
+    }
 
     return NextResponse.json({
       success: true,
-      session,
-      questionnaire: questionnaire || null,
-      diagnosis: diagnosis || null,
+      session: {
+        id: session.id,
+        session_id: session.sessionId,
+        status: session.status,
+        visit_date: session.visitDate,
+        child_age_months: session.childAgeMonths,
+        current_step: session.currentStep,
+      },
+      questionnaire: questionnaire ? {
+        id: questionnaire.id,
+        session_id: questionnaire.sessionId,
+        child_name: questionnaire.childName,
+        child_age: questionnaire.childAge,
+        child_gender: questionnaire.childGender,
+        parent_name: questionnaire.parentName,
+        parent_phone: questionnaire.parentPhone,
+        medical_history: questionnaire.medicalHistory,
+        concerns: questionnaire.concerns,
+        ideal_goals: questionnaire.idealGoals,
+        notes: questionnaire.notes,
+      } : null,
+      diagnosis: diagnosis ? {
+        id: diagnosis.id,
+        session_id: diagnosis.sessionId,
+        posture_analysis: diagnosis.postureAnalysis,
+        oral_analysis: diagnosis.oralAnalysis,
+        diagnosis_items: diagnosis.diagnosisItems,
+        ai_analysis: diagnosis.aiAnalysis,
+        staff_notes: diagnosis.staffNotes,
+        photos: diagnosis.photos,
+      } : null,
     })
   } catch (error) {
     console.error('[AnalysisData GET] エラー:', error)
@@ -82,31 +117,19 @@ export async function POST(request: NextRequest) {
     }
 
     // レポートを保存
-    const { error: reportError } = await supabase
-      .from('reports')
-      .insert([{
-        session_id: session_id,
-        pdf_url: '',
-        status: 'sent',
-      }])
-
-    if (reportError) {
-      console.error('[AnalysisData POST] レポート保存エラー:', reportError)
-      return NextResponse.json(
-        { error: 'レポートの保存に失敗しました' },
-        { status: 500 }
-      )
-    }
+    await db
+      .insert(reports)
+      .values({
+        sessionId: session_id,
+        reportType: 'diagnosis',
+        content: '',
+      } as typeof reports.$inferInsert)
 
     // セッションステータスを更新
-    const { error: sessionError } = await supabase
-      .from('visits')
-      .update({ status: 'completed' })
-      .eq('id', sessionId)
-
-    if (sessionError) {
-      console.error('[AnalysisData POST] セッション更新エラー:', sessionError)
-    }
+    await db
+      .update(visits)
+      .set({ status: 'completed' } as Partial<typeof visits.$inferInsert>)
+      .where(eq(visits.id, sessionId))
 
     return NextResponse.json({
       success: true,
@@ -119,4 +142,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

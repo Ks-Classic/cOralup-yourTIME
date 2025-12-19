@@ -48,9 +48,11 @@ export {
     questionnaireCategories,
     questionnaireItems,
     questionnaireResponses,
+    questionnaires,
     diagnosisCategories,
     diagnosisItems,
     diagnosisResponses,
+    diagnoses,
     aiPrompts,
     aiAnalysisLogs,
 } from './schema'

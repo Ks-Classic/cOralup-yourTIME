@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { profiles } from '@/db/schema'
+import { or, eq, asc } from 'drizzle-orm'
 
 // キャッシュを無効化して、毎回最新のDBからスタッフを取得
 export const dynamic = 'force-dynamic'
-
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * GET: スタッフ一覧を取得
@@ -16,29 +12,30 @@ const supabase = createClient(
 export async function GET() {
     try {
         // role='staff' または secondary_role='staff' かつ is_active=true のスタッフを取得
-        const { data: staffList, error } = await supabase
-            .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url')
-            .or('role.eq.staff,secondary_role.eq.staff')
-            .eq('is_active', true)
-            .order('display_name', { ascending: true })
-
-        if (error) {
-            console.error('[Staff List] Error:', error)
-            return NextResponse.json(
-                { error: 'Failed to fetch staff list' },
-                { status: 500 }
+        const staffRows = await db
+            .select({
+                id: profiles.id,
+                displayName: profiles.displayName,
+                firstName: profiles.firstName,
+                lastName: profiles.lastName,
+                avatarUrl: profiles.avatarUrl,
+                isActive: profiles.isActive,
+            })
+            .from(profiles)
+            .where(
+                or(eq(profiles.role, 'staff'), eq(profiles.secondaryRole, 'staff'))
             )
-        }
+            .orderBy(asc(profiles.displayName))
+
+        // isActiveでフィルタリング
+        const activeStaff = staffRows.filter(s => s.isActive !== false)
 
         // 表示名を整形
-        const staff = (staffList || []).map(s => ({
+        const staff = activeStaff.map(s => ({
             id: s.id,
-            name: s.display_name || `${s.last_name || ''} ${s.first_name || ''}`.trim() || 'スタッフ',
-            avatarUrl: s.avatar_url,
+            name: s.displayName || `${s.lastName || ''} ${s.firstName || ''}`.trim() || 'スタッフ',
+            avatarUrl: s.avatarUrl,
         }))
-
-        // console.log('[Staff List] Fetched:', staff.length, 'staff members')
 
         return NextResponse.json({ staff })
     } catch (error) {

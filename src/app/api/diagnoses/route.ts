@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/db'
+import { diagnoses, diagnosisResponses, visits } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +12,7 @@ export async function POST(request: NextRequest) {
       sessionId,
       postureAnalysis,
       oralAnalysis,
-      diagnosisItems,
+      diagnosisItems: diagnosisItemsData,
       staffNotes,
       photos = [],
     } = body
@@ -23,71 +25,88 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. 診断結果の保存 (旧互換テーブル)
-    const { data: diagnosis, error } = await supabase
-      .from('diagnoses')
-      .upsert([
-        {
-          session_id: sessionId,
-          posture_analysis: postureAnalysis,
-          oral_analysis: oralAnalysis,
-          diagnosis_items: diagnosisItems,
-          staff_notes: staffNotes,
-          photos: photos,
-        }
-      ], { onConflict: 'session_id' })
-      .select()
-      .single()
+    // 1. 診断結果の保存 (旧互換テーブル) - upsert
+    const existingRows = await db
+      .select({ id: diagnoses.id })
+      .from(diagnoses)
+      .where(eq(diagnoses.sessionId, sessionId))
+      .limit(1)
 
-    if (error) {
-      console.error('Error saving diagnosis:', error)
-      return NextResponse.json(
-        { error: '診断結果の保存に失敗しました' },
-        { status: 500 }
-      )
+    let diagnosis
+    if (existingRows.length > 0) {
+      // Update
+      const updatedRows = await db
+        .update(diagnoses)
+        .set({
+          postureAnalysis,
+          oralAnalysis,
+          diagnosisItems: diagnosisItemsData,
+          staffNotes,
+          photos,
+          updatedAt: new Date(),
+        } as Partial<typeof diagnoses.$inferInsert>)
+        .where(eq(diagnoses.sessionId, sessionId))
+        .returning()
+      diagnosis = updatedRows[0]
+    } else {
+      // Insert
+      const insertedRows = await db
+        .insert(diagnoses)
+        .values({
+          sessionId,
+          postureAnalysis,
+          oralAnalysis,
+          diagnosisItems: diagnosisItemsData,
+          staffNotes,
+          photos,
+        } as typeof diagnoses.$inferInsert)
+        .returning()
+      diagnosis = insertedRows[0]
     }
 
     // 2. 診断項目別回答の保存 (正規化テーブル)
-    if (diagnosisItems && Object.keys(diagnosisItems).length > 0) {
-      const responseRecords = Object.entries(diagnosisItems).map(([itemId, value]) => {
-        // 値のシリアライズ: オブジェクトや配列はJSON文字列化
-        let serializedValue = value;
+    if (diagnosisItemsData && Object.keys(diagnosisItemsData).length > 0) {
+      for (const [itemId, value] of Object.entries(diagnosisItemsData)) {
+        let serializedValue = value
         if (typeof value === 'object' && value !== null) {
-          serializedValue = JSON.stringify(value);
+          serializedValue = JSON.stringify(value)
         } else {
-          serializedValue = String(value);
+          serializedValue = String(value)
         }
 
-        return {
-          session_id: sessionId,
-          item_id: itemId,
-          value: serializedValue,
-          answered_at: new Date().toISOString(),
-          // metadata: 今後写真情報などをここに関連付ける場合は追加
-        };
-      });
+        // Upsert for each response
+        const existingResponse = await db
+          .select({ id: diagnosisResponses.id })
+          .from(diagnosisResponses)
+          .where(eq(diagnosisResponses.sessionId, sessionId))
+          .limit(1)
 
-      // itemIdの重複（同じセッション内）を考慮してupsertを使用
-      const { error: responseError } = await supabase
-        .from('diagnosis_responses')
-        .upsert(responseRecords, { onConflict: 'session_id, item_id' });
-
-      if (responseError) {
-        console.error('Error saving diagnosis responses:', responseError);
-        // 正規化テーブルへの保存失敗はログに残すが、処理自体は一旦成功として返すか、エラーにするか判断が必要。
-        // ここではデータの整合性を重視してエラー応答とする
-        return NextResponse.json(
-          { error: '詳細データの保存に失敗しました' },
-          { status: 500 }
-        )
+        if (existingResponse.length > 0) {
+          await db
+            .update(diagnosisResponses)
+            .set({
+              value: serializedValue as string,
+              answeredAt: new Date(),
+            } as Partial<typeof diagnosisResponses.$inferInsert>)
+            .where(eq(diagnosisResponses.sessionId, sessionId))
+        } else {
+          await db
+            .insert(diagnosisResponses)
+            .values({
+              sessionId,
+              itemId,
+              value: serializedValue as string,
+              answeredAt: new Date(),
+            } as typeof diagnosisResponses.$inferInsert)
+        }
       }
     }
 
     // セッションのステータスを更新
-    await supabase
-      .from('visits')
-      .update({ status: 'completed' })
-      .eq('session_id', sessionId)
+    await db
+      .update(visits)
+      .set({ status: 'completed' } as Partial<typeof visits.$inferInsert>)
+      .where(eq(visits.sessionId, sessionId))
 
     return NextResponse.json(diagnosis, { status: 201 })
   } catch (error) {
@@ -111,21 +130,35 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { data: diagnosis, error } = await supabase
-      .from('diagnoses')
-      .select('*')
-      .eq('session_id', sessionId)
-      .single()
+    const diagnosisRows = await db
+      .select()
+      .from(diagnoses)
+      .where(eq(diagnoses.sessionId, sessionId))
+      .limit(1)
 
-    if (error) {
-      console.error('Error fetching diagnosis:', error)
+    if (diagnosisRows.length === 0) {
       return NextResponse.json(
-        { error: '診断結果の取得に失敗しました' },
-        { status: 500 }
+        { error: '診断結果が見つかりません' },
+        { status: 404 }
       )
     }
 
-    return NextResponse.json(diagnosis)
+    const result = diagnosisRows[0]
+
+    // Supabase形式に変換
+    return NextResponse.json({
+      id: result.id,
+      session_id: result.sessionId,
+      visit_id: result.visitId,
+      posture_analysis: result.postureAnalysis,
+      oral_analysis: result.oralAnalysis,
+      diagnosis_items: result.diagnosisItems,
+      ai_analysis: result.aiAnalysis,
+      staff_notes: result.staffNotes,
+      photos: result.photos,
+      created_at: result.createdAt,
+      updated_at: result.updatedAt,
+    })
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(
@@ -148,63 +181,78 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { postureAnalysis, oralAnalysis, diagnosisItems, staffNotes, photos } = body
+    const { postureAnalysis, oralAnalysis, diagnosisItems: diagnosisItemsData, staffNotes, photos } = body
 
     // 1. 診断結果の更新 (旧互換テーブル)
-    const { data: diagnosis, error } = await supabase
-      .from('diagnoses')
-      .update({
-        posture_analysis: postureAnalysis,
-        oral_analysis: oralAnalysis,
-        diagnosis_items: diagnosisItems,
-        staff_notes: staffNotes,
-        photos: photos,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('session_id', sessionId)
-      .select()
-      .single()
+    const updatedRows = await db
+      .update(diagnoses)
+      .set({
+        postureAnalysis,
+        oralAnalysis,
+        diagnosisItems: diagnosisItemsData,
+        staffNotes,
+        photos,
+        updatedAt: new Date(),
+      } as Partial<typeof diagnoses.$inferInsert>)
+      .where(eq(diagnoses.sessionId, sessionId))
+      .returning()
 
-    if (error) {
-      console.error('Error updating diagnosis:', error)
+    if (updatedRows.length === 0) {
       return NextResponse.json(
-        { error: '診断結果の更新に失敗しました' },
-        { status: 500 }
+        { error: '診断結果が見つかりません' },
+        { status: 404 }
       )
     }
 
+    const result = updatedRows[0]
+
     // 2. 診断項目別回答の更新 (正規化テーブル)
-    if (diagnosisItems && Object.keys(diagnosisItems).length > 0) {
-      const responseRecords = Object.entries(diagnosisItems).map(([itemId, value]) => {
-        let serializedValue = value;
+    if (diagnosisItemsData && Object.keys(diagnosisItemsData).length > 0) {
+      for (const [itemId, value] of Object.entries(diagnosisItemsData)) {
+        let serializedValue = value
         if (typeof value === 'object' && value !== null) {
-          serializedValue = JSON.stringify(value);
+          serializedValue = JSON.stringify(value)
         } else {
-          serializedValue = String(value);
+          serializedValue = String(value)
         }
 
-        return {
-          session_id: sessionId,
-          item_id: itemId,
-          value: serializedValue,
-          answered_at: new Date().toISOString(),
-        };
-      });
+        const existingResponse = await db
+          .select({ id: diagnosisResponses.id })
+          .from(diagnosisResponses)
+          .where(eq(diagnosisResponses.sessionId, sessionId))
+          .limit(1)
 
-      const { error: responseError } = await supabase
-        .from('diagnosis_responses')
-        .upsert(responseRecords, { onConflict: 'session_id, item_id' });
-
-      if (responseError) {
-        console.error('Error updating diagnosis responses:', responseError);
-        return NextResponse.json(
-          { error: '詳細データの更新に失敗しました' },
-          { status: 500 }
-        )
+        if (existingResponse.length > 0) {
+          await db
+            .update(diagnosisResponses)
+            .set({
+              value: serializedValue as string,
+              answeredAt: new Date(),
+            } as Partial<typeof diagnosisResponses.$inferInsert>)
+            .where(eq(diagnosisResponses.sessionId, sessionId))
+        } else {
+          await db
+            .insert(diagnosisResponses)
+            .values({
+              sessionId,
+              itemId,
+              value: serializedValue as string,
+              answeredAt: new Date(),
+            } as typeof diagnosisResponses.$inferInsert)
+        }
       }
     }
 
-    return NextResponse.json(diagnosis)
+    return NextResponse.json({
+      id: result.id,
+      session_id: result.sessionId,
+      posture_analysis: result.postureAnalysis,
+      oral_analysis: result.oralAnalysis,
+      diagnosis_items: result.diagnosisItems,
+      staff_notes: result.staffNotes,
+      photos: result.photos,
+      updated_at: result.updatedAt,
+    })
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(
@@ -213,4 +261,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

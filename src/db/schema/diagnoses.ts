@@ -40,6 +40,23 @@ export const diagnosisItems = pgTable('diagnosis_items', {
 })
 
 // ========================================
+// Diagnoses (診断結果 - レガシー, JSONB形式)
+// ========================================
+export const diagnoses = pgTable('diagnoses', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: varchar('session_id', { length: 50 }).unique(),
+    visitId: uuid('visit_id').references(() => visits.id),
+    postureAnalysis: jsonb('posture_analysis'),
+    oralAnalysis: jsonb('oral_analysis'),
+    diagnosisItems: jsonb('diagnosis_items'),
+    aiAnalysis: text('ai_analysis'),
+    staffNotes: text('staff_notes'),
+    photos: jsonb('photos'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
+// ========================================
 // Diagnosis Responses (診断回答)
 // ========================================
 export const diagnosisResponses = pgTable('diagnosis_responses', {

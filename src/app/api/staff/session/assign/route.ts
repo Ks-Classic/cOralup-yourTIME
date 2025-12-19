@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 import { logger } from '@/lib/logger'
-
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * POST: QRスキャン時にスタッフを診断セッションに紐付け
@@ -46,31 +42,27 @@ export async function POST(request: NextRequest) {
 
     // sessionIdが渡された場合、visitIdを取得
     if (!targetVisitId && sessionId) {
-      const { data: visit } = await supabase
-        .from('visits')
-        .select('id')
-        .eq('session_id', sessionId)
-        .single()
+      const visitRows = await db
+        .select({ id: visits.id })
+        .from(visits)
+        .where(eq(visits.sessionId, sessionId))
+        .limit(1)
 
-      if (visit) {
-        targetVisitId = visit.id
+      if (visitRows.length > 0) {
+        targetVisitId = visitRows[0].id
       } else {
         // visitsレコードがない場合は作成
-        const { data: newVisit, error: createError } = await supabase
-          .from('visits')
-          .insert({
-            session_id: sessionId,
-            staff_profile_id: staffId,
-            visit_date: new Date().toISOString(),
+        const insertedRows = await db
+          .insert(visits)
+          .values({
+            sessionId: sessionId,
+            staffProfileId: staffId,
+            visitDate: new Date(),
             status: 'in_progress',
-          })
-          .select()
-          .single()
+          } as typeof visits.$inferInsert)
+          .returning()
 
-        if (createError) {
-          logger.error('Error creating visit', logContext, createError)
-          throw createError
-        }
+        const newVisit = insertedRows[0]
 
         logger.info('Created new visit through assignment', {
           ...logContext,
@@ -90,30 +82,31 @@ export async function POST(request: NextRequest) {
 
     // 既存のvisitにスタッフを紐付け
     // ステップタイムスタンプを更新
-    const { data: currentVisit } = await supabase
-      .from('visits')
-      .select('step_timestamps')
-      .eq('id', targetVisitId)
-      .single()
+    const currentVisitRows = await db
+      .select({ stepTimestamps: visits.stepTimestamps })
+      .from(visits)
+      .where(eq(visits.id, targetVisitId))
+      .limit(1)
 
-    const timestamps = (currentVisit?.step_timestamps as Record<string, string>) || {}
+    const timestamps = (currentVisitRows[0]?.stepTimestamps as Record<string, string>) || {}
     timestamps.diagnosis_started = new Date().toISOString()
 
-    const { data: updatedVisit, error: updateError } = await supabase
-      .from('visits')
-      .update({
-        staff_profile_id: staffId,
+    const updatedRows = await db
+      .update(visits)
+      .set({
+        staffProfileId: staffId,
         status: 'in_progress',
-        current_step: 'diagnosis_started',
-        step_timestamps: timestamps,
-      })
-      .eq('id', targetVisitId)
-      .select()
-      .single()
+        currentStep: 'diagnosis_started',
+        stepTimestamps: timestamps,
+      } as Partial<typeof visits.$inferInsert>)
+      .where(eq(visits.id, targetVisitId))
+      .returning()
 
-    if (updateError) {
-      logger.error('Error updating visit', logContext, updateError)
-      throw updateError
+    if (updatedRows.length === 0) {
+      return NextResponse.json(
+        { error: 'Visit not found' },
+        { status: 404 }
+      )
     }
 
     logger.info('Staff assigned to visit', {
@@ -137,4 +130,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
