@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { db } from '@/db'
+import { questionnaireResponses, visits } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 interface QuestionnaireRequest {
   sessionId?: string  // 後方互換用
@@ -31,63 +28,51 @@ export async function POST(request: NextRequest) {
     // visit_idを取得（session_idからフォールバック）
     let resolvedVisitId = visitId
     if (!resolvedVisitId && sessionId) {
-      const { data: visit } = await supabase
-        .from('visits')
-        .select('id')
-        .eq('session_id', sessionId)
-        .single()
-      resolvedVisitId = visit?.id
+      const visitRows = await db
+        .select({ id: visits.id })
+        .from(visits)
+        .where(eq(visits.sessionId, sessionId))
+        .limit(1)
+      resolvedVisitId = visitRows[0]?.id
     }
 
     // 回答をquestionnaire_responsesに保存（visit_id優先）
     const responsesToInsert = Object.entries(answers).map(([itemId, value]) => ({
-      visit_id: resolvedVisitId || null,
-      session_id: sessionId || null,  // 後方互換
-      item_id: itemId,
+      visitId: resolvedVisitId || null,
+      sessionId: sessionId || null,  // 後方互換
+      itemId: itemId,
       value: typeof value === 'object' ? JSON.stringify(value) : String(value),
-      answered_at: new Date().toISOString(),
+      answeredAt: new Date(),
     }))
 
     if (responsesToInsert.length > 0) {
       // 既存の回答を削除してから挿入（upsert代わり）
       if (resolvedVisitId) {
-        await supabase
-          .from('questionnaire_responses')
-          .delete()
-          .eq('visit_id', resolvedVisitId)
+        await db
+          .delete(questionnaireResponses)
+          .where(eq(questionnaireResponses.visitId, resolvedVisitId))
       } else if (sessionId) {
-        await supabase
-          .from('questionnaire_responses')
-          .delete()
-          .eq('session_id', sessionId)
+        await db
+          .delete(questionnaireResponses)
+          .where(eq(questionnaireResponses.sessionId, sessionId))
       }
 
-      const { error: insertError } = await supabase
-        .from('questionnaire_responses')
-        .insert(responsesToInsert)
-
-      if (insertError) {
-        console.error('[Questionnaire] Insert error:', insertError)
-        return NextResponse.json(
-          { success: false, error: 'insert_failed' },
-          { status: 500 }
-        )
-      }
+      await db
+        .insert(questionnaireResponses)
+        .values(responsesToInsert as (typeof questionnaireResponses.$inferInsert)[])
     }
 
     // visitsステータスを更新（Two-Layer Status System）
     if (resolvedVisitId) {
-      await supabase
-        .from('visits')
-        .update({
+      await db
+        .update(visits)
+        .set({
           status: 'in_progress',
-          current_step: 'questionnaire_completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', resolvedVisitId)
+          currentStep: 'questionnaire_completed',
+          updatedAt: new Date(),
+        } as Partial<typeof visits.$inferInsert>)
+        .where(eq(visits.id, resolvedVisitId))
     }
-
-    // console.log('[Questionnaire] Saved:', { visitId: resolvedVisitId, sessionId, answerCount: responsesToInsert.length })
 
     return NextResponse.json({
       success: true,
