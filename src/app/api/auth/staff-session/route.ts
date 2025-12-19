@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { profiles } from '@/db/schema'
+import { eq, or, and } from 'drizzle-orm'
 import {
   createStaffSessionToken,
   setStaffSessionCookie,
@@ -7,11 +9,7 @@ import {
 } from '@/lib/staff-auth'
 import { logger } from '@/lib/logger'
 
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic'
 
 /**
  * POST: LIFFからのセッション発行
@@ -29,14 +27,20 @@ export async function POST(request: NextRequest) {
     }
 
     // DBでスタッフ確認（role='staff' または secondary_role='staff'）
-    const { data: staff, error } = await supabase
-      .from('profiles')
-      .select('id, display_name, first_name, last_name, avatar_url, role, secondary_role, is_active')
-      .eq('line_user_id', lineUserId)
-      .or('role.eq.staff,secondary_role.eq.staff')
-      .single()
+    const staffRows = await db
+      .select()
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.lineUserId, lineUserId),
+          or(eq(profiles.role, 'staff'), eq(profiles.secondaryRole, 'staff'))
+        )
+      )
+      .limit(1)
 
-    if (error || !staff) {
+    const staff = staffRows[0]
+
+    if (!staff) {
       logger.warn('Staff not found in DB', { lineUserId })
       return NextResponse.json(
         { error: 'not_registered' },
@@ -44,7 +48,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (staff.is_active === false) {
+    if (staff.isActive === false) {
       logger.warn('Staff account is inactive', { lineUserId, staffId: staff.id })
       return NextResponse.json(
         { error: 'account_inactive' },
@@ -54,15 +58,15 @@ export async function POST(request: NextRequest) {
 
     // スタッフ名を決定
     const staffName =
-      staff.display_name ||
-      `${staff.last_name || ''}${staff.first_name || ''}`.trim() ||
+      staff.displayName ||
+      `${staff.lastName || ''}${staff.firstName || ''}`.trim() ||
       'スタッフ'
 
     // セッショントークン生成
     const token = await createStaffSessionToken({
       staffId: staff.id,
       staffName,
-      role: staff.role,
+      role: (staff.role as string) || 'staff',
       lineUserId,
     })
 
@@ -70,10 +74,10 @@ export async function POST(request: NextRequest) {
     await setStaffSessionCookie(token)
 
     // 最終活動日時を更新
-    await supabase
-      .from('profiles')
-      .update({ last_activity_at: new Date().toISOString() })
-      .eq('id', staff.id)
+    await db
+      .update(profiles)
+      .set({ lastActivityAt: new Date() } as Partial<typeof profiles.$inferInsert>)
+      .where(eq(profiles.id, staff.id))
 
     logger.info('Staff session created', {
       staffId: staff.id,
@@ -86,7 +90,7 @@ export async function POST(request: NextRequest) {
       staff: {
         id: staff.id,
         name: staffName,
-        avatarUrl: staff.avatar_url,
+        avatarUrl: staff.avatarUrl,
       },
       // 外部ブラウザ用にトークンも返す
       token,
@@ -211,4 +215,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

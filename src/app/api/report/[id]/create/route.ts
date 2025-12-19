@@ -1,26 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { reports } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
-    return null
-  }
-  return createClient(url, key)
-}
-
-// #region agent log
 function getAppUrl() {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
   const fallback = 'https://coralup-yourtime.vercel.app'
-  // 末尾スラッシュを削除して正規化
-  const url = (envUrl || baseUrl || fallback).replace(/\/+$/, '')
-  fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'report/create/route.ts:getAppUrl',message:'ENV values (fixed)',data:{envUrl,baseUrl,normalizedUrl:url},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
-  return url
+  return (envUrl || baseUrl || fallback).replace(/\/+$/, '')
 }
-// #endregion
 
 interface CreateReportRequest {
   visitId: string
@@ -39,53 +27,55 @@ interface CreateReportRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 500 }
-      )
-    }
-
     const body: CreateReportRequest = await request.json()
-    
-    // 既存レポートがあれば更新、なければ作成（upsert）
-    const { data, error } = await supabase
-      .from('reports')
-      .upsert({
-        visit_id: body.visitId,
-        diagnosis_id: body.diagnosisId || null,
-        ai_summary: body.aiSummary,
-        age_consideration: body.ageConsideration,
-        posture_analysis: body.postureAnalysis,
-        oral_analysis: body.oralAnalysis,
-        status: 'draft'
-      }, {
-        onConflict: 'visit_id'
-      })
-      .select()
-      .single()
-    
-    if (error) {
-      console.error('[Report Create] Upsert error:', error)
-      throw error
+
+    // 既存レポートがあるか確認
+    const existingRows = await db
+      .select({ id: reports.id })
+      .from(reports)
+      .where(eq(reports.visitId, body.visitId))
+      .limit(1)
+
+    let report
+
+    const reportData = {
+      visitId: body.visitId,
+      diagnosisId: body.diagnosisId as any || null,
+      aiSummary: body.aiSummary,
+      ageConsideration: body.ageConsideration,
+      postureAnalysis: body.postureAnalysis,
+      oralAnalysis: body.oralAnalysis,
+      status: 'draft',
+      updatedAt: new Date(),
     }
 
-    // URLはvisit_idベース（関数内で環境変数を取得）
+    if (existingRows.length > 0) {
+      // 更新
+      const updatedRows = await db
+        .update(reports)
+        .set(reportData as Partial<typeof reports.$inferInsert>)
+        .where(eq(reports.id, existingRows[0].id))
+        .returning()
+      report = updatedRows[0]
+    } else {
+      // 作成
+      const insertedRows = await db
+        .insert(reports)
+        .values(reportData as typeof reports.$inferInsert)
+        .returning()
+      report = insertedRows[0]
+    }
+
     const appUrl = getAppUrl()
     const reportUrl = `${appUrl}/report/${body.visitId}`
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/23c1c3cb-5ba8-45ac-bbdb-86d5654b9b94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'report/create/route.ts:POST',message:'Generated report URL',data:{appUrl,reportUrl,visitId:body.visitId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    
+
     return NextResponse.json({
       success: true,
-      reportId: data.id,
+      reportId: report.id,
       visitId: body.visitId,
       url: reportUrl
     })
-    
+
   } catch (error) {
     console.error('Report creation error:', error)
     return NextResponse.json(
@@ -94,5 +84,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-
