@@ -19,6 +19,7 @@ export const visits = pgTable('visits', {
     childAgeMonths: integer('child_age_months'),
     status: varchar('status', { length: 50 }).default('active'),
     currentStep: varchar('current_step', { length: 50 }),
+    stepTimestamps: jsonb('step_timestamps'),
     lineUserId: varchar('line_user_id', { length: 255 }),
     boothNumber: integer('booth_number'),
     errorInfo: jsonb('error_info'),

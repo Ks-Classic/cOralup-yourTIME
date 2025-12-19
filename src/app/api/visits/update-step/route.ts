@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
-
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
-    return null
-  }
-  return createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    }
-  })
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,42 +35,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 500 }
-      )
-    }
-
     // 現在のステップタイムスタンプを取得
-    const { data: currentVisit, error: fetchError } = await supabase
-      .from('visits')
-      .select('step_timestamps, current_step')
-      .eq('id', visitId)
-      .single()
+    const currentVisitRows = await db
+      .select({
+        stepTimestamps: visits.stepTimestamps,
+        currentStep: visits.currentStep,
+      })
+      .from(visits)
+      .where(eq(visits.id, visitId))
+      .limit(1)
 
-    if (fetchError || !currentVisit) {
+    if (currentVisitRows.length === 0) {
       return NextResponse.json(
         { error: 'Visit not found' },
         { status: 404 }
       )
     }
 
+    const currentVisit = currentVisitRows[0]
+
     // ステップタイムスタンプを更新
-    const timestamps = (currentVisit.step_timestamps as Record<string, string>) || {}
+    const timestamps = (currentVisit.stepTimestamps as Record<string, string>) || {}
     timestamps[step] = new Date().toISOString()
 
     // 更新データを準備
     const updateData: Record<string, any> = {
-      current_step: step,
-      step_timestamps: timestamps,
-      updated_at: new Date().toISOString(),
+      currentStep: step,
+      stepTimestamps: timestamps,
+      updatedAt: new Date(),
     }
 
     // ブース番号が指定されている場合は更新
     if (boothNumber !== undefined) {
-      updateData.booth_number = boothNumber
+      updateData.boothNumber = boothNumber
     }
 
     // ステップに応じてstatusも更新（後方互換性）
@@ -95,18 +80,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 更新実行
-    const { error: updateError } = await supabase
-      .from('visits')
-      .update(updateData)
-      .eq('id', visitId)
-
-    if (updateError) {
-      console.error('Error updating visit step:', updateError)
-      return NextResponse.json(
-        { error: 'ステップ更新に失敗しました' },
-        { status: 500 }
-      )
-    }
+    await db
+      .update(visits)
+      .set(updateData as Partial<typeof visits.$inferInsert>)
+      .where(eq(visits.id, visitId))
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -117,5 +94,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-

@@ -22,6 +22,7 @@ export const questionnaireCategories = pgTable('questionnaire_categories', {
 export const questionnaireItems = pgTable('questionnaire_items', {
     id: uuid('id').primaryKey().defaultRandom(),
     categoryId: uuid('category_id').references(() => questionnaireCategories.id),
+    code: varchar('code', { length: 50 }),
     question: varchar('question', { length: 500 }).notNull(),
     answerType: varchar('answer_type', { length: 20 }).notNull(),
     options: jsonb('options'),

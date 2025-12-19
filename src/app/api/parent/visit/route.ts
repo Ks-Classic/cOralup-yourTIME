@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits, children, profiles, questionnaireResponses, questionnaireItems } from '@/db/schema'
+import { eq, or, desc, and } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
-
-// Supabase クライアント (Service Role)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * GET: LINE User IDから既存visitを検索・復元
@@ -34,15 +30,28 @@ export async function GET(request: NextRequest) {
     }
 
     // 1. profilesからparent情報取得（role='parent' または secondary_role='parent'）
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, display_name, first_name, last_name, first_name_kana, last_name_kana, phone_number')
-      .eq('line_user_id', lineUserId)
-      .or('role.eq.parent,secondary_role.eq.parent')
-      .single()
+    const profileRows = await db
+      .select({
+        id: profiles.id,
+        displayName: profiles.displayName,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        firstNameKana: profiles.firstNameKana,
+        lastNameKana: profiles.lastNameKana,
+        phoneNumber: profiles.phoneNumber,
+      })
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.lineUserId, lineUserId),
+          or(eq(profiles.role, 'parent'), eq(profiles.secondaryRole, 'parent'))
+        )
+      )
+      .limit(1)
 
-    if (profileError || !profile) {
-      // console.log('[Parent Visit] Profile not found:', lineUserId)
+    const profile = profileRows[0]
+
+    if (!profile) {
       return NextResponse.json({
         success: true,
         profile: null,
@@ -53,115 +62,123 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 2. 全ての子供とその関連visitを取得（兄弟対応）
-    const { data: childrenWithVisits, error: childrenError } = await supabase
-      .from('children')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        first_name_kana,
-        last_name_kana,
-        birthday,
-        gender,
-        visits (
-          id,
-          status,
-          session_id,
-          visit_date,
-          child_age_months,
-          event_id
-        )
-      `)
-      .eq('parent_profile_id', profile.id)
-      .order('created_at', { ascending: false })
+    // 2. 全ての子供を取得
+    const childRows = await db
+      .select({
+        id: children.id,
+        firstName: children.firstName,
+        lastName: children.lastName,
+        firstNameKana: children.firstNameKana,
+        lastNameKana: children.lastNameKana,
+        birthday: children.birthday,
+        gender: children.gender,
+        createdAt: children.createdAt,
+      })
+      .from(children)
+      .where(eq(children.parentProfileId, profile.id))
+      .orderBy(desc(children.createdAt))
 
-    if (childrenError) {
-      console.error('[Parent Visit] Children fetch error:', childrenError)
-    }
+    // 3. 各子供のvisitを取得
+    const childrenWithVisits = await Promise.all(
+      childRows.map(async (child) => {
+        const visitRows = await db
+          .select({
+            id: visits.id,
+            status: visits.status,
+            sessionId: visits.sessionId,
+            visitDate: visits.visitDate,
+            childAgeMonths: visits.childAgeMonths,
+            eventId: visits.eventId,
+          })
+          .from(visits)
+          .where(eq(visits.childId, child.id))
+          .orderBy(desc(visits.visitDate))
 
-    // 子供データを整形
-    const children = (childrenWithVisits || []).map(child => {
-      // 各子供の最新visitを取得
-      const sortedVisits = (child.visits || []).sort((a: { visit_date: string }, b: { visit_date: string }) =>
-        new Date(b.visit_date || 0).getTime() - new Date(a.visit_date || 0).getTime()
-      )
-      const latestVisit = sortedVisits[0] || null
+        const latestVisit = visitRows[0] || null
 
-      return {
-        id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name,
-        firstNameKana: child.first_name_kana,
-        lastNameKana: child.last_name_kana,
-        birthday: child.birthday,
-        gender: child.gender,
-        // visitステータスから問診状態を判定
-        questionnaireStatus: latestVisit?.status || 'not_started',
-        latestVisit: latestVisit ? {
-          id: latestVisit.id,
-          status: latestVisit.status,
-          sessionId: latestVisit.session_id,
-          visitDate: latestVisit.visit_date,
-          childAgeMonths: latestVisit.child_age_months,
-          eventId: latestVisit.event_id,
-        } : null,
-        // 全てのvisit情報（同じイベントで複数回診断する場合など）
-        visits: sortedVisits.map((v: { id: string; status: string; session_id: string; visit_date: string; child_age_months: number; event_id: string }) => ({
-          id: v.id,
-          status: v.status,
-          sessionId: v.session_id,
-          visitDate: v.visit_date,
-          childAgeMonths: v.child_age_months,
-          eventId: v.event_id,
-        })),
-      }
-    })
+        return {
+          id: child.id,
+          firstName: child.firstName,
+          lastName: child.lastName,
+          firstNameKana: child.firstNameKana,
+          lastNameKana: child.lastNameKana,
+          birthday: child.birthday,
+          gender: child.gender,
+          questionnaireStatus: latestVisit?.status || 'not_started',
+          latestVisit: latestVisit ? {
+            id: latestVisit.id,
+            status: latestVisit.status,
+            sessionId: latestVisit.sessionId,
+            visitDate: latestVisit.visitDate,
+            childAgeMonths: latestVisit.childAgeMonths,
+            eventId: latestVisit.eventId,
+          } : null,
+          visits: visitRows.map(v => ({
+            id: v.id,
+            status: v.status,
+            sessionId: v.sessionId,
+            visitDate: v.visitDate,
+            childAgeMonths: v.childAgeMonths,
+            eventId: v.eventId,
+          })),
+        }
+      })
+    )
 
     // 後方互換: 最新の子供とvisitを取得
-    const latestChild = children[0] || null
+    const latestChild = childrenWithVisits[0] || null
     const latestVisit = latestChild?.latestVisit || null
 
-    // 3. 問診回答を取得（最新visitがある場合のみ、後方互換用）
-    let questionnaireResponses: unknown[] = []
+    // 4. 問診回答を取得（最新visitがある場合のみ、後方互換用）
+    let questionnaireResponsesList: any[] = []
     if (latestVisit?.id) {
-      const { data: responses } = await supabase
-        .from('questionnaire_responses')
-        .select(`
-          id,
-          item_id,
-          value,
-          answered_at,
-          questionnaire_items (
-            id,
-            code,
-            question,
-            answer_type,
-            options
-          )
-        `)
-        .or(`visit_id.eq.${latestVisit.id},session_id.eq.${latestVisit.sessionId}`)
-        .order('answered_at', { ascending: true })
+      const responseRows = await db
+        .select({
+          id: questionnaireResponses.id,
+          itemId: questionnaireResponses.itemId,
+          value: questionnaireResponses.value,
+          answeredAt: questionnaireResponses.answeredAt,
+          itemCode: questionnaireItems.code,
+          itemQuestion: questionnaireItems.question,
+          itemAnswerType: questionnaireItems.answerType,
+          itemOptions: questionnaireItems.options,
+        })
+        .from(questionnaireResponses)
+        .leftJoin(questionnaireItems, eq(questionnaireResponses.itemId, questionnaireItems.id))
+        .where(
+          latestVisit.sessionId
+            ? or(eq(questionnaireResponses.visitId, latestVisit.id), eq(questionnaireResponses.sessionId, latestVisit.sessionId))
+            : eq(questionnaireResponses.visitId, latestVisit.id)
+        )
+        .orderBy(questionnaireResponses.answeredAt)
 
-      questionnaireResponses = responses || []
+      questionnaireResponsesList = responseRows.map(r => ({
+        id: r.id,
+        item_id: r.itemId,
+        value: r.value,
+        answered_at: r.answeredAt,
+        questionnaire_items: {
+          id: r.itemId,
+          code: r.itemCode,
+          question: r.itemQuestion,
+          answer_type: r.itemAnswerType,
+          options: r.itemOptions,
+        },
+      }))
     }
-
-    // console.log('[Parent Visit] Found:', { profileId: profile.id, childrenCount: children.length, latestVisitId: latestVisit?.id })
 
     return NextResponse.json({
       success: true,
       profile: {
         id: profile.id,
-        displayName: profile.display_name,
-        firstName: profile.first_name,
-        lastName: profile.last_name,
-        firstNameKana: profile.first_name_kana,
-        lastNameKana: profile.last_name_kana,
-        phoneNumber: profile.phone_number,
+        displayName: profile.displayName,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        firstNameKana: profile.firstNameKana,
+        lastNameKana: profile.lastNameKana,
+        phoneNumber: profile.phoneNumber,
       },
-      // 兄弟対応: 全ての子供を返す
-      children,
-      // 後方互換: 最新の子供
+      children: childrenWithVisits,
       child: latestChild ? {
         id: latestChild.id,
         firstName: latestChild.firstName,
@@ -171,9 +188,8 @@ export async function GET(request: NextRequest) {
         birthday: latestChild.birthday,
         gender: latestChild.gender,
       } : null,
-      // 後方互換: 最新のvisit
       visit: latestVisit,
-      questionnaireResponses,
+      questionnaireResponses: questionnaireResponsesList,
     })
   } catch (error) {
     console.error('[Parent Visit] Error:', error)
@@ -201,12 +217,18 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. profilesから親情報取得
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('line_user_id', lineUserId)
-      .or('role.eq.parent,secondary_role.eq.parent')
-      .single()
+    const profileRows = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.lineUserId, lineUserId),
+          or(eq(profiles.role, 'parent'), eq(profiles.secondaryRole, 'parent'))
+        )
+      )
+      .limit(1)
+
+    const profile = profileRows[0]
 
     if (!profile) {
       return NextResponse.json(
@@ -218,36 +240,34 @@ export async function POST(request: NextRequest) {
     // 2. セッションID生成（後方互換用）
     const sessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-    // 3. visitsテーブルに作成（sessionsテーブルは廃止、visit_idを主キーとして使用）
-    const { data: visit, error: visitError } = await supabase
-      .from('visits')
-      .insert({
-        session_id: sessionId,
-        child_id: childId || null,
-        event_id: eventId || process.env.DEFAULT_EVENT_ID || null,
-        organization_id: process.env.CORALUP_ORG_ID || null,
+    // 3. visitsテーブルに作成
+    const insertedRows = await db
+      .insert(visits)
+      .values({
+        sessionId: sessionId,
+        childId: childId || null,
+        eventId: eventId || process.env.DEFAULT_EVENT_ID || null,
+        organizationId: process.env.CORALUP_ORG_ID || null,
         status: 'waiting',
-        current_step: 'line_registered',
-        visit_date: new Date().toISOString(),
-      })
-      .select()
-      .single()
+        currentStep: 'line_registered',
+        visitDate: new Date(),
+      } as typeof visits.$inferInsert)
+      .returning()
 
-    if (visitError) {
-      console.error('[Parent Visit] Visit creation error:', visitError)
+    const visit = insertedRows[0]
+
+    if (!visit) {
       return NextResponse.json(
         { success: false, error: 'visit_creation_failed' },
         { status: 500 }
       )
     }
 
-    // console.log('[Parent Visit] Created:', { visitId: visit.id, sessionId })
-
     return NextResponse.json({
       success: true,
       visit: {
         id: visit.id,
-        sessionId: visit.session_id,
+        sessionId: visit.sessionId,
         status: visit.status,
       },
     })
@@ -259,4 +279,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
