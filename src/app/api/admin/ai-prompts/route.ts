@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { db } from '@/db'
+import { aiPrompts } from '@/db/schema'
+import { eq, desc } from 'drizzle-orm'
 
 export async function GET(request: NextRequest) {
     try {
-        const { data, error } = await supabase
-            .from('ai_prompts')
-            .select('*')
-            .order('created_at', { ascending: false })
+        const rows = await db
+            .select()
+            .from(aiPrompts)
+            .orderBy(desc(aiPrompts.createdAt))
 
-        if (error) throw error
+        // Supabase形式に変換
+        const data = rows.map(r => ({
+            id: r.id,
+            label: r.label,
+            prompt_template: r.promptTemplate,
+            description: r.description,
+            variable_config: r.variableConfig,
+            model_name: r.modelName,
+            is_active: r.isActive,
+            created_at: r.createdAt,
+            updated_at: r.updatedAt,
+        }))
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
@@ -31,22 +39,33 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
         }
 
-        const { data, error } = await supabase
-            .from('ai_prompts')
-            .insert({
-                prompt_template,
+        const insertedRows = await db
+            .insert(aiPrompts)
+            .values({
+                promptTemplate: prompt_template,
                 label,
                 description,
-                is_active: is_active ?? true,
-                variable_config: variable_config || [],
-                model_name: model_name || 'gemini-2.5-flash-lite'
-            })
-            .select()
-            .single()
+                isActive: is_active ?? true,
+                variableConfig: variable_config || [],
+                modelName: model_name || 'gemini-2.5-flash-lite',
+            } as typeof aiPrompts.$inferInsert)
+            .returning()
 
-        if (error) throw error
+        const result = insertedRows[0]
 
-        return NextResponse.json({ success: true, data })
+        return NextResponse.json({
+            success: true,
+            data: {
+                id: result.id,
+                label: result.label,
+                prompt_template: result.promptTemplate,
+                description: result.description,
+                variable_config: result.variableConfig,
+                model_name: result.modelName,
+                is_active: result.isActive,
+                created_at: result.createdAt,
+            },
+        })
     } catch (error) {
         console.error('Error saving prompt:', error)
         return NextResponse.json({ success: false, error: 'Failed to save prompt' }, { status: 500 })
@@ -62,16 +81,26 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing prompt ID' }, { status: 400 })
         }
 
-        const { data, error } = await supabase
-            .from('ai_prompts')
-            .update({ is_active })
-            .eq('id', id)
-            .select()
-            .single()
+        const updatedRows = await db
+            .update(aiPrompts)
+            .set({ isActive: is_active } as Partial<typeof aiPrompts.$inferInsert>)
+            .where(eq(aiPrompts.id, id))
+            .returning()
 
-        if (error) throw error
+        if (updatedRows.length === 0) {
+            return NextResponse.json({ success: false, error: 'Prompt not found' }, { status: 404 })
+        }
 
-        return NextResponse.json({ success: true, data })
+        const result = updatedRows[0]
+
+        return NextResponse.json({
+            success: true,
+            data: {
+                id: result.id,
+                label: result.label,
+                is_active: result.isActive,
+            },
+        })
     } catch (error) {
         console.error('Error updating prompt:', error)
         return NextResponse.json({ success: false, error: 'Failed to update prompt' }, { status: 500 })

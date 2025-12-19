@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits, children, profiles } from '@/db/schema'
+import { eq, or, inArray, desc } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 
 export const dynamic = 'force-dynamic'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * GET: 管理者向け履歴取得
@@ -45,72 +42,126 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // クエリ構築
-    let query = supabase
-      .from('visits')
-      .select(
-        `
-        id,
-        visit_date,
-        status,
-        session_id,
-        staff_profile_id,
-        child_id,
-        children (
-          id,
-          first_name,
-          last_name,
-          birthday,
-          gender
-        ),
-        profiles!visits_staff_profile_id_fkey (
-          id,
-          first_name,
-          last_name,
-          display_name
-        )
-      `,
-        { count: 'exact' }
+    // 基本クエリ構築
+    let visitRows = await db
+      .select({
+        id: visits.id,
+        visitDate: visits.visitDate,
+        status: visits.status,
+        sessionId: visits.sessionId,
+        staffProfileId: visits.staffProfileId,
+        childId: visits.childId,
+      })
+      .from(visits)
+      .where(
+        status
+          ? eq(visits.status, status)
+          : inArray(visits.status, ['diagnosis_completed', 'report_sent'])
       )
-      .order('visit_date', { ascending: false })
+      .orderBy(desc(visits.visitDate))
+      .limit(limit)
+      .offset(offset)
 
     // スタッフフィルタ
     if (staffId) {
-      query = query.eq('staff_profile_id', staffId)
+      visitRows = visitRows.filter(v => v.staffProfileId === staffId)
     }
 
-    // ステータスフィルタ
-    if (status) {
-      query = query.eq('status', status)
-    } else {
-      // デフォルト: 診断完了または送信済みのみ
-      query = query.in('status', ['diagnosis_completed', 'report_sent'])
-    }
+    // 各visitのchildrenとprofilesを取得
+    const data = await Promise.all(
+      visitRows.map(async (v) => {
+        let childData = null
+        if (v.childId) {
+          const childRows = await db
+            .select({
+              id: children.id,
+              firstName: children.firstName,
+              lastName: children.lastName,
+              birthday: children.birthday,
+              gender: children.gender,
+            })
+            .from(children)
+            .where(eq(children.id, v.childId))
+            .limit(1)
+          childData = childRows[0] || null
+        }
 
-    // ページネーション
-    const { data, error, count } = await query.range(offset, offset + limit - 1)
+        let staffData = null
+        if (v.staffProfileId) {
+          const staffRows = await db
+            .select({
+              id: profiles.id,
+              firstName: profiles.firstName,
+              lastName: profiles.lastName,
+              displayName: profiles.displayName,
+            })
+            .from(profiles)
+            .where(eq(profiles.id, v.staffProfileId))
+            .limit(1)
+          staffData = staffRows[0] || null
+        }
 
-    if (error) {
-      console.error('[Admin Visits API] Error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch visits' },
-        { status: 500 }
+        return {
+          id: v.id,
+          visit_date: v.visitDate,
+          status: v.status,
+          session_id: v.sessionId,
+          staff_profile_id: v.staffProfileId,
+          child_id: v.childId,
+          children: childData ? {
+            id: childData.id,
+            first_name: childData.firstName,
+            last_name: childData.lastName,
+            birthday: childData.birthday,
+            gender: childData.gender,
+          } : null,
+          profiles: staffData ? {
+            id: staffData.id,
+            first_name: staffData.firstName,
+            last_name: staffData.lastName,
+            display_name: staffData.displayName,
+          } : null,
+        }
+      })
+    )
+
+    // 総数を取得
+    const countRows = await db
+      .select({ id: visits.id })
+      .from(visits)
+      .where(
+        status
+          ? eq(visits.status, status)
+          : inArray(visits.status, ['diagnosis_completed', 'report_sent'])
       )
-    }
 
     // スタッフ一覧も取得（フィルタ用）
-    const { data: staffList } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, display_name')
-      .or('role.eq.staff,secondary_role.eq.staff,role.eq.admin')
-      .order('last_name')
+    const staffRows = await db
+      .select({
+        id: profiles.id,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        displayName: profiles.displayName,
+      })
+      .from(profiles)
+      .where(
+        or(eq(profiles.role, 'staff'), eq(profiles.secondaryRole, 'staff'), eq(profiles.role, 'admin'))
+      )
+      .orderBy(profiles.lastName)
+
+    const staffList = staffRows.map(s => ({
+      id: s.id,
+      first_name: s.firstName,
+      last_name: s.lastName,
+      display_name: s.displayName,
+    }))
 
     return NextResponse.json({
-      data: data || [],
-      total: count || 0,
+      data,
+      total: countRows.length,
       limit,
       offset,
-      staffList: staffList || [],
+      staffList,
     })
   } catch (error) {
     console.error('[Admin Visits API] Error:', error)
@@ -120,5 +171,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
-

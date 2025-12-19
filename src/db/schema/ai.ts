@@ -8,6 +8,8 @@ export const aiPrompts = pgTable('ai_prompts', {
     label: varchar('label', { length: 100 }).notNull(),
     promptTemplate: text('prompt_template').notNull(),
     description: text('description'),
+    variableConfig: jsonb('variable_config'),
+    modelName: varchar('model_name', { length: 100 }),
     isActive: boolean('is_active').default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/db'
+import { visits, reports } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 /**
  * GET /api/staff/report?sessionId=xxx
@@ -25,22 +22,33 @@ export async function GET(request: NextRequest) {
     }
 
     // セッションデータを取得
-    const { data: session, error: sessionError } = await supabase
-      .from('visits')
-      .select('*')
-      .eq('id', sessionId)
-      .single()
+    const sessionRows = await db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, sessionId))
+      .limit(1)
 
-    if (sessionError) {
+    if (sessionRows.length === 0) {
       return NextResponse.json(
         { error: 'セッションが見つかりません' },
         { status: 404 }
       )
     }
 
+    const session = sessionRows[0]
+
     return NextResponse.json({
       success: true,
-      session,
+      session: {
+        id: session.id,
+        session_id: session.sessionId,
+        status: session.status,
+        visit_date: session.visitDate,
+        child_age_months: session.childAgeMonths,
+        current_step: session.currentStep,
+        child_id: session.childId,
+        staff_profile_id: session.staffProfileId,
+      },
     })
   } catch (error) {
     console.error('[Report GET] エラー:', error)
@@ -68,26 +76,23 @@ export async function POST(request: NextRequest) {
     }
 
     // レポートを保存
-    const { data: report, error: reportError } = await supabase
-      .from('reports')
-      .insert([{
-        session_id: session_id,
-        status: 'sent',
-      }])
-      .select()
-      .single()
+    const insertedRows = await db
+      .insert(reports)
+      .values({
+        sessionId: session_id,
+        reportType: 'diagnosis',
+      } as typeof reports.$inferInsert)
+      .returning()
 
-    if (reportError) {
-      console.error('[Report POST] レポート保存エラー:', reportError)
-      return NextResponse.json(
-        { error: 'レポートの保存に失敗しました' },
-        { status: 500 }
-      )
-    }
+    const report = insertedRows[0]
 
     return NextResponse.json({
       success: true,
-      report,
+      report: {
+        id: report.id,
+        session_id: report.sessionId,
+        report_type: report.reportType,
+      },
     })
   } catch (error) {
     console.error('[Report POST] エラー:', error)
@@ -97,4 +102,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
