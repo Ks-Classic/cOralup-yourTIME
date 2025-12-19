@@ -37,8 +37,8 @@ export function ReportPreview({
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
   const [isEditingComment, setIsEditingComment] = useState(false)
   const [editingText, setEditingText] = useState(aiSummary)
-  
-  const getAgeDisplay = () => 
+
+  const getAgeDisplay = () =>
     childAgeMonths ? `${childAgeMonths}ヶ月` : `${childAge || 0}歳`
 
   const photoLabels = [
@@ -135,17 +135,17 @@ export function ReportPreview({
             )}
           </section>
 
-          {/* 分析できること */}
+          {/* 分析レポート */}
           <section>
             <div className="border border-gray-300 rounded-lg p-3">
               <h2 className="text-center text-sm font-bold text-gray-800 mb-2">
-                分析できること
+                分析レポート
                 {isEditable && (
                   <span className="text-[10px] text-blue-500 font-normal ml-2">（タップで編集）</span>
                 )}
               </h2>
               {isEditable && onSummaryChange ? (
-                <div 
+                <div
                   onClick={() => {
                     setEditingText(aiSummary)
                     setIsEditingComment(true)
@@ -202,7 +202,7 @@ export function ReportPreview({
 
       {/* コメント編集モーダル（全画面） */}
       {isEditingComment && (
-        <div 
+        <div
           className="fixed inset-0 bg-white z-[9999] flex flex-col"
           style={{ touchAction: 'none' }}
         >
@@ -282,7 +282,7 @@ export function ReportPreview({
 
       {/* 写真拡大モーダル */}
       {selectedPhotoIndex !== null && validPhotos.length > 0 && (
-        <div 
+        <div
           className="fixed inset-0 bg-black z-[9999] flex flex-col"
           style={{ touchAction: 'none' }}
         >

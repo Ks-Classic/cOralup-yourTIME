@@ -849,49 +849,115 @@ export default function DiagnosisPageWithId() {
 
   // AI分析実行
   const runAnalysis = async () => {
-    if (!questionnaire) return
+    if (!visitId) {
+      alert('診断データが見つかりません')
+      return
+    }
 
     setIsAnalyzing(true)
     try {
-      // モック分析結果
-      const mockResult: AnalysisResult = {
-        postureAnalysis: {
-          overallScore: 7,
-          issues: ['肩のバランス', '背骨のカーブ'],
-          recommendations: ['姿勢改善エクササイズ', '日常的な姿勢意識'],
-          severity: 'medium',
-          details: {
-            headPosition: '正常',
-            shoulderBalance: '左右差あり',
-            spineCurve: '軽度の弯曲',
-            pelvisTilt: '正常',
-            footBalance: '正常',
-          },
-        },
-        oralAnalysis: {
-          overallScore: 8,
-          issues: ['咬合状態', '舌位置'],
-          recommendations: ['口腔機能訓練', '定期的な検診'],
-          severity: 'low',
-          details: {
-            biteCondition: '開咬',
-            teethAlignment: '叢生',
-            tonguePosition: '低位舌',
-            oralCleanliness: '良好',
-            functionEstimation: '良好',
-          },
-        },
-        reportSummary: 'お子さんの姿勢は背中が丸くなりお腹が前に出る「凹円背」で、歯は噛み合わせが深い過蓋咬合の状態です。どちらも体の使い方やバランスの乱れから起こることがあります。姿勢がゆるやかに変わるとあごの動きにも影響しやすく、歯並びにも関わることがあります。また、歯並びが整うと口まわりの筋肉の使い方が安定して、姿勢も自然と整いやすくなります。そのため、姿勢と歯並びはつながっていると考え、両方を一緒に見ることが大切です。',
+      // 診断値をtestData形式に変換（diagnosisMeta: { itemId: { question, value } }）
+      const diagnosisMeta: Record<string, { question: string; value: string }> = {}
+      staffItems.forEach(item => {
+        const rawValue = diagnosisValues[item.id]
+        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+          // 値を日本語ラベルに変換
+          const displayValue = getDisplayValue(item, rawValue)
+          diagnosisMeta[item.id] = {
+            question: item.question,
+            value: displayValue
+          }
+        }
+      })
+
+      // 問診データをtestData形式に変換
+      const questionnaireMeta: Record<string, { question: string; value: string }> = {}
+      if (visitData?.questionnaire_responses) {
+        visitData.questionnaire_responses.forEach((response: any) => {
+          const question = response.questionnaire_items?.question || response.item_id
+          let value = response.value
+          // 配列の場合はカンマ区切りに
+          if (Array.isArray(value)) {
+            value = value.join(', ')
+          }
+          questionnaireMeta[response.item_id] = {
+            question,
+            value: String(value)
+          }
+        })
       }
 
-      setAnalysisResult(mockResult)
-      setEditableSummary(mockResult.reportSummary || '')
+      // 子供の年齢を計算
+      const childAgeMonths = visitData?.child_age_months || 0
+      const childAge = childAgeMonths > 0 ? Math.floor(childAgeMonths / 12) : (questionnaire?.child_age || 0)
+
+      // 実際のAI APIを呼び出し（管理画面で設定したプロンプト・変数を使用）
+      const response = await fetch('/api/ai/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitId,
+          // testModeを使用してローカルデータを渡す（DBに保存されていなくても動作）
+          testMode: true,
+          testData: {
+            childName: questionnaire?.child_name || visitData?.children?.first_name || 'お子様',
+            childAge,
+            childAgeMonths,
+            childGender: questionnaire?.child_gender || visitData?.children?.gender || '',
+            diagnosisMeta,
+            questionnaireMeta,
+            staffNotes: staffNotes || '',
+          }
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'AI分析に失敗しました')
+      }
+
+      const aiResult = await response.json()
+
+      // AI分析結果を状態に保存
+      const analysisResultData: AnalysisResult = {
+        postureAnalysis: aiResult.postureAnalysis || {
+          overallScore: 0,
+          issues: [],
+          recommendations: [],
+          severity: 'low' as const,
+          details: {
+            headPosition: '評価中',
+            shoulderBalance: '評価中',
+            spineCurve: '評価中',
+            pelvisTilt: '評価中',
+            footBalance: '評価中',
+          },
+        },
+        oralAnalysis: aiResult.oralAnalysis || {
+          overallScore: 0,
+          issues: [],
+          recommendations: [],
+          severity: 'low' as const,
+          details: {
+            biteCondition: '評価中',
+            teethAlignment: '評価中',
+            tonguePosition: '評価中',
+            oralCleanliness: '評価中',
+            functionEstimation: '評価中',
+          },
+        },
+        // AI生成コメントを使用（rawTextがあればそれを優先）
+        reportSummary: aiResult.rawText || aiResult.analysis || aiResult.summary || 'AI分析結果を取得しました。',
+      }
+
+      setAnalysisResult(analysisResultData)
+      setEditableSummary(analysisResultData.reportSummary || '')
       setIsReportConfirmed(false)
       markStepCompleted('analysis')
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
-      alert('分析の実行に失敗しました')
+      alert('分析の実行に失敗しました: ' + (error as Error).message)
     } finally {
       setIsAnalyzing(false)
     }
@@ -1959,39 +2025,72 @@ export default function DiagnosisPageWithId() {
                         </div>
                       </div>
 
-                      {/* 診断項目チェック */}
+                      {/* 診断項目チェック（カテゴリ別表示） */}
                       <div>
                         <h4 className="text-xs font-semibold text-gray-700 mb-2">診断項目（スタッフ入力）</h4>
-                        <div className="space-y-1 max-h-48 overflow-y-auto">
-                          {/* 未入力項目を先に表示 */}
-                          {[...staffItems.filter(item => item.required)].sort((a, b) => {
-                            const aHasValue = diagnosisValues[a.id] !== undefined && diagnosisValues[a.id] !== null && diagnosisValues[a.id] !== ''
-                            const bHasValue = diagnosisValues[b.id] !== undefined && diagnosisValues[b.id] !== null && diagnosisValues[b.id] !== ''
-                            if (!aHasValue && bHasValue) return -1
-                            if (aHasValue && !bHasValue) return 1
-                            return 0
-                          }).map(item => {
-                            const hasValue = diagnosisValues[item.id] !== undefined &&
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {/* カテゴリ別にグループ化して表示 */}
+                          {staffCategoryOrder.map(category => {
+                            const categoryItems = staffItemsByCategory[category] || []
+                            if (categoryItems.length === 0) return null
+
+                            const completedCount = categoryItems.filter(item =>
+                              diagnosisValues[item.id] !== undefined &&
                               diagnosisValues[item.id] !== null &&
                               diagnosisValues[item.id] !== ''
+                            ).length
+                            const isComplete = completedCount === categoryItems.length
+                            const hasAnyInput = completedCount > 0
+
                             return (
-                              <button
-                                key={item.id}
-                                onClick={() => !hasValue && setCurrentMainView('diagnosis')}
-                                className={cn(
-                                  "w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors",
-                                  hasValue
-                                    ? "bg-green-50 text-green-700"
-                                    : "bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer"
+                              <div key={category} className="border rounded-lg overflow-hidden">
+                                {/* カテゴリヘッダー */}
+                                <button
+                                  onClick={() => !isComplete && setCurrentMainView('diagnosis')}
+                                  className={cn(
+                                    "w-full flex items-center justify-between p-2 text-xs font-medium transition-colors",
+                                    isComplete
+                                      ? "bg-green-100 text-green-800"
+                                      : hasAnyInput
+                                        ? "bg-yellow-50 text-yellow-800 hover:bg-yellow-100 cursor-pointer"
+                                        : "bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer"
+                                  )}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {isComplete ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                    {category}
+                                  </span>
+                                  <span className="text-[10px]">
+                                    {completedCount}/{categoryItems.length}
+                                  </span>
+                                </button>
+
+                                {/* 未完了カテゴリの項目詳細 */}
+                                {!isComplete && (
+                                  <div className="divide-y divide-gray-100">
+                                    {categoryItems.map(item => {
+                                      const hasValue = diagnosisValues[item.id] !== undefined &&
+                                        diagnosisValues[item.id] !== null &&
+                                        diagnosisValues[item.id] !== ''
+                                      return (
+                                        <div
+                                          key={item.id}
+                                          className={cn(
+                                            "flex items-center justify-between px-3 py-1.5 text-[11px]",
+                                            hasValue ? "bg-green-50/50 text-green-700" : "bg-white text-gray-600"
+                                          )}
+                                        >
+                                          <span className="flex items-center gap-1.5">
+                                            {hasValue ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5 text-red-400" />}
+                                            {item.question}
+                                            {item.required && <span className="text-red-400">*</span>}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
                                 )}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {hasValue ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                  <span className="text-gray-400">[{item.category}]</span>
-                                  {item.question}
-                                </span>
-                                {!hasValue && <ChevronRight className="w-3 h-3" />}
-                              </button>
+                              </div>
                             )
                           })}
                         </div>

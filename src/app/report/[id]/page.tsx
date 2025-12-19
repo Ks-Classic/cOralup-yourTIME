@@ -208,11 +208,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
             )}
           </section>
 
-          {/* 分析できること */}
+          {/* 分析レポート */}
           <section className="mb-6">
             <div className="border-2 border-gray-300 rounded-lg p-5">
               <h2 className="text-center text-lg font-bold text-gray-800 mb-4">
-                分析できること
+                分析レポート
               </h2>
               <p className="text-sm leading-relaxed text-gray-800 text-justify">
                 {reportData.aiAnalysis.summary}
@@ -232,7 +232,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
       {/* 写真拡大モーダル */}
       {selectedPhotoIndex !== null && validPhotos.length > 0 && (
-        <div 
+        <div
           className="fixed inset-0 bg-black z-[9999] flex flex-col"
           style={{ touchAction: 'none' }}
         >

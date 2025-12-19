@@ -17,15 +17,14 @@ Coralupは、歯科衛生士が行う問診・診断プロセスをデジタル�
 - **管理者**: データ分析とシステム管理
 
 ### 主要機能
-- ✅ 親御さん向け問診票Webアプリ
-- ✅ スタッフ向け診断管理Webアプリ
-- ✅ LINE連携による自動通知
-- ✅ AI姿勢・口腔分析機能
-- ✅ 診断レポート自動生成
-- ✅ リアルタイムデータ管理
-- ✅ 管理者用管理画面（ダッシュボード・ユーザー管理・データ分析）
-- ✅ 動的フォームシステム（イベント別カスタムフォーム・JSONBデータ管理）
-- 🔄 Lark Base連携データ分析（今後実装）
+- ✅ 親御さん向け問診票Webアプリ（展示会用LIFFアプリ）
+- ✅ スタッフ向け診断管理Webアプリ（QRスキャン・診断入力・履歴管理）
+- ✅ LINE連携による自動通知（診断レポート送信）
+- ✅ AI分析機能（Google Gemini API）
+- ✅ 診断レポート自動生成・PDF出力
+- ✅ リアルタイムデータ管理（管理者ダッシュボード）
+- ✅ 動的フォームシステム（スキーマエディタ・JSONB管理）
+- ✅ 管理者用管理画面（リアルタイム監視・履歴管理・AI設定・テストツール）
 
 ## 技術仕様
 
@@ -35,132 +34,104 @@ Coralupは、歯科衛生士が行う問診・診断プロセスをデジタル�
 - **Database**: Supabase (PostgreSQL + JSONB)
 - **Deployment**: Vercel
 - **AI**: Google Gemini API
-- **External Services**: LINE Messaging API, Lark Base API
+- **UI Components**: Radix UI + Framer Motion
+- **External Services**: LINE Messaging API (LIFF)
 
-### 動的フォームシステム
+### データ管理
 - **データ構造**: PostgreSQL JSONB型による柔軟なスキーマ管理
-- **フォーム定義**: イベント別・タイプ別カスタムフォーム
-- **回答管理**: リアルタイムデータ保存・集計・分析
-- **キャッシュ**: Redisベースのレスポンスキャッシュ
-- **同期**: Supabaseリアルタイム + Lark Baseデータ連携
-
-### プロジェクト管理
-- **進捗管理**: Linearによるタスク・プロジェクト管理
-- **ドキュメント**: 詳細な要件定義・技術仕様・設計書完備
-- **進捗率**: 70%完了（35/50タスク完了）
-- **カテゴリ別管理**: Frontend/Backend/Database/AI/Admin/Integration/Testing/Documentation
-
-#### 📊 現在の進捗状況
-| カテゴリ | 進捗率 | ステータス |
-|---------|--------|------------|
-| Backend API | 100% | ✅ 完了 |
-| Documentation | 90% | 🟢 ほぼ完了 |
-| Database | 90% | 🟢 ほぼ完了 |
-| Admin Panel | 85% | 🟢 ほぼ完了 |
-| AI Integration | 85% | 🟢 ほぼ完了 |
-| Frontend | 40% | 🟡 進行中 |
-| External Integrations | 50% | 🟡 部分完了 |
-| Testing & Deployment | 0% | 🔴 未着手 |
-
-### システム構成
-- 親御さん向け問診票Webアプリ
-- スタッフ向け診断管理Webアプリ
-- AI診断・レポート生成機能
-- LINE連携による自動通知
-- Lark Base連携によるデータ分析
+- **フォーム定義**: 問診票・診断スキーマのリアルタイム編集
+- **回答管理**: Supabaseリアルタイム同期
 
 ## ディレクトリ構造
 
 ```
 src/
 ├─ app/
-│  ├─ (parent)/          # 親御さん向けページ
-│  │  ├─ questionnaire/  # 問診票入力
-│  │  └─ result/         # QRコード表示
-│  ├─ (staff)/           # スタッフ向けページ
-│  │  ├─ session/       # セッション詳細
-│  │  ├─ diagnosis/      # 診断実施
-│  │  ├─ analysis/       # AI分析・レポート
-│  │  └─ report/         # レポート確認
-│  ├─ (admin)/           # 管理者向けページ
-│  │  ├─ users/         # ユーザー管理
-│  │  ├─ diagnosis/      # 診断データ管理
-│  │  ├─ forms/         # フォーム管理
-│  │  ├─ events/        # イベント管理
-│  │  └─ bi/            # BI分析
-│  ├─ api/               # API エンドポイント
-│  │  ├─ sessions/      # セッション管理
-│  │  ├─ questionnaires/ # 問診票管理
-│  │  ├─ diagnoses/      # 診断管理
-│  │  ├─ ai/            # AI分析API
-│  │  └─ line/          # LINE連携
-│  ├─ agents/            # AI エージェント
-│  └─ lib/              # 共通ユーティリティ
-├─ components/          # 再利用コンポーネント
-│  └─ ui/              # 基本UIコンポーネント
-├─ hooks/              # カスタムフック
-├─ types/               # TypeScript型定義
-├─ utils/              # ユーティリティ関数
-└─ docs/               # ドキュメント
-    ├─ requirements.md     # 要件定義
-    ├─ technical-spec.md   # 技術仕様
-    ├─ user-flow-detailed.md # 詳細フローチャート
-    ├─ admin-requirements.md # 管理者機能要件
-    └─ admin-ui-wireframes.md # 管理者UIワイヤーフレーム
+│  ├─ (exhibition)/        # 展示会用親御さん向けページ
+│  │  └─ parent/           # 問診票・結果表示
+│  ├─ staff/               # スタッフ向けページ
+│  │  ├─ home/             # ホーム画面
+│  │  ├─ scan/             # QRコードスキャン
+│  │  ├─ diagnosis/        # 診断入力
+│  │  ├─ history/          # 診断履歴
+│  │  ├─ monitor/          # リアルタイム監視
+│  │  ├─ login/            # ログイン
+│  │  ├─ logout/           # ログアウト
+│  │  └─ liff-login/       # LIFFログイン
+│  ├─ admin/               # 管理者向けページ
+│  │  ├─ components/       # 管理者UIコンポーネント
+│  │  ├─ visits/           # 来訪履歴管理
+│  │  ├─ schema-editor/    # スキーマエディタ
+│  │  ├─ ai-test/          # AI分析テスト
+│  │  └─ dev-tools/        # 開発ツール
+│  ├─ report/              # レポート表示
+│  │  └─ [id]/             # 個別レポート
+│  ├─ api/                 # API エンドポイント
+│  │  ├─ admin/            # 管理者API
+│  │  ├─ ai/               # AI分析API
+│  │  ├─ analysis/         # 分析API
+│  │  ├─ auth/             # 認証API
+│  │  ├─ diagnoses/        # 診断管理
+│  │  ├─ diagnosis/        # 診断詳細
+│  │  ├─ diagnosis-schema/ # 診断スキーマ
+│  │  ├─ line/             # LINE連携
+│  │  ├─ parent/           # 親御さん用API
+│  │  ├─ photos/           # 写真アップロード
+│  │  ├─ questionnaire/    # 問診票
+│  │  ├─ questionnaire-schema/ # 問診票スキーマ
+│  │  ├─ report/           # レポート生成
+│  │  ├─ sessions/         # セッション管理
+│  │  ├─ staff/            # スタッフAPI
+│  │  └─ visits/           # 来訪管理
+│  ├─ agents/              # AI エージェント
+│  └─ demo/                # デモページ
+├─ components/             # 再利用コンポーネント
+│  ├─ admin/               # 管理者用コンポーネント
+│  ├─ staff/               # スタッフ用コンポーネント
+│  └─ ui/                  # 基本UIコンポーネント
+├─ hooks/                  # カスタムフック
+├─ lib/                    # ライブラリ・ユーティリティ
+├─ types/                  # TypeScript型定義
+├─ data/                   # 静的データ・スキーマ定義
+└─ utils/                  # ユーティリティ関数
+
+docs/
+├─ designe/                # 設計ドキュメント
+├─ TODO/                   # タスク管理ドキュメント
+└─ archive/                # アーカイブ
 ```
 
 ## 開発環境
 
 ### 必要なツール
 - Node.js 18+
-- npm/yarn/pnpm
+- pnpm（推奨）
 - Supabase CLI
 - Vercel CLI
 
 ### セットアップ
 ```bash
 # パッケージインストール
-npm install
+pnpm install
 
 # 環境変数設定（.env.local を作成）
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
-LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
-LINE_CHANNEL_SECRET=your_line_channel_secret_here
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# データベースセットアップ
-npx supabase start
+# docs/env.example.md を参照
 
 # 開発サーバー起動
-npm run dev
+pnpm dev
+
+# 複数ポートで起動（スタッフ・親御さん用）
+pnpm dev:multi
 ```
 
-### プロジェクト構造
-```
-src/
-├─ app/                    # Next.js App Router
-│  ├─ (parent)/           # 親御さん向けページ
-│  │  ├─ page.tsx        # 問診票入力
-│  │  └─ result/page.tsx # 結果確認
-│  ├─ (staff)/            # スタッフ向けページ
-│  │  ├─ page.tsx        # 診断管理
-│  │  └─ session/[id]/page.tsx # 個別セッション
-│  ├─ api/                # API エンドポイント
-│  │  ├─ sessions/route.ts
-│  │  ├─ questionnaires/route.ts
-│  │  ├─ diagnoses/route.ts
-│  │  └─ ai/*/route.ts
-│  ├─ agents/             # AI エージェント
-│  │  ├─ index.ts
-│  │  ├─ posture-analyzer/
-│  │  └─ oral-analyzer/
-│  └─ lib/                # 共通ユーティリティ
-├─ components/            # 再利用コンポーネント
-├─ hooks/                # カスタムフック
-├─ types/                # TypeScript型定義
-└─ utils/                # ユーティリティ関数
+### 主要スクリプト
+```bash
+pnpm dev          # 開発サーバー起動
+pnpm dev:multi    # 複数ポートで起動
+pnpm build        # プロダクションビルド
+pnpm lint         # ESLint実行
+pnpm type-check   # TypeScript型チェック
+pnpm test         # テスト実行
 ```
 
 ## デプロイ
@@ -170,12 +141,19 @@ src/
 # デプロイ
 vercel --prod
 
-# 環境変数設定
-vercel env add SUPABASE_URL
-vercel env add SUPABASE_ANON_KEY
-vercel env add LINE_CHANNEL_ACCESS_TOKEN
-vercel env add GEMINI_API_KEY
+# 環境変数は Vercel ダッシュボードで設定
 ```
+
+### 必要な環境変数
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `LINE_CHANNEL_ACCESS_TOKEN`
+- `LINE_CHANNEL_SECRET`
+- `NEXT_PUBLIC_LIFF_ID`
+- `GEMINI_API_KEY`
+
+詳細は `docs/env.example.md` を参照してください。
 
 ## ライセンス
 
