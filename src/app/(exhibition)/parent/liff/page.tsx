@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import liff from '@line/liff'
 import { Loader2 } from 'lucide-react'
@@ -16,6 +16,21 @@ import { Loader2 } from 'lucide-react'
  * - 問診ページ: https://liff.line.me/LIFF_ID/questionnaire
  */
 export default function ParentLiffEntryPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-coral-50 to-white">
+                <div className="text-center p-4">
+                    <Loader2 className="w-10 h-10 animate-spin text-coral-500 mx-auto mb-4" />
+                    <p className="text-gray-600">読み込み中...</p>
+                </div>
+            </div>
+        }>
+            <ParentLiffEntryPageContent />
+        </Suspense>
+    )
+}
+
+function ParentLiffEntryPageContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [status, setStatus] = useState<'initializing' | 'redirecting' | 'error'>('initializing')

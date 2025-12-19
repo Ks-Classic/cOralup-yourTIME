@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -50,9 +50,14 @@ const basicInfoSchema = z.object({
 
 type BasicInfoForm = z.infer<typeof basicInfoSchema>
 
-export default function QuestionnairePage({ params }: { params: { id: string } }) {
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function QuestionnairePage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter()
-  const sessionId = params.id || 'demo'
+  const sessionId = resolvedParams.id || 'demo'
 
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)

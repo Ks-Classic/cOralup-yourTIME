@@ -29,12 +29,13 @@ Coralupは、歯科衛生士が行う問診・診断プロセスをデジタル�
 ## 技術仕様
 
 ### 技術スタック
-- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- **Frontend**: Next.js 15 (App Router + Turbopack) + React 19 + TypeScript + Tailwind CSS
 - **Backend**: Next.js API Routes + Supabase
 - **Database**: Supabase (PostgreSQL + JSONB)
+- **ORM**: Drizzle ORM (スキーマ定義済み、段階的移行中)
 - **Deployment**: Vercel
 - **AI**: Google Gemini API
-- **UI Components**: Radix UI + Framer Motion
+- **UI Components**: Radix UI + Framer Motion 11
 - **External Services**: LINE Messaging API (LIFF)
 
 ### データ管理
@@ -89,6 +90,9 @@ src/
 │  ├─ admin/               # 管理者用コンポーネント
 │  ├─ staff/               # スタッフ用コンポーネント
 │  └─ ui/                  # 基本UIコンポーネント
+├─ db/                     # Drizzle ORM
+│  ├─ index.ts             # DBクライアント
+│  └─ schema/              # スキーマ定義
 ├─ hooks/                  # カスタムフック
 ├─ lib/                    # ライブラリ・ユーティリティ
 ├─ types/                  # TypeScript型定義
@@ -104,8 +108,8 @@ docs/
 ## 開発環境
 
 ### 必要なツール
-- Node.js 18+
-- pnpm（推奨）
+- Node.js 18.18+
+- npm（または pnpm）
 - Supabase CLI
 - Vercel CLI
 
@@ -148,6 +152,7 @@ vercel --prod
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL` (Drizzle ORM用 - Supabase PostgreSQL接続文字列)
 - `LINE_CHANNEL_ACCESS_TOKEN`
 - `LINE_CHANNEL_SECRET`
 - `NEXT_PUBLIC_LIFF_ID`
@@ -157,4 +162,4 @@ vercel --prod
 
 ## ライセンス
 
-© 2024 Coralup. All rights reserved.
+© 2024-2025 Coralup. All rights reserved.

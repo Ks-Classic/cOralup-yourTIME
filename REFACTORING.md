@@ -140,3 +140,90 @@ src/
 - TypeScriptの`strict`モードを無効化しているため、型安全性が若干低下しています
 - 必要に応じて、個別のstrictオプション（`strictNullChecks`, `noImplicitAny`など）を有効化することを検討してください
 - 現在のlintエラーは主にReactとlucide-reactの型定義が見つからないことによるものです。`npm install`を実行することで解決する可能性があります
+
+---
+
+# 2025-12-20 アップグレード
+
+## Next.js 15 + React 19 アップグレード
+
+### 変更内容
+
+| パッケージ | Before | After |
+|-----------|--------|-------|
+| next | 14.0.4 | 15.5.9 |
+| react | 18.2.0 | 19.0.0 |
+| react-dom | 18.2.0 | 19.0.0 |
+| framer-motion | - | 11.x |
+| eslint-config-next | 14.0.0 | 15.1.2 |
+
+### 破壊的変更への対応
+
+1. **`params` の Promise 化**
+   - 動的ルートページで `params` が `Promise<T>` 型に変更
+   - `React.use()` フックで解決するように修正
+   - 対象ファイル:
+     - `src/app/(exhibition)/parent/questionnaire/[id]/page.tsx`
+     - `src/app/(exhibition)/parent/result/[id]/page.tsx`
+     - `src/app/report/[id]/page.tsx`
+
+2. **`useSearchParams()` の Suspense 必須化**
+   - `useSearchParams()` を使用するコンポーネントは `<Suspense>` でラップが必要
+   - 対象ファイル:
+     - `src/app/(exhibition)/parent/page.tsx`
+     - `src/app/(exhibition)/parent/liff/page.tsx`
+     - `src/app/(exhibition)/parent/questionnaire/liff/page.tsx`
+
+3. **next.config.js の設定変更**
+   - `experimental.serverComponentsExternalPackages` → `serverExternalPackages` に移動
+
+4. **Turbopack 有効化**
+   - `npm run dev` で `--turbopack` フラグを追加
+
+## Drizzle ORM 導入
+
+### 概要
+型安全なORMとしてDrizzle ORMを導入。Supabaseクエリビルダーの代替。
+
+### ファイル構成
+```
+src/db/
+├── index.ts           # DBクライアント＆エクスポート
+└── schema/
+    ├── index.ts       # スキーマエクスポート
+    ├── organizations.ts
+    ├── users.ts       # profiles, children
+    ├── events.ts
+    ├── visits.ts      # visits, visitPhotos, reports, lineMessageLogs
+    ├── questionnaires.ts  # categories, items, responses
+    ├── diagnoses.ts   # categories, items, responses
+    └── ai.ts          # aiPrompts, aiAnalysisLogs
+```
+
+### 定義したテーブル (13テーブル)
+- organizations
+- profiles
+- children
+- events
+- visits
+- visitPhotos
+- reports
+- lineMessageLogs
+- questionnaireCategories / questionnaireItems / questionnaireResponses
+- diagnosisCategories / diagnosisItems / diagnosisResponses
+- aiPrompts / aiAnalysisLogs
+
+### 環境変数
+```
+DATABASE_URL=postgresql://postgres.xxx:[PASSWORD]@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres
+```
+
+### 移行状況
+- ✅ スキーマ定義完了
+- ✅ DBクライアントセットアップ完了
+- ⏳ クエリ移行は段階的に実施（既存コードはSupabaseクライアント継続使用）
+
+### 今後のTODO
+1. 既存クエリの段階的移行
+2. VercelにDATABASE_URL環境変数を追加（移行開始時）
+

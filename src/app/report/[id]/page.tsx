@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import { cn } from '@/utils'
@@ -33,20 +33,17 @@ const MOCK_DATA: ReportData = {
   }
 }
 
-export default function ReportPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
-  const [reportId, setReportId] = useState<string>('')
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function ReportPage({ params }: PageProps) {
+  const resolvedParams = use(params)
+  const [reportId, setReportId] = useState<string>(resolvedParams.id)
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
-
-  useEffect(() => {
-    const resolveParams = async () => {
-      const resolvedParams = 'then' in params ? await params : params
-      setReportId(resolvedParams.id)
-    }
-    resolveParams()
-  }, [params])
 
   useEffect(() => {
     if (!reportId) return

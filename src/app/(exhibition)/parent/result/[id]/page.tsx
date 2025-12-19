@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,10 +24,15 @@ interface SessionData {
   created_at: string
 }
 
-export default function ResultPage({ params }: { params: { id: string } }) {
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function ResultPage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter()
-  const sessionId = params?.id || 'demo'
-  
+  const sessionId = resolvedParams?.id || 'demo'
+
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null)
   const [session, setSession] = useState<SessionData | null>(null)
   const [isLoading, setIsLoading] = useState(true)

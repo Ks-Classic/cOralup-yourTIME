@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -96,10 +96,23 @@ const basicInfoSchema = z.object({
 type BasicInfoForm = z.infer<typeof basicInfoSchema>
 
 // ============================================================================
-// Component
+// Suspense Wrapper (Next.js 15 requires useSearchParams in Suspense)
 // ============================================================================
 
 export default function LiffQuestionnairePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-coral-50 to-white p-4">
+        <Loader2 className="w-10 h-10 text-coral-500 animate-spin mb-3" />
+        <p className="text-gray-600 text-sm">読み込み中...</p>
+      </div>
+    }>
+      <LiffQuestionnairePageContent />
+    </Suspense>
+  )
+}
+
+function LiffQuestionnairePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
