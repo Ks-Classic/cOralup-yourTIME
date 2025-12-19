@@ -5,10 +5,12 @@ import * as schema from './schema'
 // ========================================
 // Database URL
 // ========================================
-const databaseUrl = process.env.DATABASE_URL
+// Prefer direct connection for Drizzle ORM (non-pooled, port 5432)
+// Fall back to pooler connection (port 6543) if not available
+const databaseUrl = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL
 
 if (!databaseUrl) {
-    console.warn('[Drizzle] DATABASE_URL is not set. Using fallback Supabase connection.')
+    console.warn('[Drizzle] DATABASE_URL is not set.')
 }
 
 // ========================================
@@ -18,10 +20,12 @@ if (!databaseUrl) {
 const connectionString = databaseUrl || ''
 
 // For query purposes (using connection pool)
+// Note: prepare: false is required for Supabase Transaction mode (port 6543)
 const queryClient = postgres(connectionString, {
     max: 1, // Set to 1 for serverless environments
     idle_timeout: 20,
     connect_timeout: 10,
+    prepare: false, // Required for Supabase pooler
 })
 
 // ========================================
