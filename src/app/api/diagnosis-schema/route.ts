@@ -16,16 +16,18 @@ export async function GET(request: NextRequest) {
             .where(eq(diagnosisCategories.isActive, true))
             .orderBy(asc(diagnosisCategories.displayOrder))
 
-        let itemQuery = db
-            .select()
-            .from(diagnosisItems)
-            .where(eq(diagnosisItems.isActive, true))
-            .orderBy(asc(diagnosisItems.displayOrder))
-
-        // Drizzle-orm doesn't have fluent query building like Supabase easily in certain contexts,
-        // but it's simple enough to filter here if needed.
-        const allItems = await itemQuery
-        const items = inputType ? allItems.filter(i => i.inputType === inputType) : allItems
+        let items: any[] = []
+        try {
+            const allItems = await db
+                .select()
+                .from(diagnosisItems)
+                .where(eq(diagnosisItems.isActive, true))
+                .orderBy(asc(diagnosisItems.displayOrder))
+            items = inputType ? allItems.filter(i => i.inputType === inputType) : allItems
+            console.log(`[diagnosis-schema] Fetched ${allItems.length} items, filtered to ${items.length}`)
+        } catch (itemError) {
+            console.error('[diagnosis-schema] Error fetching items:', itemError)
+        }
 
         return NextResponse.json({
             success: true,
