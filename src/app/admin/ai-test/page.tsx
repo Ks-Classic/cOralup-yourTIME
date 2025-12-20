@@ -209,14 +209,14 @@ export default function AdminAITestPage() {
                     diagCats = categories.map((cat: any) => ({
                         id: cat.id,
                         name: cat.name,
-                        display_order: cat.display_order,
-                        items: items.filter((i: any) => i.category_id === cat.id).map((item: any) => ({
+                        display_order: cat.displayOrder,
+                        items: items.filter((i: any) => i.categoryId === cat.id).map((item: any) => ({
                             id: item.id,
                             question: item.question,
-                            answer_type: item.answer_type,
+                            answer_type: item.answerType,
                             options: normalizeOptions(item.options),
-                            is_required: item.is_required,
-                            input_type: item.input_type,
+                            is_required: item.isRequired,
+                            input_type: item.inputType,
                         }))
                     }))
                     setDiagnosisCategories(diagCats)
