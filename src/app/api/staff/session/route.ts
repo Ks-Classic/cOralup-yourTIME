@@ -120,6 +120,9 @@ export async function GET(request: NextRequest) {
 
       const visit = visitRows[0]
 
+      // デバッグログ: childIdがnullの場合を確認
+      console.log('[Session API] Visit found:', { visitId: visit.id, childId: visit.childId, status: visit.status })
+
       // childを取得
       let childData = null
       if (visit.childId) {

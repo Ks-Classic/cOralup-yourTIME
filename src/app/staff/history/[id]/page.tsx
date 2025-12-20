@@ -328,6 +328,12 @@ export default function StaffHistoryDetailPage() {
         setVisitData(visit)
         setSessionId(visit.session_id || visitId)
 
+        // 子供データが存在しない場合はエラー表示
+        if (!visit.children) {
+          setVisitError('お子様の情報が見つかりません。')
+          return
+        }
+
         // 2. スタッフ紐付け (履歴画面では不要なのでスキップ)
         /*
         try {
@@ -347,7 +353,7 @@ export default function StaffHistoryDetailPage() {
         */
 
         // SessionDataを設定
-        const childName = `${visit.children.last_name} ${visit.children.first_name}`
+        const childName = `${visit.children.last_name || ''} ${visit.children.first_name || ''}`
         const parentName = visit.parent
           ? (visit.parent.last_name && visit.parent.first_name
             ? `${visit.parent.last_name} ${visit.parent.first_name}`
@@ -363,7 +369,7 @@ export default function StaffHistoryDetailPage() {
           parent_phone: visit.parent?.phone_number,
           child_name: childName,
           child_age: ageYears,
-          child_gender: visit.children.gender,
+          child_gender: visit.children?.gender || '',
           created_at: visit.visit_date,
         })
 
@@ -393,7 +399,7 @@ export default function StaffHistoryDetailPage() {
         setQuestionnaire({
           child_name: childName,
           child_age: ageYears,
-          child_gender: visit.children.gender,
+          child_gender: visit.children?.gender || '',
           medical_history: medicalHistory.length > 0 ? medicalHistory : ['特になし'],
           concerns: concerns.length > 0 ? concerns : ['特になし'],
           ideal_goals: idealGoals.length > 0 ? idealGoals : ['特になし'],

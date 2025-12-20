@@ -367,6 +367,12 @@ export default function DiagnosisPageWithId() {
         setVisitData(visit)
         setSessionId(visit.session_id || visitId)
 
+        // 子供データが存在しない場合はエラー表示
+        if (!visit.children) {
+          setVisitError('お子様の情報が見つかりません。問診が完了しているか確認してください。')
+          return
+        }
+
         // 2. スタッフ紐付け（まだ紐付けされていない場合）
         try {
           const assignRes = await fetch('/api/staff/session/assign', {
@@ -384,7 +390,7 @@ export default function DiagnosisPageWithId() {
         }
 
         // SessionDataを設定
-        const childName = `${visit.children.last_name} ${visit.children.first_name}`
+        const childName = `${visit.children.last_name || ''} ${visit.children.first_name || ''}`
         const parentName = visit.parent
           ? (visit.parent.last_name && visit.parent.first_name
             ? `${visit.parent.last_name} ${visit.parent.first_name}`
@@ -400,7 +406,7 @@ export default function DiagnosisPageWithId() {
           parent_phone: visit.parent?.phone_number,
           child_name: childName,
           child_age: ageYears,
-          child_gender: visit.children.gender,
+          child_gender: visit.children?.gender || '',
           created_at: visit.visit_date,
         })
 
@@ -430,7 +436,7 @@ export default function DiagnosisPageWithId() {
         setQuestionnaire({
           child_name: childName,
           child_age: ageYears,
-          child_gender: visit.children.gender,
+          child_gender: visit.children?.gender || '',
           medical_history: medicalHistory.length > 0 ? medicalHistory : ['特になし'],
           concerns: concerns.length > 0 ? concerns : ['特になし'],
           ideal_goals: idealGoals.length > 0 ? idealGoals : ['特になし'],
