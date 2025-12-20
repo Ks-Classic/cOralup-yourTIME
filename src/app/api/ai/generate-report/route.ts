@@ -34,9 +34,60 @@ export async function POST(request: NextRequest) {
     let rData: any[] = []
 
     if (testMode && testData) {
-      // テストデータの扱いは従来通り
+      // テストモード: フロントエンドから送られたデータを使用
       dataForPrompt.childName = testData.childName || 'テスト太郎'
-      // ... (テストモードの詳細は省略、必要に応じて追加)
+      dataForPrompt.childAgeMonths = testData.childAgeMonths || 0
+      dataForPrompt.childAge = String(Math.floor(dataForPrompt.childAgeMonths / 12))
+      dataForPrompt.childGender = testData.childGender || ''
+      dataForPrompt.postureScore = String(testData.postureScore || '不明')
+      dataForPrompt.oralScore = String(testData.oralScore || '不明')
+      dataForPrompt.postureIssues = Array.isArray(testData.postureIssues) ? testData.postureIssues.join(', ') : 'なし'
+      dataForPrompt.oralIssues = Array.isArray(testData.oralIssues) ? testData.oralIssues.join(', ') : 'なし'
+      dataForPrompt.staffNotes = testData.staffNotes || ''
+
+      // diagnosisMeta から rData 形式に変換
+      if (testData.diagnosisMeta) {
+        Object.entries(testData.diagnosisMeta).forEach(([itemId, meta]: [string, any]) => {
+          rData.push({
+            itemId,
+            question: meta.question,
+            value: meta.value,
+            categoryName: ''
+          })
+        })
+      }
+
+      // questionnaireMeta から qData を構築
+      if (testData.questionnaireMeta) {
+        qData = {}
+        Object.entries(testData.questionnaireMeta).forEach(([itemId, meta]: [string, any]) => {
+          qData[itemId] = meta.value
+          // rData にも追加（変数置換で使用）
+          rData.push({
+            itemId,
+            question: meta.question,
+            value: meta.value,
+            categoryName: ''
+          })
+        })
+      }
+
+      // diagnosisDetails/questionnaireDetails を構築
+      const diagLines: string[] = []
+      const questLines: string[] = []
+      if (testData.diagnosisMeta) {
+        Object.values(testData.diagnosisMeta).forEach((meta: any) => {
+          diagLines.push(`${meta.question}: ${meta.value}`)
+        })
+      }
+      if (testData.questionnaireMeta) {
+        Object.values(testData.questionnaireMeta).forEach((meta: any) => {
+          questLines.push(`${meta.question}: ${meta.value}`)
+        })
+      }
+      dataForPrompt.diagnosisDetails = diagLines.join('\n') || 'なし'
+      dataForPrompt.questionnaireDetails = questLines.join('\n') || 'なし'
+
     } else if (sessionId || visitId) {
       let targetSessionId = sessionId
       let visitData: any = null
@@ -114,23 +165,39 @@ export async function POST(request: NextRequest) {
     const ageDisplay = months > 0 ? `${years}歳${months}ヶ月` : `${years}歳`
 
     let finalTemplate = customPrompt
-    let variableConfig: any[] = []
-    let modelName: string = 'gemini-2.5-flash-lite'
+    let variableConfig: any[] = body.variableConfig || []
+    let modelName: string = body.modelName || 'gemini-2.5-flash-lite'
 
     if (!finalTemplate) {
       const activePrompts = await db.select().from(aiPrompts).where(eq(aiPrompts.isActive, true)).limit(1)
       if (activePrompts[0]) {
         finalTemplate = activePrompts[0].promptTemplate
-        variableConfig = activePrompts[0].variableConfig as any[] || []
-        if (activePrompts[0].modelName) modelName = activePrompts[0].modelName
+        if (!variableConfig.length) variableConfig = activePrompts[0].variableConfig as any[] || []
+        if (!body.modelName && activePrompts[0].modelName) modelName = activePrompts[0].modelName
       }
     }
 
     if (!finalTemplate) return NextResponse.json({ error: 'Prompt template not found' }, { status: 500 })
 
-    let prompt = finalTemplate.replace(/\{\{\s*ageDisplay\s*\}\}/g, ageDisplay)
+    // システム変数の置換
+    let prompt = finalTemplate
+      .replace(/\{\{\s*ageDisplay\s*\}\}/g, ageDisplay)
+      .replace(/\{\{\s*childName\s*\}\}/g, dataForPrompt.childName)
+      .replace(/\{\{\s*childAge\s*\}\}/g, dataForPrompt.childAge)
+      .replace(/\{\{\s*childGender\s*\}\}/g, dataForPrompt.childGender)
+      .replace(/\{\{\s*postureScore\s*\}\}/g, dataForPrompt.postureScore)
+      .replace(/\{\{\s*oralScore\s*\}\}/g, dataForPrompt.oralScore)
+      .replace(/\{\{\s*postureIssues\s*\}\}/g, dataForPrompt.postureIssues)
+      .replace(/\{\{\s*oralIssues\s*\}\}/g, dataForPrompt.oralIssues)
+      .replace(/\{\{\s*staffNotes\s*\}\}/g, dataForPrompt.staffNotes)
+      .replace(/\{\{\s*diagnosisDetails\s*\}\}/g, dataForPrompt.diagnosisDetails)
+      .replace(/\{\{\s*questionnaireDetails\s*\}\}/g, dataForPrompt.questionnaireDetails)
+      .replace(/\{\{\s*postureDetails\s*\}\}/g, dataForPrompt.postureDetails)
+      .replace(/\{\{\s*oralDetails\s*\}\}/g, dataForPrompt.oralDetails)
+      .replace(/\{\{\s*medicalHistory\s*\}\}/g, dataForPrompt.medicalHistory)
+      .replace(/\{\{\s*concerns\s*\}\}/g, dataForPrompt.concerns)
 
-    // 変数置換
+    // カスタム変数置換
     if (variableConfig && variableConfig.length > 0) {
       const allItemsMap = new Map<string, string>()
       if (qData) {
