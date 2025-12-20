@@ -21,7 +21,7 @@ import {
 } from '@/utils/age-calculator'
 import type { FormSchemaConfig, FormFieldConfig, FormSectionConfig } from '@/types/forms'
 import { initLiff, liffLogin, preloadLiffSdk, closeLiff, type LiffProfile } from '@/lib/liff-utils'
-import { AlertCircle, Loader2, CheckCircle2, Smartphone } from 'lucide-react'
+import { AlertCircle, Loader2, CheckCircle2, Smartphone, Home } from 'lucide-react'
 
 // LIFF SDKをページロード時にプリロード開始
 if (typeof window !== 'undefined') {
@@ -651,11 +651,20 @@ function LiffQuestionnairePageContent() {
               <p className="text-xs text-gray-500">{liffProfile.displayName}さん</p>
             )}
           </div>
-          <Badge variant="outline" className="text-coral-600 border-coral-200">
-            {currentStep === 1 && '基本情報'}
-            {currentStep === 2 && '問診'}
-            {currentStep === 3 && 'QRコード'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-coral-600 border-coral-200">
+              {currentStep === 1 && '基本情報'}
+              {currentStep === 2 && '問診'}
+              {currentStep === 3 && 'QRコード'}
+            </Badge>
+            <button
+              onClick={() => router.push('/parent/home')}
+              className="p-2 rounded-full hover:bg-coral-50 transition-colors"
+              aria-label="マイページへ"
+            >
+              <Home className="w-5 h-5 text-coral-500" />
+            </button>
+          </div>
         </div>
         {/* プログレスバー */}
         <div className="h-1 bg-coral-100">
