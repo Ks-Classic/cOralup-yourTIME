@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gemini APIで姿勢分析
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
 
     const prompt = `
 あなたは口腔育成の専門家として、姿勢写真からお子様の姿勢状態を分析してください。
