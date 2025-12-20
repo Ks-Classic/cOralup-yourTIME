@@ -160,18 +160,18 @@ export default function IntegratedDiagnosisPage() {
           // APIデータをアプリケーションの形式に変換
           const apiItems = json.data.items.map((item: any) => ({
             id: item.id,
-            category: json.data.categories.find((c: any) => c.id === item.category_id)?.name || '未分類',
+            category: json.data.categories.find((c: any) => c.id === item.categoryId)?.name || '未分類',
             question: item.question,
-            answerType: item.answer_type,
+            answerType: item.answerType,
             options: item.options,
-            required: item.is_required,
-            inputType: item.input_type,
+            required: item.isRequired,
+            inputType: item.inputType,
             note: item.note,
-            min: item.min_value,
-            max: item.max_value,
+            min: item.minValue,
+            max: item.maxValue,
             unit: item.unit,
             placeholder: item.placeholder,
-            analysisUse: item.analysis_use
+            analysisUse: item.analysisUse
           }))
 
           // 舌カテゴリの確認
@@ -286,7 +286,7 @@ export default function IntegratedDiagnosisPage() {
     // 動的にロードしたカテゴリ順序を使用
     if (categoryList.length > 0) {
       return categoryList
-        .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+        .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
         .map((c: any) => c.name)
         .filter((cat: string) => staffItemsByCategory[cat]?.length > 0)
     }
@@ -313,10 +313,10 @@ export default function IntegratedDiagnosisPage() {
     if (tabElement && container) {
       const containerRect = container.getBoundingClientRect()
       const tabRect = tabElement.getBoundingClientRect()
-      
+
       // タブを中央に配置するためのスクロール位置を計算
       const scrollLeft = tabElement.offsetLeft - (containerRect.width / 2) + (tabRect.width / 2)
-      
+
       container.scrollTo({
         left: Math.max(0, scrollLeft),
         behavior: 'smooth'
@@ -336,7 +336,7 @@ export default function IntegratedDiagnosisPage() {
       observer = new IntersectionObserver(
         (entries) => {
           if (isScrollingRef.current) return
-          
+
           // 最も上に表示されているカテゴリを検出
           const visibleEntries = entries.filter(entry => entry.isIntersecting)
           if (visibleEntries.length > 0) {
@@ -346,7 +346,7 @@ export default function IntegratedDiagnosisPage() {
               const currentTop = current.boundingClientRect.top
               return currentTop < prevTop ? current : prev
             })
-            
+
             const categoryId = topEntry.target.id.replace('category-', '')
             setActiveCategory(categoryId)
           }
@@ -1230,7 +1230,7 @@ export default function IntegratedDiagnosisPage() {
                             return `${firstName}${honorific}の問診回答`
                           })()}
                         </h3>
-                        
+
                         {/* カテゴリ別にグループ化して表示 */}
                         {(() => {
                           // カテゴリアイコンマップ
@@ -1245,7 +1245,7 @@ export default function IntegratedDiagnosisPage() {
                             '歯並び': '🦷',
                             'その他': '📝',
                           }
-                          
+
                           // カテゴリ色マップ
                           const categoryColors: Record<string, { bg: string, border: string, text: string, badge: string }> = {
                             '基本情報': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100' },
@@ -1258,7 +1258,7 @@ export default function IntegratedDiagnosisPage() {
                             '歯並び': { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100' },
                           }
                           const defaultColors = { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100' }
-                          
+
                           // デモ用のサンプル問診回答
                           const demoResponses = [
                             { category: '基本情報', question: 'お子様のお名前', answer: questionnaire.child_name },
@@ -1270,18 +1270,18 @@ export default function IntegratedDiagnosisPage() {
                             { category: '睡眠', question: 'いびきをかきますか？', answer: 'ときどきある' },
                             { category: '睡眠', question: '寝相が悪いですか？', answer: 'はい' },
                           ]
-                          
+
                           // カテゴリ別にグループ化
                           const grouped = demoResponses.reduce((acc, item) => {
                             if (!acc[item.category]) acc[item.category] = []
                             acc[item.category].push(item)
                             return acc
                           }, {} as Record<string, typeof demoResponses>)
-                          
+
                           return Object.entries(grouped).map(([category, items]) => {
                             const colors = categoryColors[category] || defaultColors
                             const icon = categoryIcons[category] || '📝'
-                            
+
                             return (
                               <div key={category} className={`rounded-xl border ${colors.border} ${colors.bg} overflow-hidden`}>
                                 {/* カテゴリヘッダー */}
@@ -1290,7 +1290,7 @@ export default function IntegratedDiagnosisPage() {
                                     {icon} {category}
                                   </span>
                                 </div>
-                                
+
                                 {/* 質問と回答 */}
                                 <div className="divide-y divide-gray-100">
                                   {items.map((item, index) => (
@@ -1440,7 +1440,7 @@ export default function IntegratedDiagnosisPage() {
                 </div>
 
                 {/* カテゴリタブ - 固定 */}
-                <div 
+                <div
                   ref={categoryTabContainerRef}
                   className="border-b bg-white overflow-x-auto sticky top-[52px] z-10 scrollbar-hide shadow-sm"
                 >

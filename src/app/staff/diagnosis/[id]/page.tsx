@@ -213,18 +213,18 @@ export default function DiagnosisPageWithId() {
           // APIデータをアプリケーションの形式に変換
           const apiItems = json.data.items.map((item: any) => ({
             id: item.id,
-            category: json.data.categories.find((c: any) => c.id === item.category_id)?.name || '未分類',
+            category: json.data.categories.find((c: any) => c.id === item.categoryId)?.name || '未分類',
             question: item.question,
-            answerType: item.answer_type,
+            answerType: item.answerType,
             options: item.options,
-            required: item.is_required,
-            inputType: item.input_type,
+            required: item.isRequired,
+            inputType: item.inputType,
             note: item.note,
-            min: item.min_value,
-            max: item.max_value,
+            min: item.minValue,
+            max: item.maxValue,
             unit: item.unit,
             placeholder: item.placeholder,
-            analysisUse: item.analysis_use
+            analysisUse: item.analysisUse
           }))
 
           // 舌カテゴリの確認
@@ -411,7 +411,7 @@ export default function DiagnosisPageWithId() {
     // 動的にロードしたカテゴリ順序を使用
     if (categoryList.length > 0) {
       return categoryList
-        .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+        .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
         .map((c: any) => c.name)
         .filter((cat: string) => staffItemsByCategory[cat]?.length > 0)
     }
