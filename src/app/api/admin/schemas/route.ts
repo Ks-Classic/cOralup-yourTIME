@@ -60,10 +60,30 @@ export async function GET(request: NextRequest) {
     const formType = searchParams.get('form_type')
     const schemaId = searchParams.get('schema_id')
 
+    // 基本情報スキーマ: まずDBを確認し、なければハードコードをフォールバック
     if (schemaId && schemaId.startsWith('basic_info')) {
-      const isElementary = schemaId.includes('elementary')
-      const config = isElementary ? basicInfoElementaryFormSchema : basicInfoFormSchema
-      return NextResponse.json({ data: [{ id: schemaId, schema_id: schemaId, form_type: 'basic_info', name: isElementary ? '小学生以上用基本情報' : '未就学児用基本情報', is_active: true, config, created_at: new Date().toISOString() }], error: null })
+      // DBから取得を試みる
+      const dbSchema = await db.select().from(formSchemas).where(eq(formSchemas.schemaId, schemaId)).limit(1)
+
+      if (dbSchema[0]) {
+        // DBにデータがある場合はそれを使用
+        return NextResponse.json({
+          data: [{
+            id: dbSchema[0].id,
+            schema_id: dbSchema[0].schemaId,
+            form_type: dbSchema[0].formType,
+            name: dbSchema[0].name,
+            is_active: dbSchema[0].isActive,
+            config: dbSchema[0].config,
+            created_at: dbSchema[0].createdAt?.toISOString()
+          }],
+          error: null
+        })
+      }
+
+      // DBにない場合はハードコードをフォールバック（初期状態・共通スキーマ）
+      const config = basicInfoFormSchema // 共通スキーマを使用
+      return NextResponse.json({ data: [{ id: schemaId, schema_id: schemaId, form_type: 'basic_info', name: '基本情報（共通）', is_active: true, config, created_at: new Date().toISOString() }], error: null })
     }
 
     if (schemaId && (schemaId.startsWith('preschooler') || schemaId.startsWith('elementary'))) {

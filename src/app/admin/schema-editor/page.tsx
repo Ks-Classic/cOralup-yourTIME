@@ -97,7 +97,7 @@ export default function SchemaEditorPage() {
     }))
   }, [questionnaireSubTab])
   const [schemaCache, setSchemaCache] = useState<{ preschooler?: FormSchemaConfig; elementary?: FormSchemaConfig }>({})
-  const [basicInfoSchemaCache, setBasicInfoSchemaCache] = useState<{ preschooler?: FormSchemaConfig; elementary?: FormSchemaConfig }>({})
+  const [basicInfoSchemaCache, setBasicInfoSchemaCache] = useState<FormSchemaConfig | null>(null)
   const [basicInfoSchema, setBasicInfoSchema] = useState<FormSchemaConfig>(defaultSchema)
   const [diagnosisData, setDiagnosisData] = useState<{ categorized: Record<string, ExtendedDiagnosisItem[]>; categoryOrder: string[] }>({
     categorized: {},
@@ -108,18 +108,17 @@ export default function SchemaEditorPage() {
     const fetchData = async () => {
       try {
         if (activeTab === 'questionnaire') {
-          // 基本情報タブの場合
+          // 基本情報タブの場合（全年齢共通）
           if (questionnaireSubTab === 'basic_info') {
-            const cachedBasic = basicInfoSchemaCache[schemaType]
-            if (cachedBasic) {
-              setBasicInfoSchema(cachedBasic)
+            if (basicInfoSchemaCache) {
+              setBasicInfoSchema(basicInfoSchemaCache)
               setIsLoading(false)
               return
             }
 
             setIsLoading(true)
-            const schemaId = schemaType === 'preschooler' ? 'basic_info_preschooler_v1' : 'basic_info_elementary_v1'
-            const res = await fetch(`/api/admin/schemas?schema_id=${schemaId}`, {
+            // 基本情報は共通なので1つのスキーマID
+            const res = await fetch(`/api/admin/schemas?schema_id=basic_info_common_v1`, {
               headers: { ...adminAuthHeader },
             })
 
@@ -130,7 +129,7 @@ export default function SchemaEditorPage() {
             const json = await res.json()
             const nextSchema = (json.data && json.data.length > 0) ? json.data[0].config : defaultSchema
             setBasicInfoSchema(nextSchema)
-            setBasicInfoSchemaCache(prev => ({ ...prev, [schemaType]: nextSchema }))
+            setBasicInfoSchemaCache(nextSchema)
           } else {
             // 問診タブの場合
             const cached = schemaCache[schemaType]
@@ -197,7 +196,7 @@ export default function SchemaEditorPage() {
   useEffect(() => {
     if (activeTab === 'questionnaire') {
       if (questionnaireSubTab === 'basic_info') {
-        setBasicInfoSchemaCache(prev => ({ ...prev, [schemaType]: basicInfoSchema }))
+        setBasicInfoSchemaCache(basicInfoSchema)
       } else {
         setSchemaCache(prev => ({ ...prev, [schemaType]: questionnaireSchema }))
       }
@@ -836,7 +835,7 @@ export default function SchemaEditorPage() {
         // console.log('[UI handleSave] hardDeleteItemIds:', hardDeleteItemIds)
 
         if (questionnaireSubTab === 'basic_info') {
-          // 基本情報スキーマの保存
+          // 基本情報スキーマの保存（全年齢共通）
           const response = await fetch('/api/admin/schemas', {
             method: 'POST',
             headers: {
@@ -844,9 +843,9 @@ export default function SchemaEditorPage() {
               ...adminAuthHeader,
             },
             body: JSON.stringify({
-              schema_id: schemaType === 'preschooler' ? 'basic_info_preschooler_v1' : 'basic_info_elementary_v1',
+              schema_id: 'basic_info_common_v1',
               form_type: 'basic_info',
-              name: schemaType === 'preschooler' ? '未就学児用基本情報' : '小学生以上用基本情報',
+              name: '基本情報（共通）',
               config: basicInfoSchema,
               hardDeleteCategoryIds,
               hardDeleteItemIds,
@@ -858,7 +857,7 @@ export default function SchemaEditorPage() {
           }
 
           setSaveMessage({ type: 'success', text: '基本情報スキーマを保存しました' })
-          setBasicInfoSchemaCache(prev => ({ ...prev, [schemaType]: undefined }))
+          setBasicInfoSchemaCache(null)
         } else {
           // 問診スキーマの保存
           const response = await fetch('/api/admin/schemas', {
@@ -1101,27 +1100,6 @@ export default function SchemaEditorPage() {
       {/* サブタブ（問診票の場合） */}
       {activeTab === 'questionnaire' && (
         <div className="space-y-3">
-          {/* 年齢区分 */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSchemaType('preschooler')}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'preschooler'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-            >
-              未就学児
-            </button>
-            <button
-              onClick={() => setSchemaType('elementary')}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'elementary'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-            >
-              小学生以上
-            </button>
-          </div>
           {/* ページ種別（基本情報/問診） */}
           <div className="flex gap-2 border-b border-slate-200 pb-2">
             <button
@@ -1143,9 +1121,34 @@ export default function SchemaEditorPage() {
               📋 問診ページ
             </button>
           </div>
+
+          {/* 年齢区分 - 問診ページのみ表示 */}
+          {questionnaireSubTab === 'questionnaire' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSchemaType('preschooler')}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'preschooler'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+              >
+                未就学児
+              </button>
+              <button
+                onClick={() => setSchemaType('elementary')}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${schemaType === 'elementary'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+              >
+                小学生以上
+              </button>
+            </div>
+          )}
+
           <p className="text-xs text-slate-500">
             {questionnaireSubTab === 'basic_info'
-              ? '※ 基本情報入力後「次へ」でDB保存 → 問診ページへ遷移'
+              ? '※ 基本情報は全年齢共通です。入力後「次へ」でDB保存 → 問診ページへ遷移'
               : '※ 問診入力後「次へ：QR表示」でDB保存 → QRコード表示'}
           </p>
         </div>

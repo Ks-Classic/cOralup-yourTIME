@@ -131,7 +131,7 @@ export default function StaffLoginPage() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Logo size="lg" />
             </div>
             <h1 className="text-2xl font-bold text-white">cOralup Staff</h1>

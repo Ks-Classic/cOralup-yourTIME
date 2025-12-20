@@ -21,7 +21,7 @@ export function Logo({ size = 'md', className = '', showText = false }: LogoProp
 
     return (
         <Image
-            src="/icon.png"
+            src="/logo.png"
             alt="cOral up"
             width={dimensions.width}
             height={dimensions.height}
@@ -37,7 +37,7 @@ export function LogoIcon({ size = 'sm', className = '' }: Omit<LogoProps, 'showT
 
     return (
         <Image
-            src="/icon.png"
+            src="/logo.png"
             alt="cOral up"
             width={dimensions.width}
             height={dimensions.height}

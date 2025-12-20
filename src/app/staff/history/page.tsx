@@ -27,7 +27,8 @@ export default async function StaffHistoryPage() {
         id,
         first_name,
         last_name,
-        birthday
+        birthday,
+        gender
       )
     `)
     .eq('staff_profile_id', session.staffId)
@@ -49,10 +50,11 @@ export default async function StaffHistoryPage() {
   })
 
   const statusColors: Record<string, string> = {
-    waiting: 'bg-amber-500/20 text-amber-400',
-    in_progress: 'bg-blue-500/20 text-blue-400',
-    completed: 'bg-emerald-500/20 text-emerald-400',
-    report_sent: 'bg-purple-500/20 text-purple-400',
+    waiting: 'bg-amber-100 text-amber-700',
+    in_progress: 'bg-blue-100 text-blue-700',
+    completed: 'bg-emerald-100 text-emerald-700',
+    report_sent: 'bg-purple-100 text-purple-700',
+    diagnosis_completed: 'bg-green-100 text-green-700',
   }
 
   const statusLabels: Record<string, string> = {
@@ -60,34 +62,34 @@ export default async function StaffHistoryPage() {
     in_progress: '診断中',
     completed: '完了',
     report_sent: '送信済',
+    diagnosis_completed: '診断完了',
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+    <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
-      <header className="bg-slate-800/50 backdrop-blur border-b border-slate-700 sticky top-0 z-10">
-        <div className="flex items-center px-4 py-4">
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center px-4 py-3">
           <Link
             href="/staff/home"
-            className="text-emerald-400 hover:text-emerald-300 mr-4 flex items-center gap-1"
+            className="text-gray-600 hover:text-gray-900 mr-4 flex items-center gap-1"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            戻る
           </Link>
-          <h1 className="text-lg font-bold text-white">対応履歴</h1>
+          <h1 className="text-lg font-bold text-gray-900">対応履歴</h1>
         </div>
       </header>
 
-      <div className="p-4">
+      <div className="max-w-lg mx-auto px-4 py-4">
         {Object.keys(groupedVisits).length > 0 ? (
           Object.entries(groupedVisits).map(([date, dateVisits]) => (
-            <div key={date} className="mb-6">
-              <h2 className="text-sm font-medium text-slate-400 mb-3 px-1">
+            <div key={date} className="mb-4">
+              <h2 className="text-sm font-semibold text-gray-700 mb-2 px-1">
                 {date}
               </h2>
-              <div className="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700 divide-y divide-slate-700">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100">
                 {dateVisits?.map((visit) => {
                   const child = visit.children as any
                   const age = child?.birthday
@@ -97,37 +99,41 @@ export default async function StaffHistoryPage() {
                     )
                     : null
 
+                  const honorific = child?.gender === 'male' ? 'くん' : 'ちゃん'
+
                   return (
                     <Link
                       key={visit.id}
                       href={`/staff/history/${visit.id}`}
-                      className="flex items-center justify-between p-4 hover:bg-slate-700/30 transition-colors"
+                      className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
                     >
-                      <div>
-                        <div className="font-medium text-white">
-                          {child?.last_name}
-                          {child?.first_name}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-900 text-sm">
+                          {child?.first_name}{honorific}
+                          <span className="text-gray-400 font-normal ml-1 text-xs">
+                            ({child?.last_name} {child?.first_name})
+                          </span>
                           {age !== null && (
-                            <span className="text-slate-400 ml-2 text-sm">
-                              ({age}歳)
+                            <span className="text-gray-500 ml-2 text-xs">
+                              {age}歳
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-slate-400">
-                          {new Date(visit.visit_date).toLocaleTimeString('ja-JP', {
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {new Date(visit.visit_date).toLocaleString('ja-JP', {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <span
-                          className={`text-xs px-2.5 py-1 rounded-full ${statusColors[visit.status] || 'bg-slate-700 text-slate-400'
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[visit.status] || 'bg-gray-100 text-gray-600'
                             }`}
                         >
                           {statusLabels[visit.status] || visit.status}
                         </span>
-                        <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </div>
@@ -138,19 +144,19 @@ export default async function StaffHistoryPage() {
             </div>
           ))
         ) : (
-          <div className="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700 p-12 text-center">
-            <svg className="w-16 h-16 mx-auto mb-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-slate-400 mb-4">対応履歴がありません</p>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <p className="text-gray-500 text-sm">対応履歴がありません</p>
+            <p className="text-gray-400 text-xs mt-1">QRスキャンから診断を開始しましょう</p>
             <Link
               href="/staff/home"
-              className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300"
+              className="inline-flex items-center gap-2 text-coral-500 hover:text-coral-600 text-sm mt-4 font-medium"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-              QRスキャンで診断を開始
+              ホームに戻る →
             </Link>
           </div>
         )}

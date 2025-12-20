@@ -221,7 +221,7 @@ export default function ReportPage({ params }: PageProps) {
           {/* フッター */}
           <footer className="text-center pt-4 border-t border-gray-200">
             <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
-              <Image src="/icon.png" alt="cOral up" width={20} height={20} />
+              <Image src="/logo.png" alt="cOral up" width={20} height={20} />
               <span>cOral up - 口腔育成診断</span>
             </div>
           </footer>
