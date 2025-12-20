@@ -18,14 +18,24 @@ export async function GET(request: NextRequest) {
 
         let items: any[] = []
         try {
-            const allItems = await db
-                .select()
-                .from(diagnosisItems)
-                .where(eq(diagnosisItems.isActive, true))
-                .orderBy(asc(diagnosisItems.displayOrder))
-            items = inputType ? allItems.filter(i => i.inputType === inputType) : allItems
-            console.log(`[diagnosis-schema] inputType param: "${inputType}", sample item inputType: "${allItems[0]?.inputType}"`)
-            console.log(`[diagnosis-schema] Fetched ${allItems.length} items, filtered to ${items.length}`)
+            // Filter at SQL level to avoid camelCase/snake_case issues
+            if (inputType) {
+                items = await db
+                    .select()
+                    .from(diagnosisItems)
+                    .where(and(
+                        eq(diagnosisItems.isActive, true),
+                        eq(diagnosisItems.inputType, inputType)
+                    ))
+                    .orderBy(asc(diagnosisItems.displayOrder))
+            } else {
+                items = await db
+                    .select()
+                    .from(diagnosisItems)
+                    .where(eq(diagnosisItems.isActive, true))
+                    .orderBy(asc(diagnosisItems.displayOrder))
+            }
+            console.log(`[diagnosis-schema] inputType param: "${inputType}", items count: ${items.length}`)
         } catch (itemError) {
             console.error('[diagnosis-schema] Error fetching items:', itemError)
         }
