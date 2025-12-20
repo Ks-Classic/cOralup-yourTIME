@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gemini APIで口腔分析
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' })
 
     const prompt = `
 あなたは口腔機能の専門家として、口腔内写真からお子様の口腔状態を分析してください。

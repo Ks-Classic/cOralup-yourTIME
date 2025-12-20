@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     let finalTemplate = customPrompt
     let variableConfig: any[] = []
-    let modelName: string = 'gemini-1.5-flash'
+    let modelName: string = 'gemini-2.0-flash-lite'
 
     if (!finalTemplate) {
       const activePrompts = await db.select().from(aiPrompts).where(eq(aiPrompts.isActive, true)).limit(1)
