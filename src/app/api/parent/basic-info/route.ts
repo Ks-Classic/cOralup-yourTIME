@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { profiles, children, visits } from '@/db/schema'
-import { eq, or, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,22 +64,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. 親プロフィールを取得または作成（role='parent' または secondary_role='parent'）
-    const profileRows = await db
+    // 1. 既存プロフィールをlineUserIdで検索（roleに関係なく）
+    const existingProfileRows = await db
       .select()
       .from(profiles)
-      .where(
-        and(
-          eq(profiles.lineUserId, lineUserId),
-          or(eq(profiles.role, 'parent'), eq(profiles.secondaryRole, 'parent'))
-        )
-      )
+      .where(eq(profiles.lineUserId, lineUserId))
       .limit(1)
 
-    let profile = profileRows[0]
+    let profile = existingProfileRows[0]
 
     if (!profile) {
-      // 新規作成
+      // 新規作成（parentとして）
       const insertedProfiles = await db
         .insert(profiles)
         .values({
@@ -96,18 +91,24 @@ export async function POST(request: NextRequest) {
         .returning()
       profile = insertedProfiles[0]
     } else {
-      // 更新
+      // 既存プロフィールがある場合は更新
+      // roleがparentでない場合はsecondaryRoleをparentに設定
+      const shouldSetSecondaryRole = profile.role !== 'parent' && profile.secondaryRole !== 'parent'
+
+      const updateData = {
+        firstName: parentFirstName,
+        lastName: parentLastName,
+        firstNameKana: parentFirstNameKana,
+        lastNameKana: parentLastNameKana,
+        phoneNumber: parentPhone,
+        prefecture,
+        updatedAt: new Date(),
+        ...(shouldSetSecondaryRole ? { secondaryRole: 'parent' as const } : {}),
+      }
+
       const updatedProfiles = await db
         .update(profiles)
-        .set({
-          firstName: parentFirstName,
-          lastName: parentLastName,
-          firstNameKana: parentFirstNameKana,
-          lastNameKana: parentLastNameKana,
-          phoneNumber: parentPhone,
-          prefecture,
-          updatedAt: new Date(),
-        } as Partial<typeof profiles.$inferInsert>)
+        .set(updateData)
         .where(eq(profiles.id, profile.id))
         .returning()
       profile = updatedProfiles[0]
