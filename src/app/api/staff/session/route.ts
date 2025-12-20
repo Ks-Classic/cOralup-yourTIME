@@ -143,6 +143,50 @@ export async function GET(request: NextRequest) {
         childData = childRows[0] || null
       }
 
+      // childIdがnullの場合、sessionIdで子供を紐付ける試み
+      // （壊れたvisitデータの復旧のため）
+      if (!childData && visit.sessionId) {
+        console.log('[Session API] Trying to find child by sessionId:', visit.sessionId)
+
+        // 問診回答からvisitIdを取得し、そのvisitに紐づく子供を探す
+        // または、同じsessionIdを持つ別のvisitから子供を探す
+        const relatedVisitRows = await db
+          .select({ childId: visits.childId })
+          .from(visits)
+          .where(eq(visits.sessionId, visit.sessionId))
+          .limit(10)
+
+        const validChildId = relatedVisitRows.find(v => v.childId)?.childId
+
+        if (validChildId) {
+          console.log('[Session API] Found child from related visit:', validChildId)
+          const childRows = await db
+            .select({
+              id: children.id,
+              firstName: children.firstName,
+              lastName: children.lastName,
+              firstNameKana: children.firstNameKana,
+              lastNameKana: children.lastNameKana,
+              birthday: children.birthday,
+              gender: children.gender,
+              parentProfileId: children.parentProfileId,
+            })
+            .from(children)
+            .where(eq(children.id, validChildId))
+            .limit(1)
+          childData = childRows[0] || null
+
+          // 壊れたvisitを修復（childIdを更新）
+          if (childData) {
+            await db
+              .update(visits)
+              .set({ childId: childData.id, updatedAt: new Date() } as Partial<typeof visits.$inferInsert>)
+              .where(eq(visits.id, visit.id))
+            console.log('[Session API] Fixed broken visit, set childId:', childData.id)
+          }
+        }
+      }
+
       // 保護者プロフィールを取得
       let parentProfile = null
       if (childData?.parentProfileId) {
