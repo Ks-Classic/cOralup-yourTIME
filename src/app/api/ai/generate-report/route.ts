@@ -156,6 +156,19 @@ export async function POST(request: NextRequest) {
       dataForPrompt.postureDetails = pDetails.join('\n') || 'なし'
       dataForPrompt.oralDetails = oDetails.join('\n') || 'なし'
       dataForPrompt.diagnosisDetails = allD.join('\n') || 'なし'
+
+      // 問診データの詳細を構築
+      if (qData) {
+        const questLines: string[] = []
+        // 問診データから主要フィールドを抽出
+        if (qData.childName) questLines.push(`お子様の名前: ${qData.childName}`)
+        if (qData.childGender) questLines.push(`性別: ${qData.childGender}`)
+        if (qData.medicalHistory) questLines.push(`既往歴: ${Array.isArray(qData.medicalHistory) ? qData.medicalHistory.join(', ') : qData.medicalHistory}`)
+        if (qData.concerns) questLines.push(`気になること: ${Array.isArray(qData.concerns) ? qData.concerns.join(', ') : qData.concerns}`)
+        if (qData.idealGoals) questLines.push(`理想の状態: ${Array.isArray(qData.idealGoals) ? qData.idealGoals.join(', ') : qData.idealGoals}`)
+        if (qData.notes) questLines.push(`備考: ${qData.notes}`)
+        dataForPrompt.questionnaireDetails = questLines.join('\n') || 'なし'
+      }
     }
 
     if (!genAI) return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 })
