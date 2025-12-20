@@ -242,6 +242,10 @@ function LiffQuestionnairePageContent() {
       // 子供データ設定
       if (data.child) {
         setChildData(data.child)
+        // 重複防止: 既存子供のIDを保持
+        setSelectedChildId(data.child.id)
+        // 既存子供がいる場合は新規モードをOFF
+        setIsNewChild(false)
 
         // フォームに復元（姓名分離）
         if (data.child.lastName) setValue('childLastName', data.child.lastName)
@@ -424,8 +428,11 @@ function LiffQuestionnairePageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lineUserId: liffProfile.userId,
-          sessionId: !isNewChild && visitData?.status === 'questionnaire_in_progress' ? visitData.sessionId : undefined,
-          childId: !isNewChild && selectedChildId ? selectedChildId : undefined,
+          // 進行中のセッションがあれば引き継ぐ
+          sessionId: !isNewChild && visitData?.sessionId ? visitData.sessionId : undefined,
+          // 既存子供がいれば更新、なければ新規作成
+          // childData.id を優先し、なければ selectedChildId を使用
+          childId: !isNewChild ? (childData?.id || selectedChildId || undefined) : undefined,
           parentName: `${data.parentLastName} ${data.parentFirstName}`,
           parentLastName: data.parentLastName,
           parentFirstName: data.parentFirstName,

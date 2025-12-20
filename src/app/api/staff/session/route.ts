@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode } from '@/lib/supabase'
 import { db } from '@/db'
-import { visits, children, profiles, questionnaireResponses, questionnaireItems, questionnaireCategories } from '@/db/schema'
-import { eq, or, ilike, asc } from 'drizzle-orm'
+import { visits, children, profiles, questionnaireResponses, questionnaireItems, questionnaireCategories, visitPhotos, diagnosisResponses, diagnosisItems, diagnosisCategories, reports } from '@/db/schema'
+import { eq, or, ilike, asc, desc } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -204,6 +204,110 @@ export async function GET(request: NextRequest) {
         },
       }))
 
+      // 写真を取得
+      const photoRows = await db
+        .select({
+          id: visitPhotos.id,
+          photoType: visitPhotos.photoType,
+          publicUrl: visitPhotos.publicUrl,
+          createdAt: visitPhotos.createdAt,
+        })
+        .from(visitPhotos)
+        .where(eq(visitPhotos.visitId, visit.id))
+        .orderBy(desc(visitPhotos.createdAt))
+
+      const photosList = photoRows.map(p => ({
+        id: p.id,
+        type: p.photoType,
+        url: p.publicUrl,
+        uploaded_at: p.createdAt?.toISOString(),
+      }))
+
+      // 診断回答を取得
+      let diagnosisResponsesList: any[] = []
+      const diagnosisRows = await db
+        .select({
+          id: diagnosisResponses.id,
+          itemId: diagnosisResponses.itemId,
+          value: diagnosisResponses.value,
+          metadata: diagnosisResponses.metadata,
+          answeredAt: diagnosisResponses.answeredAt,
+          itemQuestion: diagnosisItems.question,
+          itemAnswerType: diagnosisItems.answerType,
+          itemOptions: diagnosisItems.options,
+          itemCategoryId: diagnosisItems.categoryId,
+          categoryId: diagnosisCategories.id,
+          categoryName: diagnosisCategories.name,
+          categoryDisplayOrder: diagnosisCategories.displayOrder,
+        })
+        .from(diagnosisResponses)
+        .leftJoin(diagnosisItems, eq(diagnosisResponses.itemId, diagnosisItems.id))
+        .leftJoin(diagnosisCategories, eq(diagnosisItems.categoryId, diagnosisCategories.id))
+        .where(
+          visit.sessionId
+            ? or(eq(diagnosisResponses.visitId, visit.id), eq(diagnosisResponses.sessionId, visit.sessionId))
+            : eq(diagnosisResponses.visitId, visit.id)
+        )
+        .orderBy(asc(diagnosisResponses.answeredAt))
+
+      diagnosisResponsesList = diagnosisRows.map(r => ({
+        id: r.id,
+        item_id: r.itemId,
+        value: r.value,
+        metadata: r.metadata,
+        answered_at: r.answeredAt,
+        diagnosis_items: {
+          id: r.itemId,
+          question: r.itemQuestion,
+          answer_type: r.itemAnswerType,
+          options: r.itemOptions,
+          category_id: r.itemCategoryId,
+          diagnosis_categories: {
+            id: r.categoryId,
+            name: r.categoryName,
+            display_order: r.categoryDisplayOrder,
+          },
+        },
+      }))
+
+      // レポートを取得
+      let reportData = null
+      const reportRows = await db
+        .select({
+          id: reports.id,
+          reportType: reports.reportType,
+          status: reports.status,
+          content: reports.content,
+          aiSummary: reports.aiSummary,
+          ageConsideration: reports.ageConsideration,
+          postureAnalysis: reports.postureAnalysis,
+          oralAnalysis: reports.oralAnalysis,
+          generatedAt: reports.generatedAt,
+          sentToLine: reports.sentToLine,
+          sentAt: reports.sentAt,
+        })
+        .from(reports)
+        .where(eq(reports.visitId, visit.id))
+        .orderBy(desc(reports.createdAt))
+        .limit(1)
+
+      if (reportRows.length > 0) {
+        const r = reportRows[0]
+        reportData = {
+          id: r.id,
+          report_type: r.reportType,
+          status: r.status,
+          content: r.content,
+          ai_summary: r.aiSummary,
+          age_consideration: r.ageConsideration,
+          posture_analysis: r.postureAnalysis,
+          oral_analysis: r.oralAnalysis,
+          generated_at: r.generatedAt?.toISOString(),
+          sent_to_line: r.sentToLine,
+          sent_at: r.sentAt?.toISOString(),
+        }
+      }
+
       return NextResponse.json({
         success: true,
         visit: {
@@ -231,6 +335,9 @@ export async function GET(request: NextRequest) {
             line_user_id: parentProfile.lineUserId,
           } : null,
           questionnaire_responses: questionnaireResponsesList,
+          photos: photosList,
+          diagnosis_responses: diagnosisResponsesList,
+          report: reportData,
           questionnaire: null, // レガシー対応は省略
         },
       })

@@ -13,12 +13,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save, AlertCircle } from 'lucide-react'
+import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save, AlertCircle, RotateCcw } from 'lucide-react'
 import { ReportPreview } from '@/components/staff/ReportPreview'
 import { cn } from '@/utils'
 import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-generator'
 import { generateQRCode } from '@/utils'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useDiagnosisStorage, cleanupOldDiagnosisData } from '@/hooks/useDiagnosisStorage'
 
 // メインビューの定義（下部メニューで切り替え）
 type MainView = 'questionnaire' | 'photos' | 'diagnosis' | 'review' | 'report' | 'memo'
@@ -149,6 +150,12 @@ interface VisitApiData {
     line_user_id?: string
   }
   questionnaire_responses?: QuestionnaireResponseData[]
+  photos?: Array<{
+    id: string
+    type: string
+    url: string
+    uploaded_at?: string
+  }>
 }
 
 export default function DiagnosisPageWithId() {
@@ -192,6 +199,19 @@ export default function DiagnosisPageWithId() {
   const [isDiagnosisComplete, setIsDiagnosisComplete] = useState(false)
   const [isEditingQuestionnaire, setIsEditingQuestionnaire] = useState(false)
   const [editingQuestionnaire, setEditingQuestionnaire] = useState<QuestionnaireData | null>(null)
+
+  // 診断データの自動保存・復元フック
+  const {
+    isLoaded: isStorageLoaded,
+    lastSaved,
+    loadFromStorage,
+    saveToStorage,
+    saveImmediately,
+    clearStorage,
+  } = useDiagnosisStorage(visitId)
+  const [showRestoredBanner, setShowRestoredBanner] = useState(false)
+  const [restoredAt, setRestoredAt] = useState<Date | null>(null)
+  const isInitialLoad = useRef(true)
 
   // スキーマデータ（動的取得）
   const [diagnosisItems, setDiagnosisItems] = useState<DiagnosisItem[]>([])
@@ -245,6 +265,69 @@ export default function DiagnosisPageWithId() {
     }
     fetchSchema()
   }, [])
+
+  // 古い診断データをクリーンアップ（初回マウント時に1回だけ実行）
+  useEffect(() => {
+    cleanupOldDiagnosisData()
+  }, [])
+
+  // localStorageから保存済みデータを復元
+  useEffect(() => {
+    if (!isStorageLoaded || !visitId) return
+
+    const storedData = loadFromStorage()
+    if (storedData && isInitialLoad.current) {
+      isInitialLoad.current = false
+
+      // 保存済みデータがあれば復元
+      if (storedData.diagnosisValues && Object.keys(storedData.diagnosisValues).length > 0) {
+        setDiagnosisValues(storedData.diagnosisValues)
+      }
+      if (storedData.staffNotes) {
+        setStaffNotes(storedData.staffNotes)
+      }
+      if (storedData.photos && storedData.photos.length > 0) {
+        // 写真はURLが有効かチェックが必要（ローカルのobjectURLは失効するため）
+        // サーバーURLの写真のみ復元
+        const validPhotos = storedData.photos.filter(photo =>
+          photo.url && !photo.url.startsWith('blob:')
+        )
+        if (validPhotos.length > 0) {
+          setPhotos(validPhotos as PhotoData[])
+        }
+      }
+
+      // 復元バナーを表示
+      if (storedData.lastSaved) {
+        setRestoredAt(new Date(storedData.lastSaved))
+        setShowRestoredBanner(true)
+        // 5秒後にバナーを非表示
+        setTimeout(() => setShowRestoredBanner(false), 5000)
+      }
+    } else if (isInitialLoad.current) {
+      isInitialLoad.current = false
+    }
+  }, [isStorageLoaded, visitId, loadFromStorage])
+
+  // データ変更時に自動保存
+  useEffect(() => {
+    if (!visitId || isInitialLoad.current) return
+
+    // 診断がまだ進行中（完了していない）の場合のみ保存
+    if (!isDiagnosisComplete) {
+      saveToStorage({
+        diagnosisValues,
+        staffNotes,
+        photos: photos.map(p => ({
+          id: p.id,
+          url: p.url,
+          type: p.type,
+          uploaded_at: p.uploaded_at,
+          customTitle: (p as any).customTitle,
+        })),
+      })
+    }
+  }, [visitId, diagnosisValues, staffNotes, photos, isDiagnosisComplete, saveToStorage])
 
   // UI状態
   const [currentPhotoType, setCurrentPhotoType] = useState<string>('')
@@ -353,6 +436,21 @@ export default function DiagnosisPageWithId() {
           ideal_goals: idealGoals.length > 0 ? idealGoals : ['特になし'],
           notes,
         })
+
+        // DBから写真を復元（既存の写真がない場合のみ）
+        if (visit.photos && visit.photos.length > 0 && photos.length === 0) {
+          const restoredPhotos: PhotoData[] = visit.photos
+            .filter((p: any) => p.url) // URLがある写真のみ
+            .map((p: any) => ({
+              id: p.id,
+              url: p.url,
+              type: p.type as PhotoData['type'],
+              uploaded_at: p.uploaded_at || new Date().toISOString(),
+            }))
+          if (restoredPhotos.length > 0) {
+            setPhotos(restoredPhotos)
+          }
+        }
 
         // console.log('[Diagnosis] Visit data loaded:', visit)
       } catch (err) {
@@ -1094,6 +1192,9 @@ export default function DiagnosisPageWithId() {
       markStepCompleted('report')
       setIsDiagnosisComplete(true)
       setShowLineDeliveryCheck(false)
+
+      // 診断完了後、localStorageから途中保存データをクリア
+      clearStorage()
     } catch (error) {
       console.error('Error confirming delivery:', error)
       alert('確認結果の保存に失敗しました: ' + (error as Error).message)
@@ -1354,6 +1455,12 @@ export default function DiagnosisPageWithId() {
               <h1 className="text-base font-bold text-gray-900 truncate">
                 {session?.child_name} ({session?.child_age}歳)
               </h1>
+              {lastSaved && !isDiagnosisComplete && (
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  <Save className="w-3 h-3" />
+                  保存済み {lastSaved.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {(currentMainView === 'diagnosis' || currentMainView === 'photos') && (
@@ -1379,6 +1486,35 @@ export default function DiagnosisPageWithId() {
           </div>
         </div>
       </header>
+
+      {/* 復元バナー */}
+      <AnimatePresence>
+        {showRestoredBanner && restoredAt && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-blue-50 border-b border-blue-200 px-4 py-2"
+          >
+            <div className="flex items-center justify-between max-w-4xl mx-auto">
+              <div className="flex items-center gap-2 text-sm text-blue-700">
+                <RotateCcw className="w-4 h-4" />
+                <span>
+                  前回の入力内容を復元しました（{restoredAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}時点）
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowRestoredBanner(false)}
+                className="text-blue-700 hover:bg-blue-100 h-6 px-2"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* メインコンテンツエリア */}
       <main

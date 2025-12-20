@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     }
 
+    // 既存childIdがあれば更新
     if (childIdToUse) {
       const updatedChildren = await db
         .update(children)
@@ -142,6 +143,35 @@ export async function POST(request: NextRequest) {
       child = updatedChildren[0]
     }
 
+    // childIdがない場合、重複チェック: 同じ親・同じ生年月日・同じ名前の子供が既にいないか確認
+    if (!child && !childIdToUse) {
+      const existingChildRows = await db
+        .select()
+        .from(children)
+        .where(
+          and(
+            eq(children.parentProfileId, profile.id),
+            eq(children.birthday, childBirthday),
+            eq(children.firstName, childFirstName || ''),
+            eq(children.lastName, childLastName || '')
+          )
+        )
+        .limit(1)
+
+      if (existingChildRows[0]) {
+        // 既存子供を更新
+        const updatedChildren = await db
+          .update(children)
+          .set(childData as Partial<typeof children.$inferInsert>)
+          .where(eq(children.id, existingChildRows[0].id))
+          .returning()
+        child = updatedChildren[0]
+        childIdToUse = child?.id
+        console.log('[Basic Info] Found duplicate child, updating instead:', child?.id)
+      }
+    }
+
+    // 既存子供が見つからなければ新規作成
     if (!child) {
       const insertedChildren = await db
         .insert(children)
@@ -155,9 +185,10 @@ export async function POST(request: NextRequest) {
     let finalSessionId = sessionId
     let visitId: string | null = null
 
+    // sessionIdがあればそれで検索
     if (sessionId) {
       const existingVisitRows = await db
-        .select({ id: visits.id })
+        .select({ id: visits.id, sessionId: visits.sessionId })
         .from(visits)
         .where(
           and(
@@ -171,6 +202,7 @@ export async function POST(request: NextRequest) {
 
       if (existingVisit) {
         visitId = existingVisit.id
+        finalSessionId = existingVisit.sessionId
         await db
           .update(visits)
           .set({
@@ -181,6 +213,37 @@ export async function POST(request: NextRequest) {
             updatedAt: new Date(),
           } as Partial<typeof visits.$inferInsert>)
           .where(eq(visits.id, visitId))
+      }
+    }
+
+    // sessionIdでvisitが見つからなかった場合、同じ子供に対する進行中visitがあれば再利用
+    if (!visitId && child?.id) {
+      const childVisitRows = await db
+        .select({ id: visits.id, sessionId: visits.sessionId })
+        .from(visits)
+        .where(
+          and(
+            eq(visits.childId, child.id),
+            inArray(visits.status, ['waiting', 'questionnaire_in_progress', 'in_progress'])
+          )
+        )
+        .orderBy(visits.createdAt)
+        .limit(1)
+
+      const existingChildVisit = childVisitRows[0]
+      if (existingChildVisit) {
+        visitId = existingChildVisit.id
+        finalSessionId = existingChildVisit.sessionId
+        await db
+          .update(visits)
+          .set({
+            childAgeMonths: ageMonths,
+            status: 'in_progress',
+            currentStep: 'questionnaire_started',
+            updatedAt: new Date(),
+          } as Partial<typeof visits.$inferInsert>)
+          .where(eq(visits.id, visitId))
+        console.log('[Basic Info] Found existing visit for child, reusing:', visitId)
       }
     }
 

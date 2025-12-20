@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Logo } from '@/components/Logo'
 
 interface Staff {
   id: string
@@ -131,7 +132,7 @@ export default function StaffLoginPage() {
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">🦷</span>
+              <Logo size="lg" />
             </div>
             <h1 className="text-2xl font-bold text-white">cOralup Staff</h1>
             <p className="text-slate-400 mt-2">スタッフ専用アプリ</p>

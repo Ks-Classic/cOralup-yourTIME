@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getStaffSession } from '@/lib/staff-auth'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import Image from 'next/image'
 
 // Supabase クライアント (Service Role)
 const supabase = createClient(
@@ -54,7 +55,7 @@ export default async function StaffHomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-coral-500 rounded-xl flex items-center justify-center">
-                <span className="text-white text-lg font-bold">🦷</span>
+                <Image src="/icon.png" alt="cOral up" width={28} height={28} />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">cOralup Staff</h1>

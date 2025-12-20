@@ -126,6 +126,42 @@ interface QuestionnaireResponseData {
   }
 }
 
+// 診断回答データの型定義
+interface DiagnosisResponseData {
+  id: string
+  item_id: string
+  value: string
+  metadata?: any
+  answered_at?: string
+  diagnosis_items?: {
+    id: string
+    question: string
+    answer_type: string
+    options?: Array<{ label: string; value: string }> | string[]
+    category_id?: string
+    diagnosis_categories?: {
+      id: string
+      name: string
+      display_order?: number
+    }
+  }
+}
+
+// レポートデータの型定義
+interface ReportData {
+  id: string
+  report_type?: string
+  status?: string
+  content?: string
+  ai_summary?: string
+  age_consideration?: string
+  posture_analysis?: any
+  oral_analysis?: any
+  generated_at?: string
+  sent_to_line?: boolean
+  sent_at?: string
+}
+
 // APIから取得するセッションデータの型定義
 interface VisitApiData {
   id: string
@@ -149,6 +185,14 @@ interface VisitApiData {
     line_user_id?: string
   }
   questionnaire_responses?: QuestionnaireResponseData[]
+  photos?: Array<{
+    id: string
+    type: string
+    url: string
+    uploaded_at?: string
+  }>
+  diagnosis_responses?: DiagnosisResponseData[]
+  report?: ReportData
 }
 
 export default function StaffHistoryDetailPage() {
@@ -355,6 +399,51 @@ export default function StaffHistoryDetailPage() {
           ideal_goals: idealGoals.length > 0 ? idealGoals : ['特になし'],
           notes,
         })
+
+        // 写真データを設定
+        if (visit.photos && visit.photos.length > 0) {
+          const photosList: PhotoData[] = visit.photos.map(p => ({
+            id: p.id,
+            url: p.url,
+            type: p.type as PhotoData['type'],
+            uploaded_at: p.uploaded_at || new Date().toISOString(),
+          }))
+          setPhotos(photosList)
+        }
+
+        // 診断回答データを設定
+        if (visit.diagnosis_responses && visit.diagnosis_responses.length > 0) {
+          const diagnosisData: Record<string, any> = {}
+          visit.diagnosis_responses.forEach((response) => {
+            if (response.item_id) {
+              // 値をパース（JSON文字列の場合)
+              let parsedValue: any = response.value
+              if (typeof response.value === 'string') {
+                try {
+                  parsedValue = JSON.parse(response.value)
+                } catch {
+                  parsedValue = response.value
+                }
+              }
+              diagnosisData[response.item_id] = parsedValue
+            }
+          })
+          setDiagnosisValues(diagnosisData)
+        }
+
+        // レポートデータを設定
+        if (visit.report) {
+          const report = visit.report
+          setAnalysisResult({
+            postureAnalysis: report.posture_analysis,
+            oralAnalysis: report.oral_analysis,
+            reportSummary: report.ai_summary || '',
+            reportUrl: `/report/${visit.id}`,
+            hasReport: true,
+          })
+          setEditableSummary(report.ai_summary || '')
+          setIsReportConfirmed(true)
+        }
 
         // console.log('[Diagnosis] Visit data loaded:', visit)
       } catch (err) {
@@ -1273,6 +1362,12 @@ export default function StaffHistoryDetailPage() {
   }
   return (
     <div className="flex flex-col h-screen bg-gray-50 touch-pan-y">
+      {/* 読み取り専用バナー */}
+      <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 flex items-center justify-center gap-2">
+        <Eye className="w-4 h-4 text-amber-600" />
+        <span className="text-xs font-medium text-amber-700">履歴閲覧中（閲覧専用）</span>
+      </div>
+
       {/* ヘッダー */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="px-3 py-2.5">
@@ -1281,26 +1376,19 @@ export default function StaffHistoryDetailPage() {
               <h1 className="text-base font-bold text-gray-900 truncate">
                 {session?.child_name} ({session?.child_age}歳)
               </h1>
+              <p className="text-xs text-gray-500">
+                {visitData?.visit_date ? new Date(visitData.visit_date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              {(currentMainView === 'diagnosis' || currentMainView === 'photos') && !true && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleFillSampleData}
-                  className="bg-coral-50 border-coral-300 text-coral-700 hover:bg-coral-100"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  サンプル入力
-                </Button>
-              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push('/staff/history')}
                 className="text-gray-600"
               >
-                戻る
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                履歴一覧
               </Button>
             </div>
           </div>
@@ -2138,6 +2226,30 @@ export default function StaffHistoryDetailPage() {
                             </div>
                           )}
                         </>
+                      )}
+
+                      {/* 読み取り専用モード：レポートページへのリンク */}
+                      {isReadOnly && analysisResult?.hasReport && (
+                        <div className="space-y-3">
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                            <CheckCircle2 className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                            <p className="text-sm font-medium text-blue-800">レポート生成済み</p>
+                            {visitData?.report?.sent_to_line && (
+                              <p className="text-xs text-blue-600 mt-1">
+                                ✓ LINE送信済み（{visitData.report.sent_at ? new Date(visitData.report.sent_at).toLocaleString('ja-JP') : ''}）
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            onClick={() => window.open(`/report/${visitId}`, '_blank')}
+                            variant="outline"
+                            className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                            size="lg"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            レポートページを開く
+                          </Button>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
