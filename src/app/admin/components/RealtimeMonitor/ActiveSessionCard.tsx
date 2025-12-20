@@ -62,9 +62,8 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                     </div>
                 </div>
 
-                {/* Center: Workflow Indicator (6 cols) */}
                 <div className="col-span-6 flex justify-center">
-                    <WorkflowIndicator status={session.status} hasReport={session.hasReport} />
+                    <WorkflowIndicator status={session.status} step={session.currentStep} hasReport={session.hasReport} />
                 </div>
 
                 {/* Right: Time and Photos (3 cols) */}
@@ -129,7 +128,7 @@ export function ActiveSessionCard({ session, hasAlert }: ActiveSessionCardProps)
                 </div>
 
                 <div className="flex justify-center py-2 bg-slate-50/50 rounded-lg overflow-x-auto">
-                    <WorkflowIndicator status={session.status} hasReport={session.hasReport} size="sm" />
+                    <WorkflowIndicator status={session.status} step={session.currentStep} hasReport={session.hasReport} size="sm" />
                 </div>
             </div>
         </div>

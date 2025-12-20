@@ -249,13 +249,23 @@ export function useRealtimeStatus(useSampleData = false) {
                 const photosCount = 0;
                 const hasReport = visit.reports && visit.reports.length > 0;
 
-                // Summary Counts
-                // Note: Keep lineRegisteredCount from profiles or visits? 
-                // Using mapping:
-                if (status === 'in_progress' && (currentStep === 'questionnaire_completed' || !currentStep)) summary.questionnaireCompleted++;
-                if (status === 'in_progress' && (currentStep === 'diagnosis_started' || currentStep === 'photos_uploaded')) summary.inProgress++;
-                if (status === 'completed') summary.diagnosisCompleted++;
-                if (status === 'published') summary.reportSent++;
+                // Summary Counts - currentStepベースでカウント
+                // questionnaireCompleted: 問診完了してQR待ちの人
+                if (currentStep === 'questionnaire_completed') {
+                    summary.questionnaireCompleted++;
+                }
+                // inProgress: 診断中（diagnosis_started または photos_uploaded）
+                if (currentStep === 'diagnosis_started' || currentStep === 'photos_uploaded') {
+                    summary.inProgress++;
+                }
+                // diagnosisCompleted: 診断完了（analysis_completed）
+                if (currentStep === 'analysis_completed' || status === 'completed') {
+                    summary.diagnosisCompleted++;
+                }
+                // reportSent: レポート送信済み
+                if (currentStep === 'line_sent' || status === 'published') {
+                    summary.reportSent++;
+                }
 
                 const isCompleted = status === 'published' || status === 'cancelled';
 
