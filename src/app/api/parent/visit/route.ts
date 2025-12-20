@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, children, profiles, questionnaireResponses, questionnaireItems } from '@/db/schema'
-import { eq, or, desc, and } from 'drizzle-orm'
+import { eq, or, desc } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 1. profilesからparent情報取得（role='parent' または secondary_role='parent'）
+    // 1. profilesからparent情報取得（lineUserIdのみで検索、roleは問わない）
     const profileRows = await db
       .select({
         id: profiles.id,
@@ -39,14 +39,11 @@ export async function GET(request: NextRequest) {
         firstNameKana: profiles.firstNameKana,
         lastNameKana: profiles.lastNameKana,
         phoneNumber: profiles.phoneNumber,
+        role: profiles.role,
+        secondaryRole: profiles.secondaryRole,
       })
       .from(profiles)
-      .where(
-        and(
-          eq(profiles.lineUserId, lineUserId),
-          or(eq(profiles.role, 'parent'), eq(profiles.secondaryRole, 'parent'))
-        )
-      )
+      .where(eq(profiles.lineUserId, lineUserId))
       .limit(1)
 
     const profile = profileRows[0]
@@ -216,16 +213,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. profilesから親情報取得
+    // 1. profilesから親情報取得（lineUserIdのみで検索）
     const profileRows = await db
       .select({ id: profiles.id })
       .from(profiles)
-      .where(
-        and(
-          eq(profiles.lineUserId, lineUserId),
-          or(eq(profiles.role, 'parent'), eq(profiles.secondaryRole, 'parent'))
-        )
-      )
+      .where(eq(profiles.lineUserId, lineUserId))
       .limit(1)
 
     const profile = profileRows[0]
