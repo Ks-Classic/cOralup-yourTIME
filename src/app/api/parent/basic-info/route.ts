@@ -252,6 +252,7 @@ export async function POST(request: NextRequest) {
     if (!visitId) {
       finalSessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
+      console.log('[Basic Info] Creating new visit with childId:', child.id)
       const insertedVisits = await db
         .insert(visits)
         .values({
@@ -266,8 +267,10 @@ export async function POST(request: NextRequest) {
         } as typeof visits.$inferInsert)
         .returning()
       visitId = insertedVisits[0].id
+      console.log('[Basic Info] Created new visit:', visitId)
     }
 
+    console.log('[Basic Info] Success - returning:', { profileId: profile.id, childId: child.id, visitId, sessionId: finalSessionId })
     return NextResponse.json({
       success: true,
       profileId: profile.id,
