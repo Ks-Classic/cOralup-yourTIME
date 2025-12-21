@@ -24,16 +24,20 @@ export async function POST(request: NextRequest) {
       staffConfirmedAt: new Date()
     } as any).where(eq(lineMessageLogs.id, logs[0].id))
 
-    const visitRows = await db.select({ stepTimestamps: visits.stepTimestamps }).from(visits).where(eq(visits.id, visitId)).limit(1)
+    const visitRows = await db.select({ stepTimestamps: visits.stepTimestamps, staffProfileId: visits.staffProfileId }).from(visits).where(eq(visits.id, visitId)).limit(1)
     const timestamps = (visitRows[0]?.stepTimestamps as Record<string, string>) || {}
     timestamps.line_confirmed = new Date().toISOString()
 
-    await db.update(visits).set({
+    console.log('[Line Confirm] Before update:', { visitId, staffProfileId: visitRows[0]?.staffProfileId, confirmationStatus })
+
+    const updateResult = await db.update(visits).set({
       status: 'diagnosis_completed',
       currentStep: 'line_confirmed',
       stepTimestamps: timestamps,
       updatedAt: new Date()
-    } as Partial<typeof visits.$inferInsert>).where(eq(visits.id, visitId))
+    } as Partial<typeof visits.$inferInsert>).where(eq(visits.id, visitId)).returning()
+
+    console.log('[Line Confirm] After update:', { visitId, updatedStatus: updateResult[0]?.status })
 
     return NextResponse.json({ success: true })
   } catch (error) {

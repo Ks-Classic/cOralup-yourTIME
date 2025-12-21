@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
     const timestamps = (currentVisitRows[0]?.stepTimestamps as Record<string, string>) || {}
     timestamps.diagnosis_started = new Date().toISOString()
 
+    console.log('[Assign] Setting staffProfileId:', { visitId: targetVisitId, staffId, staffName })
+
     const updatedRows = await db
       .update(visits)
       .set({
@@ -101,6 +103,8 @@ export async function POST(request: NextRequest) {
       } as Partial<typeof visits.$inferInsert>)
       .where(eq(visits.id, targetVisitId))
       .returning()
+
+    console.log('[Assign] Updated visit:', { visitId: targetVisitId, updatedStaffProfileId: updatedRows[0]?.staffProfileId })
 
     if (updatedRows.length === 0) {
       return NextResponse.json(
