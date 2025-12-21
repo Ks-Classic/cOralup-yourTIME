@@ -960,7 +960,34 @@ export default function DiagnosisPageWithId() {
 
     setIsAnalyzing(true)
     try {
-      // 診断値をtestData形式に変換（diagnosisMeta: { itemId: { question, value } }）
+      // 1. 診断データをDBに保存
+      console.log('[Diagnosis] 診断データをDBに保存中...')
+      const diagnosisItemsData: Record<string, any> = {}
+      staffItems.forEach(item => {
+        const rawValue = diagnosisValues[item.id]
+        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+          diagnosisItemsData[item.id] = rawValue
+        }
+      })
+
+      const saveDiagnosisResponse = await fetch('/api/diagnoses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: visitData?.session_id || sessionId,
+          diagnosisItems: diagnosisItemsData,
+          staffNotes: staffNotes || '',
+          photos: photos.map(p => ({ type: p.type, url: p.url })),
+        }),
+      })
+
+      if (!saveDiagnosisResponse.ok) {
+        console.warn('[Diagnosis] DBへの保存に失敗しましたが、分析は続行します')
+      } else {
+        console.log('[Diagnosis] 診断データをDBに保存しました')
+      }
+
+      // 2. 診断値をtestData形式に変換（diagnosisMeta: { itemId: { question, value } }）
       const diagnosisMeta: Record<string, { question: string; value: string }> = {}
       staffItems.forEach(item => {
         const rawValue = diagnosisValues[item.id]

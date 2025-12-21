@@ -22,11 +22,13 @@ interface SavePayload {
 
 // POST: 診断スキーマを保存
 export async function POST(request: NextRequest) {
+  console.log('[diagnosis-schema POST] 保存開始')
   try {
     const body: SavePayload = await request.json()
     const { categoryOrder, items } = body
+    console.log('[diagnosis-schema POST] カテゴリ数:', categoryOrder.length, '項目数:', items.length)
 
-    // 1. カテゴリの順序と項目を更新
+    // 1. カテゴリの順序を更新
     for (let i = 0; i < categoryOrder.length; i++) {
       const categoryName = categoryOrder[i]
       const existingCat = await db.select().from(diagnosisCategories).where(eq(diagnosisCategories.name, categoryName)).limit(1)
@@ -48,9 +50,14 @@ export async function POST(request: NextRequest) {
     const allCats = await db.select().from(diagnosisCategories)
     const categoryMap = new Map(allCats.map(c => [c.name, c.id]))
 
-    for (const item of items) {
+    // 2. 項目を更新（displayOrder含む）
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx]
       const categoryId = categoryMap.get(item.category)
-      if (!categoryId) continue
+      if (!categoryId) {
+        console.log('[diagnosis-schema POST] カテゴリが見つからない:', item.category)
+        continue
+      }
 
       const itemData: any = {
         categoryId: categoryId,
@@ -60,7 +67,8 @@ export async function POST(request: NextRequest) {
         isRequired: item.required,
         inputType: item.inputType,
         note: item.note || null,
-        isActive: item.isVisible
+        isActive: item.isVisible,
+        displayOrder: idx
       }
 
       const isExisting = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)
@@ -72,6 +80,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('[diagnosis-schema POST] 保存完了')
     return NextResponse.json({ success: true, message: '診断スキーマを保存しました' })
   } catch (error) {
     console.error('診断スキーマ保存エラー:', error)

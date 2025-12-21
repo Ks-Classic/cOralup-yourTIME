@@ -173,6 +173,11 @@ export default function SchemaEditorPage() {
             throw new Error(diagnosisJson.error || '診断データの取得に失敗しました')
           }
 
+          console.log('[SchemaEditor] 診断データ取得結果:', {
+            success: diagnosisJson.success,
+            categoryOrderLength: diagnosisJson.data?.categoryOrder?.length,
+            categorizedKeys: Object.keys(diagnosisJson.data?.categorized || {}),
+          })
           if (diagnosisJson.data) {
             setDiagnosisData(diagnosisJson.data)
           }
@@ -1380,12 +1385,23 @@ export default function SchemaEditorPage() {
             ) : (
               /* 診断項目編集 */
               <>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    <span className="ml-2 text-slate-500">読み込み中...</span>
+                  </div>
+                ) : diagnosisData.categoryOrder.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    診断項目がありません。カテゴリを追加してください。
+                  </div>
+                ) : null}
                 {Array.from(new Set(diagnosisData.categoryOrder)).map((categoryName) => {
                   const items = diagnosisData.categorized[categoryName] || []
-                  const staffItems = items.filter(i => i.inputType === 'staff')
+                  // staff/parent両方表示（管理画面なので全項目表示）
+                  const displayItems = items
 
                   const isExpanded = expandedCategories.has(categoryName)
-                  const visibleCount = staffItems.filter(i => i.isVisible).length
+                  const visibleCount = displayItems.filter(i => i.isVisible).length
                   const isDragging = draggedCategory === categoryName
                   const isDragOver = dragOverCategory === categoryName
                   const isSelected = selectedCategory === categoryName
@@ -1450,7 +1466,7 @@ export default function SchemaEditorPage() {
                               {categoryName}
                             </span>
                           )}
-                          <span className="text-xs text-slate-500">({visibleCount}/{staffItems.length}項目表示)</span>
+                          <span className="text-xs text-slate-500">({visibleCount}/{displayItems.length}項目表示)</span>
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteDiagnosisCategory(categoryName) }}
@@ -1463,7 +1479,7 @@ export default function SchemaEditorPage() {
 
                       {isExpanded && (
                         <div className="p-3 space-y-2">
-                          {staffItems.map((item) => {
+                          {displayItems.map((item) => {
                             const isItemDragging = draggedItem?.id === item.id
                             const isItemDragOver = dragOverItem === item.id
 
