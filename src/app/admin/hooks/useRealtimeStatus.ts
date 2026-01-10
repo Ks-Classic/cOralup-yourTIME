@@ -348,13 +348,16 @@ export function useRealtimeStatus(useSampleData = false) {
             setError(err);
             setLoading(false);
         }
-    }, []);
+    }, [useSampleData]);
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 5000); // 5 sec Polling
-        return () => clearInterval(interval);
-    }, [fetchData]);
+        // サンプルデータモードの場合はポーリング不要
+        if (!useSampleData) {
+            const interval = setInterval(fetchData, 5000); // 5 sec Polling
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, useSampleData]);
 
     return { data, loading, error, lastUpdated };
 }
