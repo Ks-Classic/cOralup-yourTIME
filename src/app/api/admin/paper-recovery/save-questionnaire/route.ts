@@ -57,19 +57,34 @@ export async function POST(request: NextRequest) {
 
         // 性別をchildrenに保存
         if (gender) {
-            const visitRows = await db
-                .select({ childId: visits.childId })
-                .from(visits)
-                .where(eq(visits.id, visitId))
-                .limit(1)
+            // 性別を正規化（DBの制約: male, female, other のみ）
+            const normalizeGender = (g: string): string | null => {
+                const lower = g.toLowerCase().trim()
+                if (lower === 'male' || lower === 'm' || lower === '男' || lower === '男性') return 'male'
+                if (lower === 'female' || lower === 'f' || lower === '女' || lower === '女性') return 'female'
+                if (lower === 'other' || lower === 'その他') return 'other'
+                return null // 不明な値は保存しない
+            }
 
-            if (visitRows.length > 0 && visitRows[0].childId) {
-                await db
-                    .update(children)
-                    .set({ gender, updatedAt: new Date() })
-                    .where(eq(children.id, visitRows[0].childId))
+            const normalizedGender = normalizeGender(gender)
 
-                console.log(`[Paper Recovery] Updated gender to '${gender}' for childId: ${visitRows[0].childId}`)
+            if (normalizedGender) {
+                const visitRows = await db
+                    .select({ childId: visits.childId })
+                    .from(visits)
+                    .where(eq(visits.id, visitId))
+                    .limit(1)
+
+                if (visitRows.length > 0 && visitRows[0].childId) {
+                    await db
+                        .update(children)
+                        .set({ gender: normalizedGender, updatedAt: new Date() })
+                        .where(eq(children.id, visitRows[0].childId))
+
+                    console.log(`[Paper Recovery] Updated gender to '${normalizedGender}' for childId: ${visitRows[0].childId}`)
+                }
+            } else {
+                console.warn(`[Paper Recovery] Invalid gender value: '${gender}', skipping update`)
             }
         }
 
