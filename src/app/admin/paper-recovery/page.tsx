@@ -454,6 +454,37 @@ export default function PaperRecoveryPage() {
                                             </div>
                                         </div>
 
+                                        {/* 性別（編集可能） */}
+                                        <div className="p-2 border border-gray-200 rounded-lg">
+                                            <label className="block text-gray-500 mb-1">性別</label>
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex items-center gap-1">
+                                                    <input
+                                                        type="radio"
+                                                        name="gender"
+                                                        checked={extractedData.gender === 'male' || extractedData.gender === '男' || extractedData.gender === '男の子'}
+                                                        onChange={() => setExtractedData({
+                                                            ...extractedData,
+                                                            gender: 'male'
+                                                        })}
+                                                    />
+                                                    男の子
+                                                </label>
+                                                <label className="flex items-center gap-1">
+                                                    <input
+                                                        type="radio"
+                                                        name="gender"
+                                                        checked={extractedData.gender === 'female' || extractedData.gender === '女' || extractedData.gender === '女の子'}
+                                                        onChange={() => setExtractedData({
+                                                            ...extractedData,
+                                                            gender: 'female'
+                                                        })}
+                                                    />
+                                                    女の子
+                                                </label>
+                                            </div>
+                                        </div>
+
                                         {/* 問診項目（編集可能） */}
                                         <div className="space-y-3 text-sm">
                                             {/* きょうだい */}

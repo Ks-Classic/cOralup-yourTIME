@@ -1785,7 +1785,7 @@ export default function DiagnosisPageWithId() {
                             {(() => {
                               const nameParts = questionnaire.child_name.split(' ')
                               const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : questionnaire.child_name
-                              const honorific = questionnaire.child_gender === 'male' ? 'くん' : 'ちゃん'
+                              const honorific = questionnaire.child_gender === 'male' ? 'くん' : questionnaire.child_gender === 'female' ? 'ちゃん' : 'さん'
                               return `${firstName}${honorific}`
                             })()}
                             <span className="text-sm font-normal text-gray-500 ml-2">
@@ -1840,7 +1840,7 @@ export default function DiagnosisPageWithId() {
                             📋 {(() => {
                               const nameParts = questionnaire.child_name.split(' ')
                               const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : questionnaire.child_name
-                              const honorific = questionnaire.child_gender === 'male' ? 'くん' : 'ちゃん'
+                              const honorific = questionnaire.child_gender === 'male' ? 'くん' : questionnaire.child_gender === 'female' ? 'ちゃん' : 'さん'
                               return `${firstName}${honorific}の問診回答`
                             })()}
                           </h3>
