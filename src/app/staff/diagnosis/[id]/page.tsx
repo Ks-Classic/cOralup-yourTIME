@@ -148,8 +148,22 @@ interface VisitApiData {
     last_name?: string
     phone_number?: string
     line_user_id?: string
+    email?: string
   }
   questionnaire_responses?: QuestionnaireResponseData[]
+  paper_questionnaire?: {
+    has_siblings?: string
+    sibling_order?: number | null
+    screen_time?: string
+    screen_hours?: number | null
+    sleep_conditions?: string[]
+    bedtime?: number | null
+    lessons?: string[]
+    eating_habits?: string[]
+    disliked_foods?: string | null
+    liked_foods?: string | null
+    photo_consent?: string
+  }
   photos?: Array<{
     id: string
     type: string
@@ -410,28 +424,80 @@ export default function DiagnosisPageWithId() {
           created_at: visit.visit_date,
         })
 
-        // QuestionnaireDataを設定（問診回答から構築）
+        // QuestionnaireDataを設定（紙問診票データまたは問診回答から構築）
         const concerns: string[] = []
         const idealGoals: string[] = []
         const medicalHistory: string[] = []
         let notes = ''
 
-        visit.questionnaire_responses?.forEach((response) => {
-          const category = response.questionnaire_items?.questionnaire_categories?.name || ''
-          const value = Array.isArray(response.value)
-            ? response.value.join(', ')
-            : typeof response.value === 'boolean'
-              ? (response.value ? 'はい' : 'いいえ')
-              : String(response.value)
+        // 紙問診票データがある場合はそちらを使用
+        const paperData = visit.paper_questionnaire
+        if (paperData) {
+          // 紙問診票から抽出したデータを使用
+          const paperNotes: string[] = []
 
-          if (category.includes('気になること') || category.includes('心配')) {
-            concerns.push(value)
-          } else if (category.includes('目標') || category.includes('希望')) {
-            idealGoals.push(value)
-          } else if (category.includes('既往') || category.includes('病歴')) {
-            medicalHistory.push(value)
+          if (paperData.has_siblings) {
+            paperNotes.push(`きょうだい: ${paperData.has_siblings === 'has' ? `いる（${paperData.sibling_order}人目）` : 'いない'}`)
           }
-        })
+          if (paperData.screen_time) {
+            const screenLabel = paperData.screen_time === 'more' ? `${paperData.screen_hours}時間以上` : paperData.screen_time
+            paperNotes.push(`TV・スマホ視聴: ${screenLabel}`)
+          }
+          if (paperData.sleep_conditions?.length > 0) {
+            const sleepLabels: Record<string, string> = {
+              snoring: 'いびき', bedtime_fuss: '寝ぐずり', wake_fuss: '起きぐずり',
+              night_crying: '夜泣き', frequent_waking: '頻回起き', prone: 'うつ伏せ寝',
+              supine: '仰向け', side: '横向き寝'
+            }
+            paperNotes.push(`睡眠: ${paperData.sleep_conditions.map((c: string) => sleepLabels[c] || c).join(', ')}`)
+          }
+          if (paperData.bedtime) {
+            paperNotes.push(`就寝時刻: ${paperData.bedtime}時`)
+          }
+          if (paperData.lessons?.length > 0) {
+            const lessonLabels: Record<string, string> = {
+              swimming: 'スイミング', gymnastics: '体操', soccer: 'サッカー',
+              baseball: '野球', english: '英語', other: 'その他'
+            }
+            paperNotes.push(`習い事: ${paperData.lessons.map((l: string) => lessonLabels[l] || l).join(', ')}`)
+          }
+          if (paperData.eating_habits?.length > 0) {
+            const eatingLabels: Record<string, string> = {
+              picky: '偏食', no_chew: '噛まない', cannot_swallow: '飲み込めない',
+              swallow_whole: '丸呑み', large_bite: '一口量多い', fast: '早食い', slow: '遅い'
+            }
+            paperNotes.push(`食事: ${paperData.eating_habits.map((e: string) => eatingLabels[e] || e).join(', ')}`)
+          }
+          if (paperData.disliked_foods) {
+            paperNotes.push(`嫌いな物: ${paperData.disliked_foods}`)
+          }
+          if (paperData.liked_foods) {
+            paperNotes.push(`好きな物: ${paperData.liked_foods}`)
+          }
+          if (paperData.photo_consent) {
+            paperNotes.push(`写真同意: ${paperData.photo_consent === 'yes' ? 'YES' : 'NO'}`)
+          }
+
+          notes = `【紙問診票より抽出】\n${paperNotes.join('\n')}`
+        } else {
+          // 従来の問診回答から構築
+          visit.questionnaire_responses?.forEach((response) => {
+            const category = response.questionnaire_items?.questionnaire_categories?.name || ''
+            const value = Array.isArray(response.value)
+              ? response.value.join(', ')
+              : typeof response.value === 'boolean'
+                ? (response.value ? 'はい' : 'いいえ')
+                : String(response.value)
+
+            if (category.includes('気になること') || category.includes('心配')) {
+              concerns.push(value)
+            } else if (category.includes('目標') || category.includes('希望')) {
+              idealGoals.push(value)
+            } else if (category.includes('既往') || category.includes('病歴')) {
+              medicalHistory.push(value)
+            }
+          })
+        }
 
         setQuestionnaire({
           child_name: childName,
@@ -692,13 +758,34 @@ export default function DiagnosisPageWithId() {
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string, type: string } | null>(null)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  // 写真取得方法選択モーダル
+  const [showPhotoSourceModal, setShowPhotoSourceModal] = useState(false)
+  const [pendingPhotoType, setPendingPhotoType] = useState<string>('')
 
-  // カメラ開始（input file経由でネイティブカメラを起動）
+  // 写真取得方法選択モーダルを開く
   const startCamera = (photoType: string) => {
-    setCurrentPhotoType(photoType)
+    setPendingPhotoType(photoType)
+    setShowPhotoSourceModal(true)
+  }
+
+  // カメラで撮影を選択した場合
+  const handleSelectCamera = () => {
+    setCurrentPhotoType(pendingPhotoType)
+    setShowPhotoSourceModal(false)
     // hidden inputをクリックしてカメラを起動
     if (fileInputRef.current) {
       fileInputRef.current.click()
+    }
+  }
+
+  // ギャラリーからアップロードを選択した場合
+  const handleSelectGallery = () => {
+    setCurrentPhotoType(pendingPhotoType)
+    setShowPhotoSourceModal(false)
+    // ギャラリー用inputをクリック
+    if (galleryInputRef.current) {
+      galleryInputRef.current.click()
     }
   }
 
@@ -1714,6 +1801,28 @@ export default function DiagnosisPageWithId() {
                               <span className="font-medium">{questionnaire.child_gender === 'male' ? '男の子' : questionnaire.child_gender === 'female' ? '女の子' : 'その他'}</span>
                             </span>
                           </div>
+                          {/* LINE通知可否バッジ */}
+                          <div className="flex items-center gap-2 mt-2">
+                            {visitData?.parent?.line_user_id ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                ✅ LINE通知可
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
+                                ⚠️ LINE通知不可
+                              </span>
+                            )}
+                            {visitData?.parent?.email && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                📧 メール可
+                              </span>
+                            )}
+                            {visitData?.session_id?.startsWith('PAPER-') && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                📝 紙問診対応
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1900,6 +2009,14 @@ export default function DiagnosisPageWithId() {
                     type="file"
                     accept="image/*"
                     capture="environment"
+                    onChange={handleFileCapture}
+                    className="hidden"
+                  />
+                  {/* Hidden file input for gallery upload (no capture attribute) */}
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
                     onChange={handleFileCapture}
                     className="hidden"
                   />
@@ -2267,21 +2384,27 @@ export default function DiagnosisPageWithId() {
 
                       {/* 分析ボタン */}
                       {(() => {
-                        const requiredPhotos = ['posture_front', 'posture_side', 'oral_front']
-                        const missingPhotos = requiredPhotos.filter(key => !photos.find(p => p.type === key))
+                        // 写真は任意（なくても分析可能）
+                        const uploadedPhotosCount = photos.length
                         const missingDiagnosis = staffItems.filter(item =>
                           item.required &&
                           (diagnosisValues[item.id] === undefined ||
                             diagnosisValues[item.id] === null ||
                             diagnosisValues[item.id] === '')
                         )
-                        const canAnalyze = missingPhotos.length === 0 && missingDiagnosis.length === 0
+                        // 写真なしでも分析可能に変更
+                        const canAnalyze = missingDiagnosis.length === 0
 
                         return (
                           <div className="pt-2">
                             {!canAnalyze && (
                               <p className="text-xs text-red-600 mb-2 text-center">
-                                未入力項目: 写真{missingPhotos.length}枚、診断{missingDiagnosis.length}項目
+                                未入力の必須項目: {missingDiagnosis.length}項目
+                              </p>
+                            )}
+                            {uploadedPhotosCount === 0 && (
+                              <p className="text-xs text-amber-600 mb-2 text-center">
+                                ⚠️ 写真なしでレポートが作成されます
                               </p>
                             )}
                             <Button
@@ -2657,6 +2780,50 @@ export default function DiagnosisPageWithId() {
               >
                 {isSending ? '送信中...' : 'LINE送信'}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* 写真取得方法選択モーダル */}
+      {showPhotoSourceModal && (
+        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-end justify-center">
+          <div
+            className="bg-white rounded-t-2xl w-full max-w-lg animate-in slide-in-from-bottom duration-300"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold text-center text-gray-900">
+                写真の取得方法を選択
+              </h3>
+              <p className="text-sm text-gray-500 text-center mt-1">
+                {photoTypes.find(t => t.key === pendingPhotoType)?.label}
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <button
+                onClick={handleSelectCamera}
+                className="w-full flex items-center justify-center gap-3 p-4 bg-coral-500 text-white rounded-xl hover:bg-coral-600 active:scale-[0.98] transition-all touch-manipulation"
+              >
+                <Camera className="w-6 h-6" />
+                <span className="text-base font-medium">カメラで撮影</span>
+              </button>
+              <button
+                onClick={handleSelectGallery}
+                className="w-full flex items-center justify-center gap-3 p-4 bg-blue-500 text-white rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all touch-manipulation"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-base font-medium">写真をアップロード</span>
+              </button>
+              <button
+                onClick={() => setShowPhotoSourceModal(false)}
+                className="w-full p-4 text-gray-600 rounded-xl hover:bg-gray-100 active:scale-[0.98] transition-all touch-manipulation"
+              >
+                <span className="text-base font-medium">キャンセル</span>
+              </button>
             </div>
           </div>
         </div>

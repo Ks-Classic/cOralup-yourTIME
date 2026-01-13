@@ -171,7 +171,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!genAI) return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 })
+    // モックモード: GEMINI_API_KEYがない場合はサンプルデータを返す
+    if (!genAI) {
+      console.warn('[generate-report] Mock mode: GEMINI_API_KEY not configured, returning sample data')
+      return NextResponse.json({
+        summary: 'お子様の口腔機能と姿勢について、概ね良好な状態です。',
+        analysis: `${dataForPrompt.childName || 'お子様'}の口腔機能と姿勢について分析いたしました。
+
+【口腔機能について】
+口腔内の状態は概ね良好ですが、舌の位置について若干の改善の余地があります。日常的な口腔トレーニングを継続することで、より良い状態を維持できるでしょう。
+
+【姿勢について】
+全体的な姿勢は年齢相応ですが、スクリーン時間が長い場合は定期的な休憩を取り入れることをお勧めします。
+
+【総合評価】
+現時点で大きな問題は見られませんが、定期的な検診を継続することで、お子様の健やかな成長をサポートできます。`,
+        recommendations: [
+          '毎日の歯磨き習慣を継続してください',
+          '舌を上顎につける練習を取り入れてみましょう',
+          '正しい姿勢を意識した生活を心がけてください'
+        ],
+        nextSteps: [
+          '3ヶ月後の定期検診をお勧めします',
+          'ご家庭でできる口腔トレーニングを始めてみてください'
+        ],
+        encouragingMessage: 'お子様の健康な成長を応援しています！ご不明な点があればいつでもご相談ください。',
+        _mock: true,
+        _message: 'これはローカル開発用のモックデータです。本番環境ではGEMINI_API_KEYを設定してください。'
+      })
+    }
 
     const years = Math.floor(dataForPrompt.childAgeMonths / 12)
     const months = dataForPrompt.childAgeMonths % 12

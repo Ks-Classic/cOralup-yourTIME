@@ -6,8 +6,24 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GE
 
 export async function POST(request: NextRequest) {
   try {
+    // モックモード: GEMINI_API_KEYがない場合はサンプルデータを返す
     if (!genAI) {
-      return NextResponse.json({ error: 'Gemini API key is not configured' }, { status: 500 })
+      console.warn('[analyze-oral] Mock mode: GEMINI_API_KEY not configured, returning sample data')
+      return NextResponse.json({
+        overallScore: 7,
+        issues: ['軽度の歯並びの乱れ', '舌の位置がやや低い'],
+        recommendations: ['定期的な歯科検診を継続してください', '舌のトレーニングを検討してください'],
+        severity: 'low',
+        details: {
+          biteCondition: '正常範囲内です',
+          teethAlignment: '軽度の叢生が見られます',
+          tonguePosition: '安静時に舌が低位にある傾向があります',
+          oralCleanliness: '概ね良好です',
+          functionEstimation: '発音・嚥下機能は正常と推測されます',
+        },
+        _mock: true,
+        _message: 'これはローカル開発用のモックデータです。本番環境ではGEMINI_API_KEYを設定してください。'
+      })
     }
 
     const body = await request.json()

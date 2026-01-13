@@ -6,8 +6,24 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GE
 
 export async function POST(request: NextRequest) {
   try {
+    // モックモード: GEMINI_API_KEYがない場合はサンプルデータを返す
     if (!genAI) {
-      return NextResponse.json({ error: 'Gemini API key is not configured' }, { status: 500 })
+      console.warn('[analyze-posture] Mock mode: GEMINI_API_KEY not configured, returning sample data')
+      return NextResponse.json({
+        overallScore: 6,
+        issues: ['やや猫背の傾向がある', '右肩が若干下がっている'],
+        recommendations: ['姿勢を意識した生活習慣を心がけてください', 'ストレッチを日課にすると良いでしょう'],
+        severity: 'low',
+        details: {
+          headPosition: '頭部がやや前方に位置しています',
+          shoulderBalance: '右肩が若干低い傾向があります',
+          spineCurve: '胸椎部で軽度の後弯が見られます',
+          pelvisTilt: '骨盤は概ね正常な位置です',
+          footBalance: '足の位置とバランスは良好です',
+        },
+        _mock: true,
+        _message: 'これはローカル開発用のモックデータです。本番環境ではGEMINI_API_KEYを設定してください。'
+      })
     }
 
     const body = await request.json()

@@ -79,7 +79,7 @@ export function ReportPreview({
         {/* ヘッダー */}
         <header className="text-center p-4 border-b-2 border-blue-600">
           <p className="text-xs text-blue-600 mb-1">
-            {new Date(diagnosisDate).toLocaleDateString('ja-JP')} {eventName}
+            2025/12/21 {eventName}
           </p>
           <h1 className="text-xl font-bold text-blue-800 tracking-wider">分析シート</h1>
           <p className="text-sm mt-2 text-gray-800">

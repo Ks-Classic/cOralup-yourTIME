@@ -198,6 +198,7 @@ export async function GET(request: NextRequest) {
             lastName: profiles.lastName,
             phoneNumber: profiles.phoneNumber,
             lineUserId: profiles.lineUserId,
+            email: profiles.email,
           })
           .from(profiles)
           .where(eq(profiles.id, childData.parentProfileId))
@@ -257,6 +258,7 @@ export async function GET(request: NextRequest) {
           id: visitPhotos.id,
           photoType: visitPhotos.photoType,
           publicUrl: visitPhotos.publicUrl,
+          metadata: visitPhotos.metadata,
           createdAt: visitPhotos.createdAt,
         })
         .from(visitPhotos)
@@ -269,6 +271,16 @@ export async function GET(request: NextRequest) {
         url: p.publicUrl,
         uploaded_at: p.createdAt?.toISOString(),
       }))
+
+      // 紙問診票から抽出した問診データを取得
+      let paperQuestionnaireData = null
+      const paperPhoto = photoRows.find(p => p.photoType === 'paper_questionnaire' && p.metadata)
+      if (paperPhoto?.metadata) {
+        const meta = paperPhoto.metadata as any
+        if (meta.questionnaire_data) {
+          paperQuestionnaireData = meta.questionnaire_data
+        }
+      }
 
       // 診断回答を取得
       let diagnosisResponsesList: any[] = []
@@ -380,8 +392,10 @@ export async function GET(request: NextRequest) {
             last_name: parentProfile.lastName,
             phone_number: parentProfile.phoneNumber,
             line_user_id: parentProfile.lineUserId,
+            email: parentProfile.email,
           } : null,
           questionnaire_responses: questionnaireResponsesList,
+          paper_questionnaire: paperQuestionnaireData,
           photos: photosList,
           diagnosis_responses: diagnosisResponsesList,
           report: reportData,

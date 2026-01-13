@@ -159,52 +159,41 @@ export default function ReportPage({ params }: PageProps) {
             </p>
           </header>
 
-          {/* 写真セクション */}
-          <section className="mb-6">
-            <div className="grid grid-cols-3 gap-4">
-              {photoLabels.map(({ key, label }, index) => {
-                const photoUrl = reportData.photos[key]
-                return (
-                  <div
-                    key={key}
-                    className={cn(
-                      "aspect-[3/4] bg-gray-100 rounded-lg border-2 border-gray-200 overflow-hidden flex items-center justify-center relative",
-                      photoUrl && "cursor-pointer group"
-                    )}
-                    onClick={() => photoUrl && openPhotoViewer(index)}
-                  >
-                    {photoUrl ? (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={photoUrl}
-                          alt={label}
-                          className="w-full h-full object-cover"
-                        />
-                        {/* タップで拡大アイコン */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-                        </div>
-                        <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1">
-                          {label}
-                        </p>
-                      </>
-                    ) : (
-                      <div className="text-center text-gray-500">
-                        <p className="text-sm font-medium">{label}</p>
-                        <p className="text-xs">写真</p>
+          {/* 写真セクション（写真がある場合のみ表示） */}
+          {validPhotos.length > 0 && (
+            <section className="mb-6">
+              <div className="grid grid-cols-3 gap-4">
+                {photoLabels.map(({ key, label }, index) => {
+                  const photoUrl = reportData.photos[key]
+                  if (!photoUrl) return null // 写真がない項目はスキップ
+                  return (
+                    <div
+                      key={key}
+                      className="aspect-[3/4] bg-gray-100 rounded-lg border-2 border-gray-200 overflow-hidden flex items-center justify-center relative cursor-pointer group"
+                      onClick={() => openPhotoViewer(index)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photoUrl}
+                        alt={label}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* タップで拡大アイコン */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            {validPhotos.length > 0 && (
+                      <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1">
+                        {label}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
               <p className="text-xs text-gray-400 text-center mt-2">
                 タップで拡大表示
               </p>
-            )}
-          </section>
+            </section>
+          )}
 
           {/* 分析レポート */}
           <section className="mb-6">

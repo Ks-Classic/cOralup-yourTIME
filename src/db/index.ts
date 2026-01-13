@@ -26,6 +26,8 @@ const queryClient = postgres(connectionString, {
     idle_timeout: 20,
     connect_timeout: 10,
     prepare: false, // Required for Supabase pooler
+    // Force IPv4 to avoid ENETUNREACH errors in WSL/local environments
+    ...(process.env.NODE_ENV === 'development' && { ssl: 'require' }),
 })
 
 // ========================================

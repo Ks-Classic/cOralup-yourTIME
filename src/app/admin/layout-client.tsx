@@ -10,7 +10,8 @@ import {
     Wrench,
     Users,
     ClipboardList,
-    Settings
+    Settings,
+    FileSpreadsheet
 } from 'lucide-react'
 import { cn } from '@/utils'
 
@@ -26,6 +27,7 @@ const adminTabs = [
     { href: '/admin', label: 'リアルタイム', icon: Activity, exact: true },
     { href: '/admin/visits', label: '履歴管理', icon: History },
     { href: '/admin/ai-test', label: 'AI設定', icon: Bot },
+    { href: '/admin/recovery', label: '紙問診リカバリー', icon: FileSpreadsheet },
     { href: '/admin/dev-tools', label: 'テストデータ', icon: Wrench },
     { href: '/admin/schema-editor', label: 'スキーマ編集', icon: Database },
 ]

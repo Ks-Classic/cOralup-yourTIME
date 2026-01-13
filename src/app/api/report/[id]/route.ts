@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, children, events, reports, diagnoses, visitPhotos } from '@/db/schema'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, inArray } from 'drizzle-orm'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -74,12 +74,15 @@ export async function GET(
       diagnosis = diagRows[0]
     }
 
-    // 4. 写真取得
+    // 4. 写真取得（paper_questionnaireは除外）
     const photoUrls: Record<string, string> = {}
     const photos = await db
       .select({ photoType: visitPhotos.photoType, storagePath: visitPhotos.storagePath, publicUrl: visitPhotos.publicUrl })
       .from(visitPhotos)
-      .where(eq(visitPhotos.visitId, id))
+      .where(and(
+        eq(visitPhotos.visitId, id),
+        inArray(visitPhotos.photoType, ['posture_front', 'posture_side', 'oral_front', 'oral_upper', 'oral_lower', 'oral_side', 'oral_closeup'])
+      ))
 
     if (photos && photos.length > 0) {
       for (const photo of photos) {
