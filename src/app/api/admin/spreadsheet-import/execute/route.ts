@@ -118,6 +118,9 @@ export async function POST(request: NextRequest) {
             }
 
             // 3. visitsを新規作成
+            // 生年月日から月齢を計算
+            const childAgeMonths = calculateAgeInMonths(birthday, new Date('2025-12-21'))
+
             const sessionId = `PAPER-${Date.now()}-${String(i + 1).padStart(3, '0')}`
             const visitData = {
                 sessionId,
@@ -126,6 +129,7 @@ export async function POST(request: NextRequest) {
                 status: 'in_progress',
                 currentStep: 'questionnaire_started', // DB制約に合わせた有効な値
                 visitDate: new Date('2025-12-21'), // イベント日
+                childAgeMonths, // 月齢を保存
                 errorInfo: {
                     source: 'paper',  // 紙問診票からのインポート
                     imported_at: new Date().toISOString(),
@@ -221,4 +225,34 @@ function splitName(fullName: string, furigana?: string): [string, string] {
     }
 
     return [normalized, '']
+}
+
+/**
+ * 生年月日から月齢を計算
+ * @param birthday YYYY-MM-DD形式の生年月日
+ * @param referenceDate 基準日（イベント日）
+ */
+function calculateAgeInMonths(birthday: string, referenceDate: Date): number {
+    if (!birthday || !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) {
+        console.warn('[calculateAgeInMonths] Invalid birthday format:', birthday)
+        return 0
+    }
+
+    const birthDate = new Date(birthday)
+    if (isNaN(birthDate.getTime())) {
+        console.warn('[calculateAgeInMonths] Failed to parse birthday:', birthday)
+        return 0
+    }
+
+    // 月数を計算
+    const years = referenceDate.getFullYear() - birthDate.getFullYear()
+    const months = referenceDate.getMonth() - birthDate.getMonth()
+    const days = referenceDate.getDate() - birthDate.getDate()
+
+    let totalMonths = years * 12 + months
+    if (days < 0) {
+        totalMonths -= 1
+    }
+
+    return Math.max(0, totalMonths)
 }
