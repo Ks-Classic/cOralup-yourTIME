@@ -151,7 +151,7 @@ export default function ReportPage({ params }: PageProps) {
           {/* ヘッダー */}
           <header className="text-center mb-6 border-b-2 border-blue-600 pb-4">
             <p className="text-sm text-blue-600 mb-2">
-              {new Date(reportData.diagnosisDate).toLocaleDateString('ja-JP')} {reportData.eventName}
+              2025/12/21 cOral up診断
             </p>
             <h1 className="text-3xl font-bold text-blue-800 tracking-wider">分析シート</h1>
             <p className="text-lg mt-3 text-gray-800">
