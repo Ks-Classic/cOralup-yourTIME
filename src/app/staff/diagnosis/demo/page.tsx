@@ -1048,7 +1048,8 @@ export default function IntegratedDiagnosisPage() {
       {/* メインコンテンツエリア */}
       <main
         ref={mainContainerRef}
-        className="flex-1 overflow-y-auto pb-[72px] overscroll-y-contain touch-pan-y"
+        className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y"
+        style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -1573,7 +1574,7 @@ export default function IntegratedDiagnosisPage() {
 
             {/* 確認/分析ビュー */}
             {currentMainView === 'review' && (
-              <div className="space-y-4">
+              <div className="space-y-4 pb-4">
                 {/* 入力チェックセクション */}
                 {!analysisResult && (
                   <Card className="shadow-sm">
