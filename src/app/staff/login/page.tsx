@@ -9,6 +9,15 @@ interface Staff {
   avatarUrl?: string
 }
 
+interface EventInfo {
+  id: string
+  eventId: string
+  name: string
+  startDate: string | null
+  venue: string | null
+  status: string
+}
+
 type LoginStatus = 'pin_input' | 'loading_staff' | 'staff_select' | 'logging_in' | 'error' | 'success'
 
 // LINE内ブラウザかどうかを判定
@@ -26,6 +35,11 @@ export default function StaffLoginPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
   const [showLineWarning, setShowLineWarning] = useState(false)
+
+  // イベントタブ関連
+  const [eventList, setEventList] = useState<EventInfo[]>([])
+  const [selectedEventId, setSelectedEventId] = useState<string>('all')
+  const [loadingStaffForEvent, setLoadingStaffForEvent] = useState(false)
 
   // URLパラメータからトークンを取得（旧LIFF引き継ぎ用 - 後方互換）
   useEffect(() => {
@@ -68,12 +82,28 @@ export default function StaffLoginPage() {
       const data = await res.json()
 
       if (res.ok && data.valid) {
-        // スタッフ一覧を取得
-        const staffRes = await fetch('/api/staff/list')
+        // イベント一覧とスタッフ一覧を並行取得
+        const [eventsRes, staffRes] = await Promise.all([
+          fetch('/api/events/list'),
+          fetch('/api/staff/list'),
+        ])
+
+        const eventsData = await eventsRes.json()
         const staffData = await staffRes.json()
 
         if (staffRes.ok && staffData.staff) {
           setStaffList(staffData.staff)
+
+          if (eventsRes.ok && eventsData.events) {
+            setEventList(eventsData.events)
+            // イベントが1つだけなら自動選択
+            if (eventsData.events.length === 1) {
+              setSelectedEventId(eventsData.events[0].id)
+              // そのイベントのスタッフを取得
+              await loadStaffForEvent(eventsData.events[0].id)
+            }
+          }
+
           setStatus('staff_select')
 
           // LINE内ブラウザなら警告表示
@@ -91,6 +121,32 @@ export default function StaffLoginPage() {
       setPinError('エラーが発生しました')
       setStatus('pin_input')
     }
+  }
+
+  // イベント別スタッフ読み込み
+  const loadStaffForEvent = async (eventId: string) => {
+    setLoadingStaffForEvent(true)
+    try {
+      const url = eventId === 'all'
+        ? '/api/staff/list'
+        : `/api/staff/list?eventId=${eventId}`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (res.ok && data.staff) {
+        setStaffList(data.staff)
+      }
+    } catch (err) {
+      console.error('Failed to load staff for event:', err)
+    } finally {
+      setLoadingStaffForEvent(false)
+    }
+  }
+
+  // イベントタブ切り替え
+  const handleEventChange = async (eventId: string) => {
+    setSelectedEventId(eventId)
+    setSearchQuery('')
+    await loadStaffForEvent(eventId)
   }
 
   // スタッフ選択してログイン
@@ -124,6 +180,17 @@ export default function StaffLoginPage() {
   const filteredStaff = staffList.filter(staff =>
     staff.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // イベント名のフォーマット
+  const formatEventLabel = (event: EventInfo): string => {
+    if (event.startDate) {
+      const date = new Date(event.startDate)
+      const month = date.getMonth() + 1
+      const day = date.getDate()
+      return `${event.name}（${month}/${day}）`
+    }
+    return event.name
+  }
 
   // PIN入力画面
   if (status === 'pin_input' || status === 'loading_staff') {
@@ -197,6 +264,36 @@ export default function StaffLoginPage() {
             </div>
           )}
 
+          {/* イベントタブ */}
+          {eventList.length > 0 && (
+            <div className="mb-4">
+              <p className="text-slate-400 text-xs mb-2">📋 イベントを選択</p>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <button
+                  onClick={() => handleEventChange('all')}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedEventId === 'all'
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                      : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:border-slate-500'
+                    }`}
+                >
+                  全て
+                </button>
+                {eventList.map((event) => (
+                  <button
+                    key={event.id}
+                    onClick={() => handleEventChange(event.id)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedEventId === event.id
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                        : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                    {formatEventLabel(event)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 検索ボックス */}
           <div className="mb-4">
             <div className="relative">
@@ -214,8 +311,13 @@ export default function StaffLoginPage() {
           </div>
 
           {/* スタッフリスト */}
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-            {filteredStaff.length > 0 ? (
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+            {loadingStaffForEvent ? (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">読み込み中...</p>
+              </div>
+            ) : filteredStaff.length > 0 ? (
               filteredStaff.map((staff) => (
                 <button
                   key={staff.id}
@@ -234,10 +336,27 @@ export default function StaffLoginPage() {
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-slate-400">該当するスタッフが見つかりません</p>
+                <p className="text-slate-500 text-3xl mb-2">🦷</p>
+                <p className="text-slate-400 text-sm">
+                  {selectedEventId !== 'all'
+                    ? 'このイベントに登録されたスタッフがいません'
+                    : '該当するスタッフが見つかりません'}
+                </p>
+                {selectedEventId !== 'all' && (
+                  <p className="text-slate-500 text-xs mt-2">
+                    LINEスタッフアカウントからイベント登録をお願いします
+                  </p>
+                )}
               </div>
             )}
           </div>
+
+          {/* スタッフ数表示 */}
+          {!loadingStaffForEvent && (
+            <p className="text-slate-500 text-xs text-center mt-3">
+              {filteredStaff.length}名のスタッフ
+            </p>
+          )}
 
           {/* 戻るボタン */}
           <button
@@ -245,6 +364,7 @@ export default function StaffLoginPage() {
               setStatus('pin_input')
               setPin('')
               setSearchQuery('')
+              setSelectedEventId('all')
             }}
             className="w-full mt-4 text-slate-400 hover:text-white text-sm py-2"
           >
