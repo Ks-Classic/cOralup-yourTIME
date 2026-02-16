@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { profiles } from '@/db/schema'
-import { events, eventStaffs } from '@/db/schema/events'
+import { eventStaffs } from '@/db/schema/events'
 import { or, eq, asc, and, inArray } from 'drizzle-orm'
 
 // キャッシュを無効化して、毎回最新のDBからスタッフを取得
@@ -19,42 +19,18 @@ export async function GET(request: NextRequest) {
         const eventId = searchParams.get('eventId')
 
         if (eventId) {
-            // ── イベントフィルタあり ──
-            // 1. 指定イベントに紐付いたスタッフ profile_id を取得
+            // ── イベントフィルタあり → そのイベントに登録されたスタッフのみ返す ──
             const eventStaffRows = await db
                 .select({ profileId: eventStaffs.profileId })
                 .from(eventStaffs)
                 .where(eq(eventStaffs.eventId, eventId))
 
-            // 2. 大阪YourTIME. (completed) スタッフ = 全イベントに表示するレガシーメンバー
-            const osakaEvent = await db
-                .select({ id: events.id })
-                .from(events)
-                .where(eq(events.status, 'completed'))
-
-            let legacyProfileIds: string[] = []
-            if (osakaEvent.length > 0) {
-                const osakaIds = osakaEvent.map(e => e.id)
-                const legacyRows = await db
-                    .select({ profileId: eventStaffs.profileId })
-                    .from(eventStaffs)
-                    .where(inArray(eventStaffs.eventId, osakaIds))
-                legacyProfileIds = legacyRows.map(r => r.profileId)
-            }
-
-            // 3. 重複排除して対象スタッフの profile_id リストを生成
-            const targetProfileIds = [
-                ...new Set([
-                    ...eventStaffRows.map(r => r.profileId),
-                    ...legacyProfileIds,
-                ])
-            ]
+            const targetProfileIds = eventStaffRows.map(r => r.profileId)
 
             if (targetProfileIds.length === 0) {
                 return NextResponse.json({ staff: [] })
             }
 
-            // 4. profile 情報を取得
             const staffRows = await db
                 .select({
                     id: profiles.id,
