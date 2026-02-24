@@ -41,14 +41,30 @@ interface ParentProfile {
 
 // 年齢を計算
 function calculateAge(birthday: string): { years: number; months: number } {
-    const birthDate = new Date(birthday)
+    // タイムゾーン問題を避けるため、YYYY-MM-DD文字列を直接パース
+    const parts = birthday.split('T')[0].split('-')
+    const birthYear = parseInt(parts[0], 10)
+    const birthMonth = parseInt(parts[1], 10) - 1 // 0-indexed
+    const birthDay = parseInt(parts[2], 10)
+
     const now = new Date()
-    let years = now.getFullYear() - birthDate.getFullYear()
-    let months = now.getMonth() - birthDate.getMonth()
+    let years = now.getFullYear() - birthYear
+    let months = now.getMonth() - birthMonth
+
+    // 日にちも考慮
+    if (now.getDate() < birthDay) {
+        months--
+    }
     if (months < 0) {
         years--
         months += 12
     }
+
+    // 未来の生年月日の場合は0歳0ヶ月にフォールバック
+    if (years < 0) {
+        return { years: 0, months: 0 }
+    }
+
     return { years, months }
 }
 
@@ -56,10 +72,14 @@ function calculateAge(birthday: string): { years: number; months: number } {
 function StatusBadge({ status }: { status: string }) {
     const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
         'questionnaire_completed': { label: '問診完了', color: 'bg-blue-100 text-blue-700', icon: <CheckCircle className="w-3 h-3" /> },
+        'in_progress': { label: '問診完了', color: 'bg-blue-100 text-blue-700', icon: <CheckCircle className="w-3 h-3" /> },
+        'waiting': { label: '受付済み', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
         'diagnosis_started': { label: '診断中', color: 'bg-yellow-100 text-yellow-700', icon: <Clock className="w-3 h-3" /> },
         'analysis_completed': { label: '分析完了', color: 'bg-green-100 text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
+        'completed': { label: '完了', color: 'bg-green-100 text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
         'report_generated': { label: 'レポート生成済み', color: 'bg-purple-100 text-purple-700', icon: <FileText className="w-3 h-3" /> },
         'line_sent': { label: 'レポート送信済み', color: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle className="w-3 h-3" /> },
+        'line_confirmed': { label: '送信確認済み', color: 'bg-emerald-100 text-emerald-700', icon: <CheckCircle className="w-3 h-3" /> },
         'questionnaire_in_progress': { label: '問診入力中', color: 'bg-orange-100 text-orange-700', icon: <Clock className="w-3 h-3" /> },
     }
 
