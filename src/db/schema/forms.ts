@@ -1,5 +1,4 @@
 import { pgTable, uuid, varchar, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
 
 // ========================================
 // Form Schemas (フォーム定義 - JSONB形式)
@@ -17,28 +16,5 @@ export const formSchemas = pgTable('form_schemas', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
 
-// ========================================
-// Form Schema Versions (バージョン履歴)
-// ========================================
-export const formSchemaVersions = pgTable('form_schema_versions', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    schemaId: uuid('schema_id').references(() => formSchemas.id).notNull(),
-    version: varchar('version', { length: 20 }).notNull(),
-    config: jsonb('config').notNull(),
-    changeLog: text('change_log'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-})
-
-// ========================================
-// Relations
-// ========================================
-export const formSchemasRelations = relations(formSchemas, ({ many }) => ({
-    versions: many(formSchemaVersions),
-}))
-
-export const formSchemaVersionsRelations = relations(formSchemaVersions, ({ one }) => ({
-    schema: one(formSchemas, {
-        fields: [formSchemaVersions.schemaId],
-        references: [formSchemas.id],
-    }),
-}))
+// NOTE: form_schema_versions, form_fields, form_responses, form_cache は
+// 未使用のため削除済み。form_schemas のみ 1件のマスタデータとして残存。

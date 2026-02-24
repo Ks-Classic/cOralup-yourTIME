@@ -37,21 +37,23 @@ export const questionnaireItems = pgTable('questionnaire_items', {
 })
 
 // ========================================
-// Questionnaires (問診票 - レガシー, JSONB形式)
+// Legacy Questionnaires (レガシー問診データ - 後方互換性)
 // ========================================
+// 正規化版 (questionnaire_categories + items + responses) が推奨ですが、
+// 多くのAPIルートがまだこのテーブルを参照しているため維持しています。
 export const questionnaires = pgTable('questionnaires', {
     id: uuid('id').primaryKey().defaultRandom(),
-    sessionId: varchar('session_id', { length: 50 }).unique(),
-    visitId: uuid('visit_id').references(() => visits.id),
-    childName: varchar('child_name', { length: 100 }).notNull(),
-    childAge: integer('child_age').notNull(),
-    childGender: varchar('child_gender', { length: 10 }).notNull(),
-    parentName: varchar('parent_name', { length: 100 }).notNull(),
-    parentPhone: varchar('parent_phone', { length: 20 }).notNull(),
-    medicalHistory: text('medical_history').array(),
-    concerns: text('concerns').array(),
-    idealGoals: text('ideal_goals').array(),
+    sessionId: varchar('session_id', { length: 50 }),
+    childName: varchar('child_name', { length: 100 }),
+    childAge: integer('child_age'),
+    childGender: varchar('child_gender', { length: 20 }),
+    parentName: varchar('parent_name', { length: 100 }),
+    parentPhone: varchar('parent_phone', { length: 20 }),
+    medicalHistory: jsonb('medical_history'),
+    concerns: jsonb('concerns'),
+    idealGoals: jsonb('ideal_goals'),
     notes: text('notes'),
+    answers: jsonb('answers'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })

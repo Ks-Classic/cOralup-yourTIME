@@ -176,11 +176,35 @@ export default function ParentHomePage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-coral-50 to-white">
-                <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-coral-500 mx-auto mb-3" />
-                    <p className="text-gray-600">読み込み中...</p>
-                </div>
+            <div className="min-h-screen bg-gradient-to-b from-coral-50 to-white">
+                {/* ヘッダースケルトン */}
+                <header className="bg-white/80 backdrop-blur border-b border-coral-100 sticky top-0 z-10">
+                    <div className="px-4 py-3">
+                        <h1 className="text-lg font-bold text-coral-600">🦷 マイページ</h1>
+                        <div className="h-3 w-24 bg-gray-200 rounded animate-pulse mt-1" />
+                    </div>
+                </header>
+                <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
+                    {/* お子さまカードスケルトン */}
+                    {[1, 2].map((i) => (
+                        <Card key={i}>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse" />
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 w-28 bg-gray-200 rounded animate-pulse" />
+                                        <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
+                                    </div>
+                                    <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                    <div className="flex items-center justify-center pt-2">
+                        <Loader2 className="w-5 h-5 text-coral-400 animate-spin mr-2" />
+                        <p className="text-gray-500 text-sm">データを読み込み中...</p>
+                    </div>
+                </main>
             </div>
         )
     }

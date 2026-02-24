@@ -105,11 +105,12 @@ export async function POST(request: NextRequest) {
             await db.insert(visitPhotos).values({
                 visitId,
                 photoType: 'paper_questionnaire',
+                storagePath: 'paper-recovery/no-image',
                 metadata: {
                     questionnaire_data: questionnaire,
                     saved_at: new Date().toISOString(),
                 },
-            })
+            } as typeof visitPhotos.$inferInsert)
             console.log(`[Paper Recovery] Created new paper_questionnaire record for visitId: ${visitId}`)
         } else {
             // 既存の写真のmetadataを更新
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
 
             await db
                 .update(visitPhotos)
-                .set({ metadata: newMetadata })
+                .set({ metadata: newMetadata } as Partial<typeof visitPhotos.$inferInsert>)
                 .where(eq(visitPhotos.id, paperPhotos[0].id))
 
             console.log(`[Paper Recovery] Updated paper_questionnaire metadata for visitId: ${visitId}`)

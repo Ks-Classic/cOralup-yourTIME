@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { formSchemas, formSchemaVersions, questionnaireCategories, questionnaireItems } from '@/db/schema'
+import { formSchemas, questionnaireCategories, questionnaireItems } from '@/db/schema'
 import { eq, and, or, sql, asc, inArray, desc } from 'drizzle-orm'
 import { preschoolerFormSchema } from '@/data/preschooler-form-schema'
 import { elementaryFormSchema } from '@/data/elementary-form-schema'

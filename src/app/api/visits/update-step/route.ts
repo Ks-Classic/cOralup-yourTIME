@@ -70,13 +70,20 @@ export async function POST(request: NextRequest) {
       updateData.boothNumber = boothNumber
     }
 
-    // ステップに応じてstatusも更新（後方互換性）
-    if (step === 'line_confirmed') {
-      updateData.status = 'diagnosis_completed'
-    } else if (step === 'line_sent') {
-      updateData.status = 'report_sent'
-    } else if (step === 'diagnosis_started') {
-      updateData.status = 'in_progress'
+    // ステップに応じてstatusを完全同期
+    const STEP_TO_STATUS: Record<string, string> = {
+      'line_registered': 'in_progress',
+      'questionnaire_started': 'in_progress',
+      'questionnaire_completed': 'in_progress',
+      'diagnosis_started': 'in_progress',
+      'photos_uploaded': 'in_progress',
+      'analysis_completed': 'diagnosis_completed',
+      'report_generated': 'diagnosis_completed',
+      'line_sent': 'report_sent',
+      'line_confirmed': 'report_sent',
+    }
+    if (STEP_TO_STATUS[step]) {
+      updateData.status = STEP_TO_STATUS[step]
     }
 
     // 更新実行

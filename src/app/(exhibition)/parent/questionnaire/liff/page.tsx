@@ -28,6 +28,33 @@ if (typeof window !== 'undefined') {
   preloadLiffSdk()
 }
 
+// 問診スキーマのプリフェッチキャッシュ
+const schemaCache: Record<string, { data: any; timestamp: number }> = {}
+const SCHEMA_CACHE_TTL = 5 * 60 * 1000 // 5分間キャッシュ
+
+async function fetchSchemaWithCache(targetAge: string): Promise<any> {
+  const now = Date.now()
+  const cached = schemaCache[targetAge]
+  if (cached && (now - cached.timestamp) < SCHEMA_CACHE_TTL) {
+    return cached.data
+  }
+  const res = await fetch(`/api/questionnaire/items?target_age=${targetAge}`)
+  if (res.ok) {
+    const json = await res.json()
+    if (json.success && json.data?.categories) {
+      schemaCache[targetAge] = { data: json.data, timestamp: now }
+      return json.data
+    }
+  }
+  return null
+}
+
+// ページ読み込み時に両方のスキーマをプリフェッチ開始
+if (typeof window !== 'undefined') {
+  fetchSchemaWithCache('preschool')
+  fetchSchemaWithCache('elementary')
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -239,13 +266,11 @@ function LiffQuestionnairePageContent() {
         setParentProfile(data.profile)
       }
 
-      // 子供データ設定
-      if (data.child) {
+      // 子供データ設定（mode=new の場合はスキップ）
+      if (data.child && !isNewChild) {
         setChildData(data.child)
         // 重複防止: 既存子供のIDを保持
         setSelectedChildId(data.child.id)
-        // 既存子供がいる場合は新規モードをOFF
-        setIsNewChild(false)
 
         // フォームに復元（姓名分離）
         if (data.child.lastName) setValue('childLastName', data.child.lastName)
@@ -263,7 +288,7 @@ function LiffQuestionnairePageContent() {
         }
       }
 
-      // 保護者情報を復元（姓名分離）
+      // 保護者情報を復元（mode=new でも保護者情報は復元する）
       if (data.profile) {
         if (data.profile.lastName) setValue('parentLastName', data.profile.lastName)
         if (data.profile.firstName) setValue('parentFirstName', data.profile.firstName)
@@ -272,8 +297,8 @@ function LiffQuestionnairePageContent() {
         if (data.profile.phoneNumber) setValue('parentPhone', data.profile.phoneNumber)
       }
 
-      // Visit設定
-      if (data.visit) {
+      // Visit設定（mode=new の場合はスキップ）
+      if (data.visit && !isNewChild) {
         setVisitData(data.visit)
 
         // 問診回答を復元
@@ -328,14 +353,10 @@ function LiffQuestionnairePageContent() {
       setIsSchemaLoading(true)
       try {
         const targetAge = formType === 'preschooler' ? 'preschool' : 'elementary'
-        const res = await fetch(`/api/questionnaire/items?target_age=${targetAge}`)
-
-        if (res.ok) {
-          const json = await res.json()
-          if (json.success && json.data?.categories) {
-            const convertedSchema = convertToFormSchema(json.data)
-            setActiveFormSchema(convertedSchema)
-          }
+        const data = await fetchSchemaWithCache(targetAge)
+        if (data) {
+          const convertedSchema = convertToFormSchema(data)
+          setActiveFormSchema(convertedSchema)
         }
       } catch (error) {
         console.error('[LIFF] Schema fetch error:', error)
@@ -544,12 +565,49 @@ function LiffQuestionnairePageContent() {
   // Render: LIFF状態別
   // ============================================================================
 
-  // 初期化中
+  // 初期化中 → スケルトンUIで体感速度を向上
   if (liffStatus === 'initializing' || liffStatus === 'loading_data') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-coral-50 to-white p-4">
-        <Loader2 className="w-10 h-10 text-coral-500 animate-spin mb-3" />
-        <p className="text-gray-600 text-sm">読み込み中...</p>
+      <div className="min-h-screen bg-gradient-to-br from-coral-50 to-white">
+        {/* ヘッダースケルトン */}
+        <header className="bg-white/80 backdrop-blur border-b border-coral-100 sticky top-0 z-10">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-coral-600">cOralup 問診票</h1>
+              <div className="h-3 w-20 bg-gray-200 rounded animate-pulse mt-1" />
+            </div>
+            <Badge variant="outline" className="text-coral-600 border-coral-200">基本情報</Badge>
+          </div>
+          <div className="h-1 bg-coral-100">
+            <div className="h-full bg-coral-300 w-[10%] animate-pulse" />
+          </div>
+        </header>
+        <main className="max-w-lg mx-auto px-4 py-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 bg-coral-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                <CardTitle>基本情報</CardTitle>
+              </div>
+              <CardDescription>お子様と保護者の情報を入力してください</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* スケルトンフォームフィールド */}
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i}>
+                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2" />
+                  <div className="h-10 bg-gray-100 rounded-md animate-pulse" />
+                </div>
+              ))}
+              <div className="flex items-center justify-center pt-2">
+                <Loader2 className="w-5 h-5 text-coral-400 animate-spin mr-2" />
+                <p className="text-gray-500 text-sm">
+                  {liffStatus === 'initializing' ? 'LINE認証中...' : 'データを読み込み中...'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     )
   }

@@ -37,12 +37,18 @@ export const visitPhotos = pgTable('visit_photos', {
     id: uuid('id').primaryKey().defaultRandom(),
     visitId: uuid('visit_id').references(() => visits.id, { onDelete: 'cascade' }),
     sessionId: varchar('session_id', { length: 50 }),
-    photoType: varchar('photo_type', { length: 50 }),
-    storagePath: text('storage_path'),
+    photoType: varchar('photo_type', { length: 50 }).notNull(),
+    storagePath: text('storage_path').notNull(),
     publicUrl: text('public_url'),
+    fileSize: integer('file_size'),
+    mimeType: varchar('mime_type', { length: 100 }),
+    width: integer('width'),
+    height: integer('height'),
     metadata: jsonb('metadata'),
     uploadedBy: uuid('uploaded_by').references(() => profiles.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
 
 // ========================================
@@ -54,7 +60,8 @@ export const reports = pgTable('reports', {
     sessionId: varchar('session_id', { length: 50 }),
     diagnosisId: uuid('diagnosis_id'), // diagnosisへの参照用
     reportType: varchar('report_type', { length: 50 }),
-    status: varchar('status', { length: 50 }), // completed, sent 等
+    status: varchar('status', { length: 50 }).default('pending'), // completed, sent 等
+    pdfUrl: text('pdf_url'),
     content: text('content'),
     aiSummary: text('ai_summary'),
     ageConsideration: text('age_consideration'),
@@ -63,6 +70,7 @@ export const reports = pgTable('reports', {
     generatedAt: timestamp('generated_at', { withTimezone: true }),
     sentToLine: boolean('sent_to_line').default(false),
     sentAt: timestamp('sent_at', { withTimezone: true }),
+    lineSentAt: timestamp('line_sent_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
@@ -74,10 +82,10 @@ export const lineMessageLogs = pgTable('line_message_logs', {
     id: uuid('id').primaryKey().defaultRandom(),
     visitId: uuid('visit_id').references(() => visits.id),
     sessionId: varchar('session_id', { length: 50 }),
-    lineUserId: varchar('line_user_id', { length: 255 }),
-    messageType: varchar('message_type', { length: 50 }),
-    messageContent: text('message_content'),
-    status: varchar('status', { length: 50 }),
+    lineUserId: varchar('line_user_id', { length: 255 }).notNull(),
+    messageType: varchar('message_type', { length: 50 }).notNull(),
+    messageContent: jsonb('message_content'),
+    status: varchar('status', { length: 50 }).notNull(),
     response: jsonb('response'),
     errorMessage: text('error_message'),
     sentAt: timestamp('sent_at', { withTimezone: true }),

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
                         description: sql`EXCLUDED.description`,
                         venue: sql`EXCLUDED.venue`,
                         status: sql`EXCLUDED.status`,
-                    },
+                    } as Record<string, any>,
                 })
             results.push(`✅ イベント登録: ${evt.name} [${evt.status}]`)
         }
@@ -83,9 +83,7 @@ export async function POST(request: NextRequest) {
                 const result = await db.insert(eventStaffs).values({
                     eventId: evt.id,
                     profileId: staff.id,
-                    role: 'staff',
-                    status: 'confirmed',
-                }).onConflictDoNothing()
+                } as typeof eventStaffs.$inferInsert).onConflictDoNothing()
 
                 if ((result as any).rowCount > 0) {
                     insertCount++

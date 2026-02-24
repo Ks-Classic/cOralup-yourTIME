@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { formSchemas, formSchemaVersions } from '@/db/schema'
+import { formSchemas } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 
 const adminApiKey = process.env.ADMIN_API_KEY
@@ -43,12 +43,7 @@ export async function PUT(
     if (!existing[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (version) {
-      await db.insert(formSchemaVersions).values({
-        schemaId: existing[0].id,
-        version: version,
-        config: existing[0].config,
-        changeLog: `Updated to version ${version}`
-      } as typeof formSchemaVersions.$inferInsert)
+      // Note: formSchemaVersions table not yet created, skipping version history
     }
 
     const updated = await db.update(formSchemas).set({
