@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     console.log('[Line Confirm] Before update:', { visitId, staffProfileId: visitRows[0]?.staffProfileId, confirmationStatus })
 
     const updateResult = await db.update(visits).set({
-      status: 'diagnosis_completed',
+      status: 'published',
       currentStep: 'line_confirmed',
       stepTimestamps: timestamps,
       updatedAt: new Date()

@@ -1335,8 +1335,8 @@ export default function DiagnosisPageWithId() {
       setIsDiagnosisComplete(true)
       setShowLineDeliveryCheck(false)
 
-      // モニター: 診断完了を記録（fire-and-forget）
-      updateVisitStep(visitId, 'line_confirmed').catch(() => { })
+      // Note: visit status/step の更新は confirm-delivery API側で一括実行済み
+      // （二重更新による競合を防止するため、ここでは updateVisitStep を呼ばない）
 
       // 診断完了後、localStorageから途中保存データをクリア
       clearStorage()
