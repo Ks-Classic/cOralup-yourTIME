@@ -46,11 +46,19 @@ export interface Alert {
     message: string;
 }
 
+export interface WaitingQueueInfo {
+    count: number;
+    maxWaitMinutes: number;
+    avgWaitMinutes: number;
+}
+
 export interface RealtimeStatusResponse {
     timestamp: string;
     summary: {
         lineRegistered: number;
+        waitingForQuestionnaire: number; // LINE登録済・問診未着手
         questionnaireCompleted: number;
+        waitingForScan: WaitingQueueInfo; // 問診完了・受付待ち（待ち時間付き）
         inProgress: number;
         diagnosisCompleted: number;
         reportSent: number;

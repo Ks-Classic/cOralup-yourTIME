@@ -72,13 +72,40 @@ export async function GET() {
             .where(gte(profiles.createdAt, todayStart))
         const lineRegisteredCount = Number(lineCountResult[0]?.count || 0)
 
+        // 3b. 問診未着手: 今日LINE登録したが visitがない or visitはあるが問診開始前
+        const profilesWithVisitToday = await db
+            .select({
+                profileId: profiles.id,
+                visitId: visits.id,
+                currentStep: visits.currentStep,
+            })
+            .from(profiles)
+            .leftJoin(visits, eq(visits.parentProfileId, profiles.id))
+            .where(gte(profiles.createdAt, todayStart))
+
+        // LINE登録しているがvisitがない、または visitはあるが currentStep が line_registered
+        const waitingForQuestionnaire = profilesWithVisitToday.filter(row => {
+            if (!row.visitId) return true // visitなし = 問診未着手
+            if (row.currentStep === 'line_registered') return true
+            return false
+        })
+        // 同一プロフィールの重複排除
+        const uniqueWaitingProfileIds = new Set(waitingForQuestionnaire.map(r => r.profileId))
+        const waitingForQuestionnaireCount = uniqueWaitingProfileIds.size
+
         // 4. データを加工
         const activeSessions: any[] = []
         const recentCompleted: any[] = []
         const alerts: any[] = []
+
+        // 受付待ち（questionnaire_completed + スタッフ未割当）の待ち時間計算用
+        const waitingForScanVisits: { elapsedMinutes: number }[] = []
+
         const summary = {
             lineRegistered: lineRegisteredCount,
+            waitingForQuestionnaire: waitingForQuestionnaireCount,
             questionnaireCompleted: 0,
+            waitingForScan: { count: 0, maxWaitMinutes: 0, avgWaitMinutes: 0 },
             inProgress: 0,
             diagnosisCompleted: 0,
             reportSent: 0,
@@ -94,16 +121,21 @@ export async function GET() {
             const staffName = visit.staffDisplayName || `${visit.staffLastName || ''} ${visit.staffFirstName || ''}`.trim() || null
             const parentDisplayName = visit.parentDisplayName || null
             const hasReport = reportVisitIds.has(visit.id)
-
-            // Summary counts
-            if (currentStep === 'questionnaire_completed') summary.questionnaireCompleted++
-            if (currentStep === 'diagnosis_started' || currentStep === 'photos_uploaded') summary.inProgress++
-            if (currentStep === 'analysis_completed' || status === 'completed') summary.diagnosisCompleted++
-            if (currentStep === 'line_sent' || status === 'published') summary.reportSent++
-
             const isCompleted = status === 'published' || status === 'cancelled'
             const effectiveDate = new Date(visit.updatedAt || visit.createdAt || now)
             const elapsedMinutes = Math.floor((now.getTime() - effectiveDate.getTime()) / 60000)
+
+            // Summary counts
+            if (currentStep === 'questionnaire_completed') {
+                summary.questionnaireCompleted++
+                // 受付待ち: 問診完了 + スタッフ未割当
+                if (!visit.staffProfileId) {
+                    waitingForScanVisits.push({ elapsedMinutes })
+                }
+            }
+            if (currentStep === 'diagnosis_started' || currentStep === 'photos_uploaded') summary.inProgress++
+            if (currentStep === 'analysis_completed' || status === 'completed') summary.diagnosisCompleted++
+            if (currentStep === 'line_sent' || status === 'published') summary.reportSent++
 
             if (!isCompleted) {
                 activeSessions.push({
@@ -161,6 +193,16 @@ export async function GET() {
                     parentLineDisplayName: parentDisplayName,
                     status,
                 })
+            }
+        }
+
+        // 受付待ちの統計計算
+        if (waitingForScanVisits.length > 0) {
+            const waitTimes = waitingForScanVisits.map(v => v.elapsedMinutes)
+            summary.waitingForScan = {
+                count: waitingForScanVisits.length,
+                maxWaitMinutes: Math.max(...waitTimes),
+                avgWaitMinutes: Math.round(waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length),
             }
         }
 
