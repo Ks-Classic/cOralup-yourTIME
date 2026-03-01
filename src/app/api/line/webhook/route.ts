@@ -224,6 +224,51 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
 
   await sendMessage(userId, welcomeMessage)
   await sendMessage(userId, flexMessage)
+
+  // 受信確認ボタン: タップするとユーザーからのメッセージとして記録され、
+  // LINE公式アカウント管理画面のチャット一覧に表示されるようになる
+  const confirmMessage = {
+    type: 'flex',
+    altText: 'メッセージの受け取り確認',
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '↓ボタンを押して受け取り確認をお願いします',
+            size: 'xs',
+            color: '#999999',
+            align: 'center',
+            wrap: true,
+          },
+        ],
+        paddingAll: '12px',
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'message',
+              label: '✅ 受け取りました',
+              text: '受け取りました',
+            },
+            style: 'secondary',
+            height: 'sm',
+          },
+        ],
+        paddingAll: '10px',
+      },
+    },
+  }
+
+  await sendMessage(userId, confirmMessage)
 }
 
 async function handleMessageEvent(event: any) {
@@ -240,7 +285,14 @@ async function handlePostbackEvent(event: any) {
 }
 
 async function handleTextMessage(userId: string, text: string) {
-  if (text.toLowerCase().includes('診断結果')) {
+  if (text === '受け取りました') {
+    // 受信確認への応答
+    const confirmReply = {
+      type: 'text',
+      text: '確認ありがとうございます😊\nご不明な点がありましたら、お気軽にメッセージください。',
+    }
+    await sendMessage(userId, confirmReply)
+  } else if (text.toLowerCase().includes('診断結果')) {
     await sendDiagnosisResult(userId)
   } else if (text.toLowerCase().includes('ヘルプ')) {
     await sendHelpMessage(userId)
