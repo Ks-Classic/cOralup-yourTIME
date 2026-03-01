@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { db } from '@/db'
-import { profiles } from '@/db/schema'
+import { profiles, lineChatMessages } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET!
@@ -258,6 +258,29 @@ async function sendQuestionnaireLink(userId: string) {
 async function handleMessageEvent(event: any) {
   const userId = event.source.userId
   const message = event.message
+
+  // 受信メッセージをDBに保存（チャット履歴用）
+  try {
+    const content = message.type === 'text' ? message.text : `[${message.type}]`
+    const profileRows = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.lineUserId, userId))
+      .limit(1)
+
+    // @ts-expect-error - Drizzle types not yet regenerated for lineChatMessages schema
+    await db.insert(lineChatMessages).values({
+      lineUserId: userId,
+      profileId: profileRows[0]?.id || null,
+      direction: 'inbound',
+      messageType: message.type,
+      content,
+      lineMessageId: message.id,
+      status: 'received',
+    })
+  } catch (err) {
+    console.error('[LINE Webhook] Failed to save inbound message:', err)
+  }
 
   if (message.type === 'text') {
     await handleTextMessage(userId, message.text)

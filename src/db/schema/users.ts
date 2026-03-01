@@ -23,6 +23,7 @@ export const profiles = pgTable('profiles', {
     isActive: boolean('is_active').default(true),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    receptionNumber: varchar('reception_number', { length: 10 }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
 

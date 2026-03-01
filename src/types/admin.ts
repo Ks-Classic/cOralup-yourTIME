@@ -11,6 +11,9 @@ export interface ActiveSession {
     childAge: number;
     staffName: string | null;
     parentLineDisplayName: string | null;
+    lineUserId?: string | null;
+    receptionNumber?: string | null;
+    parentProfileId?: string | null;
     createdAt: string; // ISO string
     updatedAt: string; // ISO string
     currentStatusSince: string;
@@ -55,8 +58,10 @@ export interface WaitingQueueInfo {
 // 問診未着手・入力中ユーザー（visit未作成 or visit進行中）
 export interface WaitingUser {
     profileId: string;
+    lineUserId: string | null;
     lineDisplayName: string | null;
     childName: string | null; // 基本情報入力済みの場合のみ
+    receptionNumber: string | null;
     status: 'not_started' | 'in_progress'; // 問診未着手 or 入力中
     currentStep: string | null;
     waitMinutes: number;

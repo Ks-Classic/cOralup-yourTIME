@@ -238,6 +238,7 @@ export async function POST(request: NextRequest) {
       .values({
         sessionId: sessionId,
         childId: childId || null,
+        parentProfileId: profile.id,
         eventId: eventId || process.env.DEFAULT_EVENT_ID || null,
         organizationId: process.env.CORALUP_ORG_ID || null,
         status: 'waiting',

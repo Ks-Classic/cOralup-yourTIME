@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRealtimeStatus } from '../../hooks/useRealtimeStatus';
 import { StatusSummary } from './StatusSummary';
 import { AlertPanel } from './AlertPanel';
 import { ActiveSessionCard } from './ActiveSessionCard';
+import { LineChatPanel } from './LineChatPanel';
 import Link from 'next/link';
-import { RefreshCw, Beaker, User, Clock, ChevronDown } from 'lucide-react';
+import { RefreshCw, Beaker, User, Clock, ChevronDown, MessageCircle } from 'lucide-react';
 import { StatusFilter, ActiveSession, WaitingUser } from '@/types/admin';
+import { cn } from '@/utils';
 
 interface RealtimeMonitorProps {
     useSampleData?: boolean;
@@ -34,7 +36,67 @@ function filterSessions(sessions: ActiveSession[], filter: StatusFilter): Active
 }
 
 // 問診未着手・入力中リストの表示（折りたたみ対応）
-function WaitingUsersList({ users, filter }: { users: WaitingUser[]; filter: StatusFilter }) {
+// 受付番号インライン入力（WaitingUser用）
+function WaitingReceptionInput({ value, profileId, onSave }: {
+    value: string | null;
+    profileId: string;
+    onSave: (profileId: string, number: string) => void;
+}) {
+    const [editing, setEditing] = useState(false);
+    const [inputValue, setInputValue] = useState(value || '');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (editing && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [editing]);
+
+    const handleSave = () => {
+        onSave(profileId, inputValue.trim());
+        setEditing(false);
+    };
+
+    if (editing) {
+        return (
+            <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onBlur={handleSave}
+                onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+                className="w-10 h-6 text-center text-xs font-bold border border-blue-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                maxLength={4}
+                onClick={e => e.stopPropagation()}
+            />
+        );
+    }
+
+    return (
+        <button
+            onClick={e => { e.stopPropagation(); setEditing(true); }}
+            className={cn(
+                "min-w-[28px] h-6 px-1.5 rounded text-xs font-bold border transition-colors",
+                value
+                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                    : "bg-slate-50 text-slate-400 border-dashed border-slate-300 hover:bg-slate-100 hover:text-slate-600"
+            )}
+            title="受付番号を入力"
+        >
+            {value || '#'}
+        </button>
+    );
+}
+
+// 問診未着手・入力中リストの表示（折りたたみ対応 + チャット + 受付番号）
+function WaitingUsersList({ users, filter, onOpenChat, onUpdateReceptionNumber }: {
+    users: WaitingUser[];
+    filter: StatusFilter;
+    onOpenChat: (lineUserId: string, displayName: string | null) => void;
+    onUpdateReceptionNumber: (profileId: string, number: string) => void;
+}) {
     const [isExpanded, setIsExpanded] = useState(true);
 
     const filtered = filter === 'all' ? users
@@ -68,42 +130,60 @@ function WaitingUsersList({ users, filter }: { users: WaitingUser[]; filter: Sta
                 style={{ maxHeight: isExpanded ? `${filtered.length * 80 + 20}px` : '0px' }}
             >
                 <div className="bg-white rounded-b-lg border border-t-0 border-slate-100 shadow-sm divide-y divide-slate-50">
-                    {filtered.map(user => (
-                        <div key={user.profileId} className="p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
-                                    <User className="w-4 h-4 text-green-600" />
-                                </div>
-                                <div>
-                                    <div className="font-medium text-slate-800 text-sm">
-                                        {user.lineDisplayName || '(LINE名未取得)'}
-                                        {user.childName && (
-                                            <span className="text-slate-500 ml-2 text-xs">
-                                                お子様: {user.childName}
+                    {filtered.map(user => {
+                        const canChat = !!user.lineUserId;
+                        return (
+                            <div
+                                key={user.profileId}
+                                className={cn(
+                                    "p-3 flex items-center justify-between transition-colors",
+                                    canChat ? "cursor-pointer hover:bg-green-50/30" : ""
+                                )}
+                                onClick={() => canChat && onOpenChat(user.lineUserId!, user.lineDisplayName)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <WaitingReceptionInput
+                                        value={user.receptionNumber}
+                                        profileId={user.profileId}
+                                        onSave={onUpdateReceptionNumber}
+                                    />
+                                    <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                                        <User className="w-4 h-4 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <div className="font-medium text-slate-800 text-sm flex items-center gap-1.5">
+                                            <span>{user.lineDisplayName || '(LINE名未取得)'}</span>
+                                            {user.childName && (
+                                                <span className="text-slate-500 text-xs">
+                                                    お子様: {user.childName}
+                                                </span>
+                                            )}
+                                            {canChat && (
+                                                <MessageCircle className="w-3.5 h-3.5 text-green-500 ml-1" />
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColor(user)}`}>
+                                                {statusLabel(user)}
                                             </span>
-                                        )}
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColor(user)}`}>
-                                            {statusLabel(user)}
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="flex items-center gap-1 text-sm">
+                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                        <span className={`font-bold font-mono ${user.waitMinutes >= 15 ? 'text-orange-600' : 'text-slate-600'}`}>
+                                            {user.waitMinutes}
                                         </span>
+                                        <span className="text-xs text-slate-400">分</span>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                <div className="flex items-center gap-1 text-sm">
-                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className={`font-bold font-mono ${user.waitMinutes >= 15 ? 'text-orange-600' : 'text-slate-600'}`}>
-                                        {user.waitMinutes}
+                                    <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                                        ({new Date(user.registeredAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 受付)
                                     </span>
-                                    <span className="text-xs text-slate-400">分</span>
                                 </div>
-                                <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                                    ({new Date(user.registeredAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 受付)
-                                </span>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -113,6 +193,35 @@ function WaitingUsersList({ users, filter }: { users: WaitingUser[]; filter: Sta
 export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonitorProps) {
     const { data, loading, error, lastUpdated } = useRealtimeStatus(useSampleData);
     const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
+
+    // LINE Chat state
+    const [chatOpen, setChatOpen] = useState(false);
+    const [chatLineUserId, setChatLineUserId] = useState<string | null>(null);
+    const [chatDisplayName, setChatDisplayName] = useState<string | null>(null);
+
+    const handleOpenChat = (lineUserId: string, displayName: string | null) => {
+        setChatLineUserId(lineUserId);
+        setChatDisplayName(displayName);
+        setChatOpen(true);
+    };
+
+    const handleCloseChat = () => {
+        setChatOpen(false);
+        setChatLineUserId(null);
+        setChatDisplayName(null);
+    };
+
+    const handleUpdateReceptionNumber = useCallback(async (profileId: string, number: string) => {
+        try {
+            await fetch('/api/staff/reception-number', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profileId, receptionNumber: number }),
+            });
+        } catch (err) {
+            console.error('[Reception Number] Failed:', err);
+        }
+    }, []);
 
     if (error) {
         return (
@@ -197,7 +306,12 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
                 <div className="lg:col-span-2 space-y-6">
                     {/* 問診待ちユーザーリスト */}
                     {showWaitingUsers && data.waitingUsers.length > 0 && (
-                        <WaitingUsersList users={data.waitingUsers} filter={activeFilter} />
+                        <WaitingUsersList
+                            users={data.waitingUsers}
+                            filter={activeFilter}
+                            onOpenChat={handleOpenChat}
+                            onUpdateReceptionNumber={handleUpdateReceptionNumber}
+                        />
                     )}
 
                     {/* Active Sessions */}
@@ -219,6 +333,8 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
                                             key={session.id}
                                             session={session}
                                             hasAlert={data.alerts.some(a => a.sessionId === session.sessionId)}
+                                            onOpenChat={handleOpenChat}
+                                            onUpdateReceptionNumber={handleUpdateReceptionNumber}
                                         />
                                     ))
                                 ) : (
@@ -271,6 +387,15 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
                     </div>
                 </div>
             </div>
+
+            {/* LINE Chat Panel */}
+            {chatOpen && (
+                <LineChatPanel
+                    initialLineUserId={chatLineUserId}
+                    initialDisplayName={chatDisplayName}
+                    onClose={handleCloseChat}
+                />
+            )}
         </div>
     );
 }

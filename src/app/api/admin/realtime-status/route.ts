@@ -32,6 +32,9 @@ export async function GET() {
                 staffFirstName: profiles.firstName,
                 staffDisplayName: profiles.displayName,
                 parentDisplayName: parentProfiles.displayName,
+                parentLineUserId: parentProfiles.lineUserId,
+                parentReceptionNumber: parentProfiles.receptionNumber,
+                parentProfileId: visits.parentProfileId,
             })
             .from(visits)
             .leftJoin(children, eq(visits.childId, children.id))
@@ -78,6 +81,8 @@ export async function GET() {
                 profileId: profiles.id,
                 profileCreatedAt: profiles.createdAt,
                 displayName: profiles.displayName,
+                lineUserId: profiles.lineUserId,
+                receptionNumber: profiles.receptionNumber,
                 visitId: visits.id,
                 currentStep: visits.currentStep,
                 visitCreatedAt: visits.createdAt,
@@ -91,9 +96,17 @@ export async function GET() {
             .where(gte(profiles.createdAt, todayStart))
 
         // LINE登録しているがvisitがない = 問診未着手
+        // visits.parentProfileId経由 + todayVisitsのparentProfileId照合で二重チェック
+        const profileIdsWithVisits = new Set(
+            todayVisits.map(v => v.parentProfileId).filter(Boolean) as string[]
+        )
+
         const waitingForQuestionnaireRows = profilesWithVisitToday.filter(row => {
-            if (!row.visitId) return true // visitなし = 問診未着手
-            return false
+            // visitが直接紐付いている場合は除外
+            if (row.visitId) return false
+            // todayVisitsにparentProfileIdで紐付くvisitがある場合も除外
+            if (profileIdsWithVisits.has(row.profileId)) return false
+            return true
         })
         // 同一プロフィールの重複排除 + 待ち時間計算
         const uniqueWaitingProfiles = new Map<string, number>()
@@ -149,8 +162,10 @@ export async function GET() {
                     : null
                 waitingUsersMap.set(row.profileId, {
                     profileId: row.profileId,
+                    lineUserId: row.lineUserId || null,
                     lineDisplayName: row.displayName || null,
                     childName,
+                    receptionNumber: row.receptionNumber || null,
                     status: 'not_started',
                     currentStep: null,
                     waitMinutes: Math.floor((now.getTime() - createdAt.getTime()) / 60000),
@@ -166,8 +181,10 @@ export async function GET() {
                     : null
                 waitingUsersMap.set(row.profileId, {
                     profileId: row.profileId,
+                    lineUserId: row.lineUserId || null,
                     lineDisplayName: row.displayName || null,
                     childName,
+                    receptionNumber: row.receptionNumber || null,
                     status: 'in_progress',
                     currentStep: row.currentStep,
                     waitMinutes: Math.floor((now.getTime() - createdAt.getTime()) / 60000),
@@ -238,6 +255,9 @@ export async function GET() {
                     elapsedMinutes,
                     hasReport,
                     parentLineDisplayName: parentDisplayName,
+                    lineUserId: visit.parentLineUserId || null,
+                    receptionNumber: visit.parentReceptionNumber || null,
+                    parentProfileId: visit.parentProfileId || null,
                     progress: { photos: { current: photoCountMap.get(visit.id) || 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
                     visitDate: visit.createdAt,
                 })

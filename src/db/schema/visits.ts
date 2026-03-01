@@ -139,9 +139,39 @@ export const reportsRelations = relations(reports, ({ one }) => ({
     }),
 }))
 
+// ========================================
+// LINE Chat Messages (チャットメッセージ)
+// ========================================
+export const lineChatMessages = pgTable('line_chat_messages', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    lineUserId: varchar('line_user_id', { length: 255 }).notNull(),
+    profileId: uuid('profile_id').references(() => profiles.id),
+    direction: varchar('direction', { length: 10 }).notNull(), // 'inbound' | 'outbound'
+    messageType: varchar('message_type', { length: 50 }).notNull().default('text'),
+    content: text('content').notNull(),
+    sentByStaffId: uuid('sent_by_staff_id').references(() => profiles.id),
+    lineMessageId: varchar('line_message_id', { length: 255 }),
+    status: varchar('status', { length: 50 }).notNull().default('sent'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+})
+
 export const lineMessageLogsRelations = relations(lineMessageLogs, ({ one }) => ({
     visit: one(visits, {
         fields: [lineMessageLogs.visitId],
         references: [visits.id],
+    }),
+}))
+
+export const lineChatMessagesRelations = relations(lineChatMessages, ({ one }) => ({
+    profile: one(profiles, {
+        fields: [lineChatMessages.profileId],
+        references: [profiles.id],
+        relationName: 'chatProfile',
+    }),
+    sentByStaff: one(profiles, {
+        fields: [lineChatMessages.sentByStaffId],
+        references: [profiles.id],
+        relationName: 'chatStaff',
     }),
 }))
