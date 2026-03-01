@@ -1,18 +1,105 @@
 'use client';
 
+import { useState } from 'react';
 import { useRealtimeStatus } from '../../hooks/useRealtimeStatus';
 import { StatusSummary } from './StatusSummary';
 import { AlertPanel } from './AlertPanel';
 import { ActiveSessionCard } from './ActiveSessionCard';
 import Link from 'next/link';
-import { RefreshCw, Beaker } from 'lucide-react';
+import { RefreshCw, Beaker, User, Clock } from 'lucide-react';
+import { StatusFilter, ActiveSession, WaitingUser } from '@/types/admin';
 
 interface RealtimeMonitorProps {
     useSampleData?: boolean;
 }
 
+// フィルタに基づいてセッションを絞り込む
+function filterSessions(sessions: ActiveSession[], filter: StatusFilter): ActiveSession[] {
+    if (filter === 'all') return sessions;
+
+    const stepMap: Record<string, string[]> = {
+        waitingForScan: ['questionnaire_completed'],
+        inProgress: ['diagnosis_started', 'photos_uploaded'],
+        diagnosisCompleted: ['analysis_completed', 'report_generated'],
+        reportSent: ['line_sent', 'line_confirmed'],
+    };
+
+    const targetSteps = stepMap[filter];
+    if (!targetSteps) return sessions;
+
+    return sessions.filter(s => {
+        if (!s.currentStep) return false;
+        return targetSteps.includes(s.currentStep);
+    });
+}
+
+// 問診未着手・入力中リストの表示
+function WaitingUsersList({ users, filter }: { users: WaitingUser[]; filter: StatusFilter }) {
+    const filtered = filter === 'all' ? users
+        : filter === 'waitingForQuestionnaire' ? users.filter(u => u.status === 'not_started')
+            : filter === 'questionnaireInProgress' ? users.filter(u => u.status === 'in_progress')
+                : [];
+
+    if (filtered.length === 0) return null;
+
+    const statusLabel = (u: WaitingUser) =>
+        u.status === 'not_started' ? '問診未着手' : u.currentStep === 'questionnaire_started' ? '問診入力中' : 'LIFF起動済';
+    const statusColor = (u: WaitingUser) =>
+        u.status === 'not_started' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700';
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <span>👤 問診待ちユーザー</span>
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs">
+                        {filtered.length}
+                    </span>
+                </h2>
+            </div>
+            <div className="bg-white rounded-lg border border-slate-100 shadow-sm divide-y divide-slate-50">
+                {filtered.map(user => (
+                    <div key={user.profileId} className="p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
+                                <User className="w-4 h-4 text-green-600" />
+                            </div>
+                            <div>
+                                <div className="font-medium text-slate-800 text-sm">
+                                    {user.lineDisplayName || '(LINE名未取得)'}
+                                    {user.childName && (
+                                        <span className="text-slate-500 ml-2 text-xs">
+                                            お子様: {user.childName}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColor(user)}`}>
+                                        {statusLabel(user)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {new Date(user.registeredAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 登録
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span className={`font-bold font-mono ${user.waitMinutes >= 15 ? 'text-orange-600' : 'text-slate-600'}`}>
+                                {user.waitMinutes}
+                            </span>
+                            <span className="text-xs text-slate-400">分</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonitorProps) {
     const { data, loading, error, lastUpdated } = useRealtimeStatus(useSampleData);
+    const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
 
     if (error) {
         return (
@@ -35,6 +122,10 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
     }
 
     if (!data) return null;
+
+    const filteredSessions = filterSessions(data.activeSessions, activeFilter);
+    const showWaitingUsers = activeFilter === 'all' || activeFilter === 'waitingForQuestionnaire' || activeFilter === 'questionnaireInProgress';
+    const showActiveSessions = activeFilter !== 'waitingForQuestionnaire' && activeFilter !== 'questionnaireInProgress';
 
     return (
         <div className="space-y-6">
@@ -66,38 +157,65 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
                 </div>
             </div>
 
-            <StatusSummary summary={data.summary} />
+            <StatusSummary
+                summary={data.summary}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+            />
+
+            {/* フィルタ表示 */}
+            {activeFilter !== 'all' && (
+                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
+                    <span>🔍 フィルタ中</span>
+                    <button
+                        onClick={() => setActiveFilter('all')}
+                        className="text-xs text-blue-500 underline hover:text-blue-700"
+                    >
+                        解除
+                    </button>
+                </div>
+            )}
 
             <AlertPanel alerts={data.alerts} />
 
             {/* Main Content Area */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Active Sessions (Left/Center - 2 cols) */}
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <span>🔄 進行中</span>
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs">
-                                {data.activeSessions.length}
-                            </span>
-                        </h2>
-                    </div>
+                {/* Left/Center - 2 cols */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* 問診待ちユーザーリスト */}
+                    {showWaitingUsers && data.waitingUsers.length > 0 && (
+                        <WaitingUsersList users={data.waitingUsers} filter={activeFilter} />
+                    )}
 
-                    <div className="space-y-3">
-                        {data.activeSessions.length > 0 ? (
-                            data.activeSessions.map(session => (
-                                <ActiveSessionCard
-                                    key={session.id}
-                                    session={session}
-                                    hasAlert={data.alerts.some(a => a.sessionId === session.sessionId)}
-                                />
-                            ))
-                        ) : (
-                            <div className="text-center py-10 bg-white rounded-lg border border-slate-100/50 border-dashed text-slate-400">
-                                進行中のセッションはありません
+                    {/* Active Sessions */}
+                    {showActiveSessions && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <span>🔄 進行中</span>
+                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs">
+                                        {filteredSessions.length}
+                                    </span>
+                                </h2>
                             </div>
-                        )}
-                    </div>
+
+                            <div className="space-y-3">
+                                {filteredSessions.length > 0 ? (
+                                    filteredSessions.map(session => (
+                                        <ActiveSessionCard
+                                            key={session.id}
+                                            session={session}
+                                            hasAlert={data.alerts.some(a => a.sessionId === session.sessionId)}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="text-center py-10 bg-white rounded-lg border border-slate-100/50 border-dashed text-slate-400">
+                                        {activeFilter !== 'all' ? 'このステータスのセッションはありません' : '進行中のセッションはありません'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Recently Completed (Right - 1 col) */}

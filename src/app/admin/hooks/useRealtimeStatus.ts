@@ -17,6 +17,10 @@ function generateSampleData(): RealtimeStatusResponse {
             reportSent: 18
         },
         activeSessions: [],
+        waitingUsers: [
+            { profileId: 'p1', lineDisplayName: 'ゆうこママ', childName: null, status: 'not_started' as const, currentStep: null, waitMinutes: 22, registeredAt: new Date(now.getTime() - 22 * 60000).toISOString() },
+            { profileId: 'p2', lineDisplayName: 'たろう', childName: '田中 太郎', status: 'in_progress' as const, currentStep: 'questionnaire_started', waitMinutes: 8, registeredAt: new Date(now.getTime() - 8 * 60000).toISOString() },
+        ],
         recentCompleted: [],
         alerts: []
     };

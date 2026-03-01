@@ -77,13 +77,17 @@ export async function GET() {
             .select({
                 profileId: profiles.id,
                 profileCreatedAt: profiles.createdAt,
+                displayName: profiles.displayName,
                 visitId: visits.id,
                 currentStep: visits.currentStep,
                 visitCreatedAt: visits.createdAt,
                 visitUpdatedAt: visits.updatedAt,
+                childFirstName: children.firstName,
+                childLastName: children.lastName,
             })
             .from(profiles)
             .leftJoin(visits, eq(visits.parentProfileId, profiles.id))
+            .leftJoin(children, eq(children.parentProfileId, profiles.id))
             .where(gte(profiles.createdAt, todayStart))
 
         // LINE登録しているがvisitがない = 問診未着手
@@ -134,6 +138,45 @@ export async function GET() {
             questionnaireInProgressInfo.maxWaitMinutes = Math.max(...times)
             questionnaireInProgressInfo.avgWaitMinutes = Math.round(times.reduce((a, b) => a + b, 0) / times.length)
         }
+
+        // 3d. waitingUsersリスト構築（問診未着手 + 入力中）
+        const waitingUsersMap = new Map<string, any>()
+        for (const row of waitingForQuestionnaireRows) {
+            if (!waitingUsersMap.has(row.profileId)) {
+                const createdAt = new Date(row.profileCreatedAt || now)
+                const childName = row.childLastName || row.childFirstName
+                    ? `${row.childLastName || ''} ${row.childFirstName || ''}`.trim()
+                    : null
+                waitingUsersMap.set(row.profileId, {
+                    profileId: row.profileId,
+                    lineDisplayName: row.displayName || null,
+                    childName,
+                    status: 'not_started',
+                    currentStep: null,
+                    waitMinutes: Math.floor((now.getTime() - createdAt.getTime()) / 60000),
+                    registeredAt: createdAt.toISOString(),
+                })
+            }
+        }
+        for (const row of questionnaireInProgressRows) {
+            if (!waitingUsersMap.has(row.profileId)) {
+                const createdAt = new Date(row.visitCreatedAt || now)
+                const childName = row.childLastName || row.childFirstName
+                    ? `${row.childLastName || ''} ${row.childFirstName || ''}`.trim()
+                    : null
+                waitingUsersMap.set(row.profileId, {
+                    profileId: row.profileId,
+                    lineDisplayName: row.displayName || null,
+                    childName,
+                    status: 'in_progress',
+                    currentStep: row.currentStep,
+                    waitMinutes: Math.floor((now.getTime() - createdAt.getTime()) / 60000),
+                    registeredAt: createdAt.toISOString(),
+                })
+            }
+        }
+        const waitingUsers = Array.from(waitingUsersMap.values())
+            .sort((a, b) => b.waitMinutes - a.waitMinutes) // 待ち時間長い順
 
         // 4. データを加工
         const activeSessions: any[] = []
@@ -253,6 +296,7 @@ export async function GET() {
             timestamp: now.toISOString(),
             summary,
             activeSessions,
+            waitingUsers,
             recentCompleted: recentCompleted.slice(0, 10),
             alerts,
         })
