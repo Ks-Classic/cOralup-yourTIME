@@ -52,6 +52,19 @@ export interface WaitingQueueInfo {
     avgWaitMinutes: number;
 }
 
+// 問診未着手・入力中ユーザー（visit未作成 or visit進行中）
+export interface WaitingUser {
+    profileId: string;
+    lineDisplayName: string | null;
+    childName: string | null; // 基本情報入力済みの場合のみ
+    status: 'not_started' | 'in_progress'; // 問診未着手 or 入力中
+    currentStep: string | null;
+    waitMinutes: number;
+    registeredAt: string; // ISO string
+}
+
+export type StatusFilter = 'all' | 'waitingForQuestionnaire' | 'questionnaireInProgress' | 'waitingForScan' | 'inProgress' | 'diagnosisCompleted' | 'reportSent';
+
 export interface RealtimeStatusResponse {
     timestamp: string;
     summary: {
@@ -65,6 +78,7 @@ export interface RealtimeStatusResponse {
         reportSent: number;
     };
     activeSessions: ActiveSession[];
+    waitingUsers: WaitingUser[]; // 問診未着手・入力中ユーザーリスト
     recentCompleted: CompletedSession[];
     alerts: Alert[];
 }
