@@ -21,6 +21,7 @@ import {
 } from '@/utils/age-calculator'
 import type { FormSchemaConfig, FormFieldConfig, FormSectionConfig } from '@/types/forms'
 import { initLiff, liffLogin, preloadLiffSdk, closeLiff, type LiffProfile } from '@/lib/liff-utils'
+import { updateVisitStep } from '@/lib/visit-steps'
 import { AlertCircle, Loader2, CheckCircle2, Smartphone, Home } from 'lucide-react'
 
 // LIFF SDKをページロード時にプリロード開始
@@ -525,6 +526,10 @@ function LiffQuestionnairePageContent() {
       if (result.success) {
         // QR表示ステップへ
         setCurrentStep(3)
+        // モニター: 問診完了を記録（fire-and-forget）
+        if (visitData?.id) {
+          updateVisitStep(visitData.id, 'questionnaire_completed').catch(() => { })
+        }
       } else {
         console.error('[LIFF] Questionnaire save error:', result.error)
         alert('保存に失敗しました。')

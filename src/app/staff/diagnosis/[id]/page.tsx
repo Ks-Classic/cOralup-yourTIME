@@ -20,6 +20,7 @@ import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-gene
 import { generateQRCode } from '@/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useDiagnosisStorage, cleanupOldDiagnosisData } from '@/hooks/useDiagnosisStorage'
+import { updateVisitStep, recordVisitError } from '@/lib/visit-steps'
 
 // メインビューの定義（下部メニューで切り替え）
 type MainView = 'questionnaire' | 'photos' | 'diagnosis' | 'review' | 'report' | 'memo'
@@ -525,9 +526,14 @@ export default function DiagnosisPageWithId() {
         }
 
         // console.log('[Diagnosis] Visit data loaded:', visit)
+
+        // モニター: 診断スタートを記録（fire-and-forget）
+        updateVisitStep(visitId, 'diagnosis_started').catch(() => { })
       } catch (err) {
         console.error('[Diagnosis] Fetch error:', err)
         setVisitError('データの取得に失敗しました')
+        // モニター: エラー記録（fire-and-forget）
+        recordVisitError(visitId, 'fetch_error', (err as Error).message || 'データ取得失敗').catch(() => { })
       } finally {
         setIsLoadingVisit(false)
       }
@@ -863,6 +869,9 @@ export default function DiagnosisPageWithId() {
 
       // console.log('[Photo Upload] Success:', uploadData)
 
+      // モニター: 写真アップロード成功を記録（fire-and-forget）
+      updateVisitStep(visitId, 'photos_uploaded').catch(() => { })
+
       // アップロード成功後、URLをサーバーURLに更新
       setPhotos(prev => prev.map(p =>
         p.id === tempId
@@ -1172,10 +1181,15 @@ export default function DiagnosisPageWithId() {
       setEditableSummary(analysisResultData.reportSummary || '')
       setIsReportConfirmed(false)
       markStepCompleted('analysis')
+
+      // モニター: AI分析完了を記録（fire-and-forget）
+      updateVisitStep(visitId, 'analysis_completed').catch(() => { })
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error running analysis:', error)
       alert('分析の実行に失敗しました: ' + (error as Error).message)
+      // モニター: エラー記録（fire-and-forget）
+      recordVisitError(visitId, 'analysis_error', (error as Error).message || '分析失敗').catch(() => { })
     } finally {
       setIsAnalyzing(false)
     }
@@ -1222,10 +1236,13 @@ export default function DiagnosisPageWithId() {
         hasReport: true,
       }))
 
-      // console.log('[Diagnosis] Report generated:', { reportId: reportData.reportId, visitId: reportData.visitId, url: reportData.url })
+      // モニター: レポート生成完了を記録（fire-and-forget）
+      updateVisitStep(visitId, 'report_generated').catch(() => { })
     } catch (error) {
       console.error('Error generating report:', error)
       alert('レポートの生成に失敗しました: ' + (error as Error).message)
+      // モニター: エラー記録（fire-and-forget）
+      recordVisitError(visitId, 'report_error', (error as Error).message || 'レポート生成失敗').catch(() => { })
     } finally {
       setIsGeneratingReport(false)
     }
@@ -1273,6 +1290,9 @@ export default function DiagnosisPageWithId() {
 
       // console.log('[Diagnosis] Report sent:', data)
 
+      // モニター: LINE送信完了を記録（fire-and-forget）
+      updateVisitStep(visitId, 'line_sent').catch(() => { })
+
       // LINE送信後、配信確認ダイアログを表示
       setShowLineDeliveryCheck(true)
       setLineDeliveryConfirmed(false)
@@ -1280,6 +1300,8 @@ export default function DiagnosisPageWithId() {
       // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
       alert('レポートの送信に失敗しました: ' + (error as Error).message)
+      // モニター: エラー記録（fire-and-forget）
+      recordVisitError(visitId, 'line_send_error', (error as Error).message || 'LINE送信失敗').catch(() => { })
     } finally {
       setIsSending(false)
     }
@@ -1312,6 +1334,9 @@ export default function DiagnosisPageWithId() {
       markStepCompleted('report')
       setIsDiagnosisComplete(true)
       setShowLineDeliveryCheck(false)
+
+      // モニター: 診断完了を記録（fire-and-forget）
+      updateVisitStep(visitId, 'line_confirmed').catch(() => { })
 
       // 診断完了後、localStorageから途中保存データをクリア
       clearStorage()
