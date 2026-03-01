@@ -79,7 +79,7 @@ export function ReportPreview({
         {/* ヘッダー */}
         <header className="text-center p-4 border-b-2 border-blue-600">
           <p className="text-xs text-blue-600 mb-1">
-            2025/12/21 cOral up診断
+            2026/03/01 cOral up診断
           </p>
           <h1 className="text-xl font-bold text-blue-800 tracking-wider">分析シート</h1>
           <p className="text-sm mt-2 text-gray-800">
