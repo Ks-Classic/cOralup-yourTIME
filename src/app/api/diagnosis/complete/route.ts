@@ -3,6 +3,11 @@ import { db } from '@/db'
 import { visits, children, profiles, reports, lineMessageLogs } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
+import { sendPushMessageSafe } from '@/lib/line-messaging'
+
+// Vercel Serverless: DB取得 + LINE送信で時間がかかるため60秒に延長
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
@@ -179,6 +184,12 @@ export async function POST(request: NextRequest) {
         url: reportUrl,
       },
       lineNotification: lineNotificationResult,
+      // LINE上限到達時のフォールバック情報
+      ...(lineNotificationResult?.quotaExceeded && {
+        quotaExceeded: true,
+        fallbackMessage: 'LINE通知の月間上限に達しました。こちらのURLをお客様に直接お伝えください。',
+        fallbackReportUrl: reportUrl,
+      }),
     })
   } catch (error) {
     console.error('[Complete Diagnosis] Error:', error)
@@ -204,7 +215,7 @@ async function sendReportNotification(params: {
   childName: string
   eventName?: string
   sessionId: string
-}) {
+}): Promise<{ success: boolean; quotaExceeded?: boolean; reportUrl?: string }> {
   const { lineUserId, visitId, childName, eventName, sessionId } = params
   const reportUrl = `${APP_URL}/report/${visitId}`
 
@@ -253,19 +264,11 @@ async function sendReportNotification(params: {
   }
 
   try {
-    const response = await fetch('https://api.line.me/v2/bot/message/push', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({
-        to: lineUserId,
-        messages: [flexMessage],
-      }),
+    const result = await sendPushMessageSafe({
+      to: lineUserId,
+      messages: [flexMessage],
     })
 
-    const responseData = await response.json().catch(() => ({}))
     const sentAt = new Date()
 
     // ログを記録
@@ -275,13 +278,13 @@ async function sendReportNotification(params: {
       lineUserId: lineUserId,
       messageType: 'report',
       messageContent: JSON.stringify(flexMessage),
-      status: response.ok ? 'success' : 'failed',
-      response: responseData,
-      errorMessage: response.ok ? null : JSON.stringify(responseData),
+      status: result.success ? 'success' : (result.quotaExceeded ? 'quota_exceeded' : 'failed'),
+      response: result.responseData || { quotaExceeded: result.quotaExceeded },
+      errorMessage: result.error || (result.quotaExceeded ? 'LINE月間送信上限に達しました' : null),
       sentAt: sentAt,
     } as typeof lineMessageLogs.$inferInsert)
 
-    if (response.ok) {
+    if (result.success) {
       // Visitステータス更新
       const visitRows = await db.select({ stepTimestamps: visits.stepTimestamps }).from(visits).where(eq(visits.id, visitId)).limit(1)
       const timestamps = (visitRows[0]?.stepTimestamps as Record<string, string>) || {}
@@ -295,9 +298,13 @@ async function sendReportNotification(params: {
       } as Partial<typeof visits.$inferInsert>).where(eq(visits.id, visitId))
     }
 
-    return { success: response.ok }
+    return {
+      success: result.success,
+      quotaExceeded: result.quotaExceeded,
+      reportUrl: reportUrl,
+    }
   } catch (error) {
     console.error('[LINE Notification] Error:', error)
-    return { success: false, error: String(error) }
+    return { success: false, reportUrl: reportUrl }
   }
 }

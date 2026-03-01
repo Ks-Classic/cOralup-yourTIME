@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, lineMessageLogs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { sendPushMessageSafe } from '@/lib/line-messaging'
 
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
+
+// Vercel Serverless: LINE API通信のため60秒に延長
+export const maxDuration = 60
 
 interface SendReportRequest {
   lineUserId: string
@@ -114,26 +117,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response = await fetch('https://api.line.me/v2/bot/message/push', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
-      },
-      body: JSON.stringify({
-        to: lineUserId,
-        messages: [flexMessage]
-      })
+    // 残数チェック付きで送信
+    const result = await sendPushMessageSafe({
+      to: lineUserId,
+      messages: [flexMessage],
     })
 
-    const responseData = await response.json().catch(() => ({}))
     const sentAt = new Date()
 
-    if (!response.ok) {
-      const errorText = JSON.stringify(responseData)
-      console.error('LINE API error:', errorText)
+    if (result.quotaExceeded) {
+      // 上限到達 — ログ記録 + フォールバック情報返却
+      await db.insert(lineMessageLogs).values({
+        visitId: visitId || null,
+        sessionId: sessionId || null,
+        lineUserId,
+        messageType: 'report',
+        messageContent: JSON.stringify(flexMessage),
+        status: 'quota_exceeded',
+        response: { quotaExceeded: true, quota: result.quota },
+        errorMessage: 'LINE月間送信上限に達しました',
+        sentAt,
+      } as typeof lineMessageLogs.$inferInsert)
 
-      // 失敗ログを記録
+      return NextResponse.json({
+        success: false,
+        quotaExceeded: true,
+        fallbackMessage: 'LINE通知の月間上限に達しました。こちらのURLをお客様に直接お伝えください。',
+        fallbackReportUrl: reportUrl,
+        reportUrl,
+      })
+    }
+
+    if (!result.success) {
+      // 送信失敗
       await db.insert(lineMessageLogs).values({
         visitId: visitId || null,
         sessionId: sessionId || null,
@@ -141,13 +157,13 @@ export async function POST(request: NextRequest) {
         messageType: 'report',
         messageContent: JSON.stringify(flexMessage),
         status: 'failed',
-        response: responseData,
-        errorMessage: errorText,
+        response: result.responseData,
+        errorMessage: result.error,
         sentAt,
       } as typeof lineMessageLogs.$inferInsert)
 
       return NextResponse.json(
-        { error: 'LINE通知の送信に失敗しました', details: errorText },
+        { error: 'LINE通知の送信に失敗しました', details: result.error },
         { status: 500 }
       )
     }
@@ -160,7 +176,7 @@ export async function POST(request: NextRequest) {
       messageType: 'report',
       messageContent: JSON.stringify(flexMessage),
       status: 'success',
-      response: responseData,
+      response: result.responseData,
       sentAt,
     } as typeof lineMessageLogs.$inferInsert)
 
