@@ -143,21 +143,20 @@ async function handleFollowEvent(event: any) {
 }
 
 async function sendWelcomeMessage(userId: string, displayName: string | null) {
-  const liffId = process.env.NEXT_PUBLIC_PARENT_LIFF_ID
-  const questionnaireUrl = liffId
-    ? `https://liff.line.me/${liffId}`
-    : `${APP_URL}/parent/questionnaire/demo`
-
   const welcomeMessage = {
     type: 'text',
     text: `${displayName ? `${displayName}さん、` : ''}友だち登録ありがとうございます！🦷\n\n` +
-      'cOralup口腔育成診断システムです。\n\n' +
-      '下のボタンから問診を開始してください👇',
+      'cOralup口腔育成診断システムです。\n' +
+      'お子様の口腔育成状態を専門スタッフが診断します。\n\n' +
+      '下のボタンを押して、問診登録にお進みください👇',
   }
 
-  const flexMessage = {
+  // messageアクションのボタン: タップするとユーザーからのメッセージとして記録され、
+  // LINE公式アカウント管理画面のチャット一覧に表示されるようになる。
+  // 問診リンクはボタンタップ後にhandleTextMessageから返信する。
+  const startButton = {
     type: 'flex',
-    altText: 'お子様の口腔育成診断を始めましょう',
+    altText: '問診登録を始めましょう',
     contents: {
       type: 'bubble',
       hero: {
@@ -181,14 +180,6 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
         layout: 'vertical',
         contents: [
           {
-            type: 'text',
-            text: 'お子様の口腔育成状態を\n専門スタッフが診断します',
-            wrap: true,
-            size: 'sm',
-            align: 'center',
-            color: '#666666',
-          },
-          {
             type: 'box',
             layout: 'vertical',
             contents: [
@@ -196,12 +187,53 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
               { type: 'text', text: '📷 スタッフによる撮影・診断', size: 'xs', color: '#888888' },
               { type: 'text', text: '📊 LINEでレポートをお届け', size: 'xs', color: '#888888' },
             ],
-            margin: 'lg',
             spacing: 'sm',
           },
         ],
         paddingAll: '15px',
       },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'message',
+              label: '📝 受け取って問診登録する',
+              text: '問診を始めます',
+            },
+            style: 'primary',
+            color: '#F97316',
+          },
+        ],
+        paddingAll: '15px',
+      },
+    },
+  }
+
+  await sendMessage(userId, welcomeMessage)
+  await sendMessage(userId, startButton)
+}
+
+// 問診開始リンクを送信（ボタンタップ後 / 手動で「問診」と入力した場合）
+async function sendQuestionnaireLink(userId: string) {
+  const liffId = process.env.NEXT_PUBLIC_PARENT_LIFF_ID
+  const questionnaireUrl = liffId
+    ? `https://liff.line.me/${liffId}`
+    : `${APP_URL}/parent/questionnaire/demo`
+
+  const confirmText = {
+    type: 'text',
+    text: 'ありがとうございます😊\n下のボタンから問診を開始してください👇',
+  }
+
+  const questionnaireButton = {
+    type: 'flex',
+    altText: '問診を開始する',
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
       footer: {
         type: 'box',
         layout: 'vertical',
@@ -222,53 +254,8 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
     },
   }
 
-  await sendMessage(userId, welcomeMessage)
-  await sendMessage(userId, flexMessage)
-
-  // 受信確認ボタン: タップするとユーザーからのメッセージとして記録され、
-  // LINE公式アカウント管理画面のチャット一覧に表示されるようになる
-  const confirmMessage = {
-    type: 'flex',
-    altText: 'メッセージの受け取り確認',
-    contents: {
-      type: 'bubble',
-      size: 'kilo',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: '↓ボタンを押して受け取り確認をお願いします',
-            size: 'xs',
-            color: '#999999',
-            align: 'center',
-            wrap: true,
-          },
-        ],
-        paddingAll: '12px',
-      },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'button',
-            action: {
-              type: 'message',
-              label: '✅ 受け取りました',
-              text: '受け取りました',
-            },
-            style: 'secondary',
-            height: 'sm',
-          },
-        ],
-        paddingAll: '10px',
-      },
-    },
-  }
-
-  await sendMessage(userId, confirmMessage)
+  await sendMessage(userId, confirmText)
+  await sendMessage(userId, questionnaireButton)
 }
 
 async function handleMessageEvent(event: any) {
@@ -285,13 +272,12 @@ async function handlePostbackEvent(event: any) {
 }
 
 async function handleTextMessage(userId: string, text: string) {
-  if (text === '受け取りました') {
-    // 受信確認への応答
-    const confirmReply = {
-      type: 'text',
-      text: '確認ありがとうございます😊\nご不明な点がありましたら、お気軽にメッセージください。',
-    }
-    await sendMessage(userId, confirmReply)
+  if (text === '問診を始めます') {
+    // 「受け取って問診登録する」ボタンのタップ → 問診リンクを返信
+    await sendQuestionnaireLink(userId)
+  } else if (text.toLowerCase().includes('問診')) {
+    // 手動で「問診」と入力した場合も問診リンクを送信
+    await sendQuestionnaireLink(userId)
   } else if (text.toLowerCase().includes('診断結果')) {
     await sendDiagnosisResult(userId)
   } else if (text.toLowerCase().includes('ヘルプ')) {
