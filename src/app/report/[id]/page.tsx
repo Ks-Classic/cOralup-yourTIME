@@ -201,9 +201,11 @@ export default function ReportPage({ params }: PageProps) {
               <h2 className="text-center text-lg font-bold text-gray-800 mb-4">
                 分析レポート
               </h2>
-              <p className="text-sm leading-relaxed text-gray-800 text-justify">
-                {reportData.aiAnalysis.summary}
-              </p>
+              <div className="text-sm leading-relaxed text-gray-800 text-justify space-y-3">
+                {reportData.aiAnalysis.summary.split('\n').filter(line => line.trim() !== '').map((paragraph, index) => (
+                  <p key={index}>{paragraph}</p>
+                ))}
+              </div>
             </div>
           </section>
 
