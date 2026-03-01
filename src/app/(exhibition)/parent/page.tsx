@@ -73,6 +73,22 @@ function ParentPageContent() {
           return
         }
 
+        // チャットスレッド作成: LINE公式アカウント管理画面のチャット一覧に表示させるため、
+        // 初回のみユーザーからのメッセージを自動送信する（失敗しても問診フローに影響なし）
+        const chatThreadKey = 'coralup_chat_thread_sent'
+        if (!sessionStorage.getItem(chatThreadKey)) {
+          try {
+            await liff.sendMessages([{
+              type: 'text',
+              text: '問診を始めます',
+            }])
+            sessionStorage.setItem(chatThreadKey, '1')
+          } catch (e) {
+            // sendMessages失敗は無視（権限なし・チャット外起動等）
+            console.log('[LIFF] sendMessages skipped:', e)
+          }
+        }
+
         // ルーティング先を決定
         const liffState = searchParams.get('liff.state')
 

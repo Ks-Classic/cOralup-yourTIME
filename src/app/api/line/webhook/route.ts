@@ -143,20 +143,23 @@ async function handleFollowEvent(event: any) {
 }
 
 async function sendWelcomeMessage(userId: string, displayName: string | null) {
+  const liffId = process.env.NEXT_PUBLIC_PARENT_LIFF_ID
+  const questionnaireUrl = liffId
+    ? `https://liff.line.me/${liffId}`
+    : `${APP_URL}/parent/questionnaire/demo`
+
   const welcomeMessage = {
     type: 'text',
     text: `${displayName ? `${displayName}さん、` : ''}友だち登録ありがとうございます！🦷\n\n` +
       'cOralup口腔育成診断システムです。\n' +
       'お子様の口腔育成状態を専門スタッフが診断します。\n\n' +
-      '下のボタンを押して、問診登録にお進みください👇',
+      '下のボタンから問診を開始してください👇',
   }
 
-  // messageアクションのボタン: タップするとユーザーからのメッセージとして記録され、
-  // LINE公式アカウント管理画面のチャット一覧に表示されるようになる。
-  // 問診リンクはボタンタップ後にhandleTextMessageから返信する。
-  const startButton = {
+  // URIアクションで直接LIFFへ遷移（チャットスレッド作成はLIFF側のliff.sendMessages()が担当）
+  const flexMessage = {
     type: 'flex',
-    altText: '問診登録を始めましょう',
+    altText: 'お子様の口腔育成診断を始めましょう',
     contents: {
       type: 'bubble',
       hero: {
@@ -199,9 +202,9 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
           {
             type: 'button',
             action: {
-              type: 'message',
-              label: '📝 受け取って問診登録する',
-              text: '問診を始めます',
+              type: 'uri',
+              label: '📝 問診登録を始める',
+              uri: questionnaireUrl,
             },
             style: 'primary',
             color: '#F97316',
@@ -213,20 +216,15 @@ async function sendWelcomeMessage(userId: string, displayName: string | null) {
   }
 
   await sendMessage(userId, welcomeMessage)
-  await sendMessage(userId, startButton)
+  await sendMessage(userId, flexMessage)
 }
 
-// 問診開始リンクを送信（ボタンタップ後 / 手動で「問診」と入力した場合）
+// 問診開始リンクを送信（手動で「問診」と入力した場合のフォールバック）
 async function sendQuestionnaireLink(userId: string) {
   const liffId = process.env.NEXT_PUBLIC_PARENT_LIFF_ID
   const questionnaireUrl = liffId
     ? `https://liff.line.me/${liffId}`
     : `${APP_URL}/parent/questionnaire/demo`
-
-  const confirmText = {
-    type: 'text',
-    text: 'ありがとうございます😊\n下のボタンから問診を開始してください👇',
-  }
 
   const questionnaireButton = {
     type: 'flex',
@@ -254,7 +252,6 @@ async function sendQuestionnaireLink(userId: string) {
     },
   }
 
-  await sendMessage(userId, confirmText)
   await sendMessage(userId, questionnaireButton)
 }
 
@@ -273,10 +270,14 @@ async function handlePostbackEvent(event: any) {
 
 async function handleTextMessage(userId: string, text: string) {
   if (text === '問診を始めます') {
-    // 「受け取って問診登録する」ボタンのタップ → 問診リンクを返信
-    await sendQuestionnaireLink(userId)
+    // LIFF側からのliff.sendMessages()による自動送信 → 軽い応答のみ
+    const reply = {
+      type: 'text',
+      text: '問診登録ありがとうございます😊\nご不明な点がありましたら、お気軽にメッセージください。',
+    }
+    await sendMessage(userId, reply)
   } else if (text.toLowerCase().includes('問診')) {
-    // 手動で「問診」と入力した場合も問診リンクを送信
+    // 手動で「問診」と入力した場合は問診リンクを送信
     await sendQuestionnaireLink(userId)
   } else if (text.toLowerCase().includes('診断結果')) {
     await sendDiagnosisResult(userId)
