@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { diagnoses, diagnosisResponses, visits } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +65,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. 診断項目別回答の保存 (正規化テーブル)
+    // visitIdを取得（sessionIdからvisitを検索）
+    let visitIdForResponses: string | null = null
+    const visitRows = await db
+      .select({ id: visits.id })
+      .from(visits)
+      .where(eq(visits.sessionId, sessionId))
+      .limit(1)
+    if (visitRows.length > 0) {
+      visitIdForResponses = visitRows[0].id
+    }
+
     if (diagnosisItemsData && Object.keys(diagnosisItemsData).length > 0) {
       for (const [itemId, value] of Object.entries(diagnosisItemsData)) {
         let serializedValue = value
@@ -74,11 +85,16 @@ export async function POST(request: NextRequest) {
           serializedValue = String(value)
         }
 
-        // Upsert for each response
+        // Upsert: sessionId AND itemId の両方で既存レコードを検索
         const existingResponse = await db
           .select({ id: diagnosisResponses.id })
           .from(diagnosisResponses)
-          .where(eq(diagnosisResponses.sessionId, sessionId))
+          .where(
+            and(
+              eq(diagnosisResponses.sessionId, sessionId),
+              eq(diagnosisResponses.itemId, itemId)
+            )
+          )
           .limit(1)
 
         if (existingResponse.length > 0) {
@@ -88,12 +104,13 @@ export async function POST(request: NextRequest) {
               value: serializedValue as string,
               answeredAt: new Date(),
             } as Partial<typeof diagnosisResponses.$inferInsert>)
-            .where(eq(diagnosisResponses.sessionId, sessionId))
+            .where(eq(diagnosisResponses.id, existingResponse[0].id))
         } else {
           await db
             .insert(diagnosisResponses)
             .values({
               sessionId,
+              visitId: visitIdForResponses,
               itemId,
               value: serializedValue as string,
               answeredAt: new Date(),
@@ -207,6 +224,17 @@ export async function PUT(request: NextRequest) {
     const result = updatedRows[0]
 
     // 2. 診断項目別回答の更新 (正規化テーブル)
+    // visitIdを取得
+    let visitIdForResponses: string | null = null
+    const visitRows = await db
+      .select({ id: visits.id })
+      .from(visits)
+      .where(eq(visits.sessionId, sessionId!))
+      .limit(1)
+    if (visitRows.length > 0) {
+      visitIdForResponses = visitRows[0].id
+    }
+
     if (diagnosisItemsData && Object.keys(diagnosisItemsData).length > 0) {
       for (const [itemId, value] of Object.entries(diagnosisItemsData)) {
         let serializedValue = value
@@ -216,10 +244,16 @@ export async function PUT(request: NextRequest) {
           serializedValue = String(value)
         }
 
+        // Upsert: sessionId AND itemId の両方で既存レコードを検索
         const existingResponse = await db
           .select({ id: diagnosisResponses.id })
           .from(diagnosisResponses)
-          .where(eq(diagnosisResponses.sessionId, sessionId))
+          .where(
+            and(
+              eq(diagnosisResponses.sessionId, sessionId!),
+              eq(diagnosisResponses.itemId, itemId)
+            )
+          )
           .limit(1)
 
         if (existingResponse.length > 0) {
@@ -229,12 +263,13 @@ export async function PUT(request: NextRequest) {
               value: serializedValue as string,
               answeredAt: new Date(),
             } as Partial<typeof diagnosisResponses.$inferInsert>)
-            .where(eq(diagnosisResponses.sessionId, sessionId))
+            .where(eq(diagnosisResponses.id, existingResponse[0].id))
         } else {
           await db
             .insert(diagnosisResponses)
             .values({
-              sessionId,
+              sessionId: sessionId!,
+              visitId: visitIdForResponses,
               itemId,
               value: serializedValue as string,
               answeredAt: new Date(),
