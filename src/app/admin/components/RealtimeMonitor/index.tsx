@@ -6,7 +6,7 @@ import { StatusSummary } from './StatusSummary';
 import { AlertPanel } from './AlertPanel';
 import { ActiveSessionCard } from './ActiveSessionCard';
 import Link from 'next/link';
-import { RefreshCw, Beaker, User, Clock } from 'lucide-react';
+import { RefreshCw, Beaker, User, Clock, ChevronDown } from 'lucide-react';
 import { StatusFilter, ActiveSession, WaitingUser } from '@/types/admin';
 
 interface RealtimeMonitorProps {
@@ -33,8 +33,10 @@ function filterSessions(sessions: ActiveSession[], filter: StatusFilter): Active
     });
 }
 
-// 問診未着手・入力中リストの表示
+// 問診未着手・入力中リストの表示（折りたたみ対応）
 function WaitingUsersList({ users, filter }: { users: WaitingUser[]; filter: StatusFilter }) {
+    const [isExpanded, setIsExpanded] = useState(true);
+
     const filtered = filter === 'all' ? users
         : filter === 'waitingForQuestionnaire' ? users.filter(u => u.status === 'not_started')
             : filter === 'questionnaireInProgress' ? users.filter(u => u.status === 'in_progress')
@@ -48,50 +50,61 @@ function WaitingUsersList({ users, filter }: { users: WaitingUser[]; filter: Sta
         u.status === 'not_started' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700';
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-2">
+        <div className="space-y-0">
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full flex items-center justify-between p-3 bg-white rounded-t-lg border border-slate-100 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors"
+            >
                 <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                     <span>👤 問診待ちユーザー</span>
                     <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs">
                         {filtered.length}
                     </span>
                 </h2>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-100 shadow-sm divide-y divide-slate-50">
-                {filtered.map(user => (
-                    <div key={user.profileId} className="p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
-                                <User className="w-4 h-4 text-green-600" />
-                            </div>
-                            <div>
-                                <div className="font-medium text-slate-800 text-sm">
-                                    {user.lineDisplayName || '(LINE名未取得)'}
-                                    {user.childName && (
-                                        <span className="text-slate-500 ml-2 text-xs">
-                                            お子様: {user.childName}
+                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{ maxHeight: isExpanded ? `${filtered.length * 80 + 20}px` : '0px' }}
+            >
+                <div className="bg-white rounded-b-lg border border-t-0 border-slate-100 shadow-sm divide-y divide-slate-50">
+                    {filtered.map(user => (
+                        <div key={user.profileId} className="p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                                    <User className="w-4 h-4 text-green-600" />
+                                </div>
+                                <div>
+                                    <div className="font-medium text-slate-800 text-sm">
+                                        {user.lineDisplayName || '(LINE名未取得)'}
+                                        {user.childName && (
+                                            <span className="text-slate-500 ml-2 text-xs">
+                                                お子様: {user.childName}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColor(user)}`}>
+                                            {statusLabel(user)}
                                         </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColor(user)}`}>
-                                        {statusLabel(user)}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400">
-                                        {new Date(user.registeredAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 登録
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="flex items-center gap-1 text-sm">
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className={`font-bold font-mono ${user.waitMinutes >= 15 ? 'text-orange-600' : 'text-slate-600'}`}>
+                                        {user.waitMinutes}
+                                    </span>
+                                    <span className="text-xs text-slate-400">分</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                                    ({new Date(user.registeredAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 受付)
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1 text-sm">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span className={`font-bold font-mono ${user.waitMinutes >= 15 ? 'text-orange-600' : 'text-slate-600'}`}>
-                                {user.waitMinutes}
-                            </span>
-                            <span className="text-xs text-slate-400">分</span>
-                        </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
