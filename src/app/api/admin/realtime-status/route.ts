@@ -76,22 +76,64 @@ export async function GET() {
         const profilesWithVisitToday = await db
             .select({
                 profileId: profiles.id,
+                profileCreatedAt: profiles.createdAt,
                 visitId: visits.id,
                 currentStep: visits.currentStep,
+                visitCreatedAt: visits.createdAt,
+                visitUpdatedAt: visits.updatedAt,
             })
             .from(profiles)
             .leftJoin(visits, eq(visits.parentProfileId, profiles.id))
             .where(gte(profiles.createdAt, todayStart))
 
-        // LINE登録しているがvisitがない、または visitはあるが currentStep が line_registered
-        const waitingForQuestionnaire = profilesWithVisitToday.filter(row => {
+        // LINE登録しているがvisitがない = 問診未着手
+        const waitingForQuestionnaireRows = profilesWithVisitToday.filter(row => {
             if (!row.visitId) return true // visitなし = 問診未着手
-            if (row.currentStep === 'line_registered') return true
             return false
         })
-        // 同一プロフィールの重複排除
-        const uniqueWaitingProfileIds = new Set(waitingForQuestionnaire.map(r => r.profileId))
-        const waitingForQuestionnaireCount = uniqueWaitingProfileIds.size
+        // 同一プロフィールの重複排除 + 待ち時間計算
+        const uniqueWaitingProfiles = new Map<string, number>()
+        for (const row of waitingForQuestionnaireRows) {
+            if (!uniqueWaitingProfiles.has(row.profileId)) {
+                const createdAt = new Date(row.profileCreatedAt || now)
+                const elapsed = Math.floor((now.getTime() - createdAt.getTime()) / 60000)
+                uniqueWaitingProfiles.set(row.profileId, elapsed)
+            }
+        }
+        const waitingForQuestionnaireInfo: { count: number; maxWaitMinutes: number; avgWaitMinutes: number } = {
+            count: uniqueWaitingProfiles.size,
+            maxWaitMinutes: 0,
+            avgWaitMinutes: 0,
+        }
+        if (uniqueWaitingProfiles.size > 0) {
+            const times = Array.from(uniqueWaitingProfiles.values())
+            waitingForQuestionnaireInfo.maxWaitMinutes = Math.max(...times)
+            waitingForQuestionnaireInfo.avgWaitMinutes = Math.round(times.reduce((a, b) => a + b, 0) / times.length)
+        }
+
+        // 3c. 問診入力中: visitはあるが currentStep が line_registered or questionnaire_started
+        const questionnaireInProgressRows = profilesWithVisitToday.filter(row => {
+            if (!row.visitId) return false
+            return row.currentStep === 'line_registered' || row.currentStep === 'questionnaire_started'
+        })
+        const uniqueInProgressProfiles = new Map<string, number>()
+        for (const row of questionnaireInProgressRows) {
+            if (!uniqueInProgressProfiles.has(row.profileId)) {
+                const createdAt = new Date(row.visitCreatedAt || now)
+                const elapsed = Math.floor((now.getTime() - createdAt.getTime()) / 60000)
+                uniqueInProgressProfiles.set(row.profileId, elapsed)
+            }
+        }
+        const questionnaireInProgressInfo: { count: number; maxWaitMinutes: number; avgWaitMinutes: number } = {
+            count: uniqueInProgressProfiles.size,
+            maxWaitMinutes: 0,
+            avgWaitMinutes: 0,
+        }
+        if (uniqueInProgressProfiles.size > 0) {
+            const times = Array.from(uniqueInProgressProfiles.values())
+            questionnaireInProgressInfo.maxWaitMinutes = Math.max(...times)
+            questionnaireInProgressInfo.avgWaitMinutes = Math.round(times.reduce((a, b) => a + b, 0) / times.length)
+        }
 
         // 4. データを加工
         const activeSessions: any[] = []
@@ -103,7 +145,8 @@ export async function GET() {
 
         const summary = {
             lineRegistered: lineRegisteredCount,
-            waitingForQuestionnaire: waitingForQuestionnaireCount,
+            waitingForQuestionnaire: waitingForQuestionnaireInfo,
+            questionnaireInProgress: questionnaireInProgressInfo,
             questionnaireCompleted: 0,
             waitingForScan: { count: 0, maxWaitMinutes: 0, avgWaitMinutes: 0 },
             inProgress: 0,

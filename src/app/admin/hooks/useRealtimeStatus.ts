@@ -8,7 +8,8 @@ function generateSampleData(): RealtimeStatusResponse {
         timestamp: now.toISOString(),
         summary: {
             lineRegistered: 25,
-            waitingForQuestionnaire: 3,
+            waitingForQuestionnaire: { count: 3, maxWaitMinutes: 22, avgWaitMinutes: 12 },
+            questionnaireInProgress: { count: 2, maxWaitMinutes: 8, avgWaitMinutes: 5 },
             questionnaireCompleted: 2,
             waitingForScan: { count: 2, maxWaitMinutes: 15, avgWaitMinutes: 8 },
             inProgress: 1,
