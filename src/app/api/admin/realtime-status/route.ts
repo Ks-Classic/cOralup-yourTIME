@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, children, profiles, reports, visitPhotos } from '@/db/schema'
 import { eq, gte, sql, desc, inArray } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,10 @@ export async function GET() {
         const todayStart = new Date(now)
         todayStart.setHours(0, 0, 0, 0)
 
-        // 1. 今日のvisitsを取得（子供・スタッフ・レポート情報含む）
+        // 保護者プロフィール用のエイリアス（スタッフプロフィールとの衝突回避）
+        const parentProfiles = alias(profiles, 'parent_profiles')
+
+        // 1. 今日のvisitsを取得（子供・スタッフ・保護者・レポート情報含む）
         const todayVisits = await db
             .select({
                 id: visits.id,
@@ -27,10 +31,12 @@ export async function GET() {
                 staffLastName: profiles.lastName,
                 staffFirstName: profiles.firstName,
                 staffDisplayName: profiles.displayName,
+                parentDisplayName: parentProfiles.displayName,
             })
             .from(visits)
             .leftJoin(children, eq(visits.childId, children.id))
             .leftJoin(profiles, eq(visits.staffProfileId, profiles.id))
+            .leftJoin(parentProfiles, eq(visits.parentProfileId, parentProfiles.id))
             .where(gte(visits.createdAt, todayStart))
             .orderBy(desc(visits.createdAt))
 
@@ -86,6 +92,7 @@ export async function GET() {
                 ? Math.floor((now.getTime() - new Date(visit.childBirthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
                 : 0
             const staffName = visit.staffDisplayName || `${visit.staffLastName || ''} ${visit.staffFirstName || ''}`.trim() || null
+            const parentDisplayName = visit.parentDisplayName || null
             const hasReport = reportVisitIds.has(visit.id)
 
             // Summary counts
@@ -112,6 +119,7 @@ export async function GET() {
                     currentStatusSince: visit.updatedAt,
                     elapsedMinutes,
                     hasReport,
+                    parentLineDisplayName: parentDisplayName,
                     progress: { photos: { current: photoCountMap.get(visit.id) || 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
                     visitDate: visit.createdAt,
                 })
@@ -150,6 +158,7 @@ export async function GET() {
                     staffName: staffName || '',
                     completedAt: visit.updatedAt,
                     reportSentAt: status === 'published' ? visit.updatedAt : null,
+                    parentLineDisplayName: parentDisplayName,
                     status,
                 })
             }

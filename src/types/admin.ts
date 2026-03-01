@@ -10,6 +10,7 @@ export interface ActiveSession {
     childName: string;
     childAge: number;
     staffName: string | null;
+    parentLineDisplayName: string | null;
     createdAt: string; // ISO string
     updatedAt: string; // ISO string
     currentStatusSince: string;
@@ -28,6 +29,7 @@ export interface CompletedSession {
     childName: string;
     childAge: number;
     staffName: string;
+    parentLineDisplayName: string | null;
     completedAt: string;
     reportSentAt: string | null;
     status: VisitStatus;

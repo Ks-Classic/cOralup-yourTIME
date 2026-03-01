@@ -122,7 +122,12 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
                                         </span>
                                     </div>
                                     <div className="flex justify-between mt-1 text-xs text-slate-500">
-                                        <span>送: {session.reportSentAt ? '済' : '未'}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span>送: {session.reportSentAt ? '済' : '未'}</span>
+                                            {session.parentLineDisplayName && (
+                                                <span className="text-green-600">LINE: {session.parentLineDisplayName}</span>
+                                            )}
+                                        </div>
                                         <span>処: {session.staffName}</span>
                                     </div>
                                 </div>
