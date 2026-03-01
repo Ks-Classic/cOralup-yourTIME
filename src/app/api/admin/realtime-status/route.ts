@@ -241,26 +241,50 @@ export async function GET() {
             if (currentStep === 'line_sent' || status === 'published') summary.reportSent++
 
             if (!isCompleted) {
-                activeSessions.push({
-                    id: visit.id,
-                    sessionId: visit.sessionId,
-                    status,
-                    currentStep,
-                    childName,
-                    childAge: age,
-                    staffName: staffName || null,
-                    createdAt: visit.createdAt,
-                    updatedAt: visit.updatedAt,
-                    currentStatusSince: visit.updatedAt,
-                    elapsedMinutes,
-                    hasReport,
-                    parentLineDisplayName: parentDisplayName,
-                    lineUserId: visit.parentLineUserId || null,
-                    receptionNumber: visit.parentReceptionNumber || null,
-                    parentProfileId: visit.parentProfileId || null,
-                    progress: { photos: { current: photoCountMap.get(visit.id) || 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
-                    visitDate: visit.createdAt,
-                })
+                // 問診中・QR待ち(スタッフ未割当)は待ちユーザーリストに表示
+                const isWaitingType =
+                    currentStep === 'line_registered' ||
+                    currentStep === 'questionnaire_started' ||
+                    (currentStep === 'questionnaire_completed' && !visit.staffProfileId)
+
+                if (isWaitingType) {
+                    const profileId = visit.parentProfileId
+                    if (profileId && !waitingUsersMap.has(profileId)) {
+                        const createdAt = new Date(visit.createdAt || now)
+                        waitingUsersMap.set(profileId, {
+                            profileId,
+                            lineUserId: visit.parentLineUserId || null,
+                            lineDisplayName: parentDisplayName,
+                            childName: childName !== 'Unknown' ? childName : null,
+                            receptionNumber: visit.parentReceptionNumber || null,
+                            status: 'in_progress',
+                            currentStep,
+                            waitMinutes: Math.floor((now.getTime() - createdAt.getTime()) / 60000),
+                            registeredAt: createdAt.toISOString(),
+                        })
+                    }
+                } else {
+                    activeSessions.push({
+                        id: visit.id,
+                        sessionId: visit.sessionId,
+                        status,
+                        currentStep,
+                        childName,
+                        childAge: age,
+                        staffName: staffName || null,
+                        createdAt: visit.createdAt,
+                        updatedAt: visit.updatedAt,
+                        currentStatusSince: visit.updatedAt,
+                        elapsedMinutes,
+                        hasReport,
+                        parentLineDisplayName: parentDisplayName,
+                        lineUserId: visit.parentLineUserId || null,
+                        receptionNumber: visit.parentReceptionNumber || null,
+                        parentProfileId: visit.parentProfileId || null,
+                        progress: { photos: { current: photoCountMap.get(visit.id) || 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
+                        visitDate: visit.createdAt,
+                    })
+                }
 
                 // Alerts
                 if (currentStep === 'questionnaire_completed' && elapsedMinutes >= 15) {

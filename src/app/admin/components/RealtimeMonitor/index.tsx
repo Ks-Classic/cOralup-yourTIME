@@ -101,15 +101,20 @@ function WaitingUsersList({ users, filter, onOpenChat, onUpdateReceptionNumber }
 
     const filtered = filter === 'all' ? users
         : filter === 'waitingForQuestionnaire' ? users.filter(u => u.status === 'not_started')
-            : filter === 'questionnaireInProgress' ? users.filter(u => u.status === 'in_progress')
-                : [];
+            : filter === 'questionnaireInProgress' ? users.filter(u => u.status === 'in_progress' && u.currentStep !== 'questionnaire_completed')
+                : filter === 'waitingForScan' ? users.filter(u => u.currentStep === 'questionnaire_completed')
+                    : [];
 
     if (filtered.length === 0) return null;
 
     const statusLabel = (u: WaitingUser) =>
-        u.status === 'not_started' ? '問診未着手' : u.currentStep === 'questionnaire_started' ? '問診入力中' : 'LIFF起動済';
+        u.status === 'not_started' ? '問診未着手'
+            : u.currentStep === 'questionnaire_completed' ? 'QR待ち'
+                : u.currentStep === 'questionnaire_started' ? '問診入力中' : 'LIFF起動済';
     const statusColor = (u: WaitingUser) =>
-        u.status === 'not_started' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700';
+        u.status === 'not_started' ? 'bg-orange-100 text-orange-700'
+            : u.currentStep === 'questionnaire_completed' ? 'bg-teal-100 text-teal-700'
+                : 'bg-indigo-100 text-indigo-700';
 
     return (
         <div className="space-y-0">
@@ -246,7 +251,7 @@ export default function RealtimeMonitor({ useSampleData = false }: RealtimeMonit
     if (!data) return null;
 
     const filteredSessions = filterSessions(data.activeSessions, activeFilter);
-    const showWaitingUsers = activeFilter === 'all' || activeFilter === 'waitingForQuestionnaire' || activeFilter === 'questionnaireInProgress';
+    const showWaitingUsers = activeFilter === 'all' || activeFilter === 'waitingForQuestionnaire' || activeFilter === 'questionnaireInProgress' || activeFilter === 'waitingForScan';
     const showActiveSessions = activeFilter !== 'waitingForQuestionnaire' && activeFilter !== 'questionnaireInProgress';
 
     return (
