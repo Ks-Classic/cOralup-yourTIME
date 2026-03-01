@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, questionnaires, diagnoses, diagnosisResponses, diagnosisItems, diagnosisCategories, aiPrompts } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateText, isGeminiAvailable } from '@/lib/gemini-client'
 
-// Gemini APIの初期化
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null
+// Vercel Serverless: Gemini API応答に最大30秒かかるため60秒に延長
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
     }
 
     // モックモード: GEMINI_API_KEYがない場合はサンプルデータを返す
-    if (!genAI) {
+    if (!isGeminiAvailable()) {
       console.warn('[generate-report] Mock mode: GEMINI_API_KEY not configured, returning sample data')
       return NextResponse.json({
         summary: 'お子様の口腔機能と姿勢について、概ね良好な状態です。',
@@ -257,9 +258,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const model = genAI.getGenerativeModel({ model: modelName })
-    const result = await model.generateContent(prompt)
-    const text = result.response.text()
+    // リトライ付きでGemini APIを呼び出し（429エラー時に自動リトライ）
+    const text = await generateText(prompt, {
+      model: modelName,
+      logTag: 'generate-report',
+    })
 
     if (testMode || !text.trim().startsWith('{')) {
       return NextResponse.json({

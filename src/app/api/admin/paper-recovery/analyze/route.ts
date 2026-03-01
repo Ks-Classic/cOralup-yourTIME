@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateWithImages, isGeminiAvailable } from '@/lib/gemini-client'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
  * 紙問診票画像解析API
@@ -25,11 +26,7 @@ export async function POST(request: NextRequest) {
         const base64Image = Buffer.from(imageBuffer).toString('base64')
         const mimeType = image.type || 'image/jpeg'
 
-        // Gemini API初期化
-        const apiKey = process.env.GEMINI_API_KEY
-
-        // モックモード: GEMINI_API_KEYがない場合はサンプルデータを返す
-        if (!apiKey) {
+        if (!isGeminiAvailable()) {
             console.warn('[paper-recovery/analyze] Mock mode: GEMINI_API_KEY not configured, returning sample data')
             return NextResponse.json({
                 success: true,
@@ -59,9 +56,6 @@ export async function POST(request: NextRequest) {
                 _message: 'これはローカル開発用のモックデータです。本番環境ではGEMINI_API_KEYを設定してください。'
             })
         }
-
-        const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
 
         // プロンプト
         const prompt = `あなたは歯科問診票の読み取りアシスタントです。
@@ -122,18 +116,15 @@ JSON形式のみで出力してください。余計な説明は不要です。�
   "confidence": 0.0-1.0
 }`
 
-        // Gemini APIを呼び出し
-        const result = await model.generateContent([
-            {
-                inlineData: {
-                    mimeType,
-                    data: base64Image,
-                },
-            },
+        // Gemini APIを呼び出し（リトライ+マルチキーフォールバック付き）
+        const responseText = await generateWithImages(
             prompt,
-        ])
-
-        const responseText = result.response.text()
+            [{ data: base64Image, mimeType }],
+            {
+                model: 'gemini-2.0-flash-exp',
+                logTag: 'paper-recovery',
+            }
+        )
 
         // JSONをパース（コードブロックの除去も試みる）
         let parsedData

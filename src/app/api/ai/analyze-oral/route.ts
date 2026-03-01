@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateText, isGeminiAvailable } from '@/lib/gemini-client'
 
-// Gemini APIの初期化
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null
+// Vercel Serverless: Gemini API応答に最大30秒かかるため60秒に延長
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
     // モックモード: GEMINI_API_KEYがない場合はサンプルデータを返す
-    if (!genAI) {
+    if (!isGeminiAvailable()) {
       console.warn('[analyze-oral] Mock mode: GEMINI_API_KEY not configured, returning sample data')
       return NextResponse.json({
         overallScore: 7,
@@ -35,8 +36,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Gemini APIで口腔分析
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
-
     const prompt = `
 あなたは口腔機能の専門家として、口腔内写真からお子様の口腔状態を分析してください。
 
@@ -64,9 +63,10 @@ ${imageDescription}
 }
     `.trim()
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
+    const text = await generateText(prompt, {
+      model: 'gemini-2.5-flash-lite',
+      logTag: 'analyze-oral',
+    })
 
     // JSONを抽出してパース
     try {

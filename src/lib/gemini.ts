@@ -1,30 +1,27 @@
-import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai'
-
-// 環境変数チェック
-const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY
-const modelName = process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06'
-
-// モックモード判定
-export const isGeminiMockMode = !apiKey
-
-// Gemini APIクライアント初期化
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null
-
 /**
- * Geminiモデルを取得
+ * Gemini API ラッパー（後方互換レイヤー）
+ * 
+ * 既存コードが import { analyzeWithRetry, extractJSON } from '@/lib/gemini' で
+ * 参照しているため、シグネチャを維持しつつ内部を gemini-client.ts に委譲する。
  */
-export function getGeminiModel(): GenerativeModel | null {
-  if (!genAI) return null
-  return genAI.getGenerativeModel({ model: modelName })
-}
+
+import {
+  generateText,
+  generateWithImages,
+  extractJSON as extractJSONFromClient,
+  isGeminiAvailable,
+} from '@/lib/gemini-client'
+
+// ─── 後方互換エクスポート ──────────────────────────────
+
+/** モックモード判定（後方互換） */
+export const isGeminiMockMode = !isGeminiAvailable()
 
 /**
- * テキストのみの分析を実行
+ * テキストのみの分析を実行（後方互換）
  */
 export async function analyzeWithText(prompt: string): Promise<string> {
-  const model = getGeminiModel()
-  
-  if (!model) {
+  if (!isGeminiAvailable()) {
     console.warn('[Gemini] Mock mode: returning default response')
     return JSON.stringify({
       summary: 'B',
@@ -33,22 +30,21 @@ export async function analyzeWithText(prompt: string): Promise<string> {
       parentComment: 'これはテスト用のモックレスポンスです。'
     })
   }
-  
-  const result = await model.generateContent(prompt)
-  const response = await result.response
-  return response.text()
+
+  return generateText(prompt, {
+    model: process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06',
+    logTag: 'gemini-compat',
+  })
 }
 
 /**
- * 画像付きの分析を実行
+ * 画像付きの分析を実行（後方互換）
  */
 export async function analyzeWithImages(
   prompt: string,
   images: { data: string; mimeType: string }[]
 ): Promise<string> {
-  const model = getGeminiModel()
-  
-  if (!model) {
+  if (!isGeminiAvailable()) {
     console.warn('[Gemini] Mock mode: returning default response')
     return JSON.stringify({
       summary: 'B',
@@ -57,61 +53,57 @@ export async function analyzeWithImages(
       parentComment: 'これはテスト用のモックレスポンスです。'
     })
   }
-  
-  const imageParts: Part[] = images.map(img => ({
-    inlineData: {
-      data: img.data,
-      mimeType: img.mimeType
-    }
-  }))
-  
-  const result = await model.generateContent([prompt, ...imageParts])
-  const response = await result.response
-  return response.text()
+
+  return generateWithImages(prompt, images, {
+    model: process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06',
+    logTag: 'gemini-compat',
+  })
 }
 
 /**
- * JSONレスポンスを抽出してパース
- */
-export function extractJSON<T>(text: string): T {
-  // マークダウンコードブロックからJSON抽出
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/)
-  
-  if (!jsonMatch) {
-    throw new Error('Failed to extract JSON from response')
-  }
-  
-  const jsonStr = jsonMatch[1] || jsonMatch[0]
-  return JSON.parse(jsonStr) as T
-}
-
-/**
- * リトライ付きでGemini分析を実行
+ * リトライ付きでGemini分析を実行（後方互換）
  */
 export async function analyzeWithRetry(
   prompt: string,
   images?: { data: string; mimeType: string }[],
   maxRetries = 3
 ): Promise<string> {
-  let lastError: Error | null = null
-  
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      if (images && images.length > 0) {
-        return await analyzeWithImages(prompt, images)
-      }
-      return await analyzeWithText(prompt)
-    } catch (error) {
-      lastError = error as Error
-      console.error(`[Gemini] Attempt ${i + 1} failed:`, error)
-      
-      // 最後のリトライでなければ待機
-      if (i < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)))
-      }
+  if (!isGeminiAvailable()) {
+    if (images && images.length > 0) {
+      return analyzeWithImages(prompt, images)
     }
+    return analyzeWithText(prompt)
   }
-  
-  throw lastError || new Error('Gemini analysis failed after retries')
+
+  const model = process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.5-pro-preview-05-06'
+
+  if (images && images.length > 0) {
+    return generateWithImages(prompt, images, {
+      model,
+      retry: { maxRetries },
+      logTag: 'gemini-compat',
+    })
+  }
+
+  return generateText(prompt, {
+    model,
+    retry: { maxRetries },
+    logTag: 'gemini-compat',
+  })
 }
 
+/**
+ * JSONレスポンスを抽出してパース（後方互換）
+ */
+export function extractJSON<T>(text: string): T {
+  return extractJSONFromClient<T>(text)
+}
+
+/**
+ * Geminiモデルを取得（後方互換 — 非推奨、generateText推奨）
+ * @deprecated Use generateText() or generateWithImages() instead
+ */
+export function getGeminiModel(): null {
+  console.warn('[gemini] getGeminiModel() is deprecated. Use generateText() from gemini-client.ts')
+  return null
+}
