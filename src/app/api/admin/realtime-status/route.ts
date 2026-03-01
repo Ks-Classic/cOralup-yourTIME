@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, children, profiles, reports } from '@/db/schema'
-import { eq, gte, sql, desc } from 'drizzle-orm'
+import { eq, gte, sql, desc, inArray } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +41,7 @@ export async function GET() {
             const reportRows = await db
                 .select({ visitId: reports.visitId })
                 .from(reports)
-                .where(sql`${reports.visitId} = ANY(${visitIds})`)
+                .where(inArray(reports.visitId, visitIds))
             reportVisitIds = new Set(reportRows.map(r => r.visitId).filter(Boolean) as string[])
         }
 

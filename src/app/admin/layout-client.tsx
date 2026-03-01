@@ -11,7 +11,8 @@ import {
     Users,
     ClipboardList,
     Settings,
-    FileSpreadsheet
+    FileSpreadsheet,
+    BarChart3
 } from 'lucide-react'
 import { cn } from '@/utils'
 
@@ -26,6 +27,7 @@ const globalNavItems = [
 const adminTabs = [
     { href: '/admin', label: 'リアルタイム', icon: Activity, exact: true },
     { href: '/admin/visits', label: '履歴管理', icon: History },
+    { href: '/admin/analytics', label: '分析レポート', icon: BarChart3 },
     { href: '/admin/ai-test', label: 'AI設定', icon: Bot },
     { href: '/admin/recovery', label: '紙問診リカバリー', icon: FileSpreadsheet },
     { href: '/admin/dev-tools', label: 'テストデータ', icon: Wrench },
