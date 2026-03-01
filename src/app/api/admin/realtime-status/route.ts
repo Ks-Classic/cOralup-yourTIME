@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { visits, children, profiles, reports } from '@/db/schema'
+import { visits, children, profiles, reports, visitPhotos } from '@/db/schema'
 import { eq, gte, sql, desc, inArray } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
@@ -37,12 +37,26 @@ export async function GET() {
         // 2. レポートが存在するvisit IDのセットを取得
         const visitIds = todayVisits.map(v => v.id)
         let reportVisitIds = new Set<string>()
+        let photoCountMap = new Map<string, number>()
         if (visitIds.length > 0) {
             const reportRows = await db
                 .select({ visitId: reports.visitId })
                 .from(reports)
                 .where(inArray(reports.visitId, visitIds))
             reportVisitIds = new Set(reportRows.map(r => r.visitId).filter(Boolean) as string[])
+
+            // 2b. 写真枚数をvisit単位で一括取得
+            const photoCounts = await db
+                .select({
+                    visitId: visitPhotos.visitId,
+                    count: sql<number>`count(*)`,
+                })
+                .from(visitPhotos)
+                .where(inArray(visitPhotos.visitId, visitIds))
+                .groupBy(visitPhotos.visitId)
+            for (const row of photoCounts) {
+                if (row.visitId) photoCountMap.set(row.visitId, Number(row.count))
+            }
         }
 
         // 3. 今日のLINE登録数
@@ -98,7 +112,7 @@ export async function GET() {
                     currentStatusSince: visit.updatedAt,
                     elapsedMinutes,
                     hasReport,
-                    progress: { photos: { current: 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
+                    progress: { photos: { current: photoCountMap.get(visit.id) || 0, total: 3 }, diagnosisItems: { current: 0, total: 0 } },
                     visitDate: visit.createdAt,
                 })
 
