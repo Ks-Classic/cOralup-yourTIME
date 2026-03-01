@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isMockMode } from '@/lib/supabase'
 import { db } from '@/db'
-import { visits, children, profiles, questionnaireResponses, questionnaireItems, questionnaireCategories, visitPhotos, diagnosisResponses, diagnosisItems, diagnosisCategories, reports } from '@/db/schema'
+import { visits, children, profiles, questionnaireResponses, questionnaireItems, questionnaireCategories, visitPhotos, diagnosisResponses, diagnosisItems, diagnosisCategories, diagnoses, reports } from '@/db/schema'
 import { eq, or, ilike, asc, desc } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
@@ -328,6 +328,55 @@ export async function GET(request: NextRequest) {
           },
         },
       }))
+
+      // フォールバック: diagnosis_responsesにデータがない場合、
+      // diagnoses.diagnosisItems (JSONBカラム) からデータを復元
+      if (diagnosisResponsesList.length === 0) {
+        const diagnosisLegacyRows = await db
+          .select({
+            diagnosisItemsJson: diagnoses.diagnosisItems,
+          })
+          .from(diagnoses)
+          .where(
+            visit.sessionId
+              ? eq(diagnoses.sessionId, visit.sessionId)
+              : eq(diagnoses.visitId, visit.id)
+          )
+          .limit(1)
+
+        if (diagnosisLegacyRows.length > 0 && diagnosisLegacyRows[0].diagnosisItemsJson) {
+          const itemsJson = diagnosisLegacyRows[0].diagnosisItemsJson as Record<string, any>
+          // diagnosisItemsテーブルから各アイテムの情報を取得
+          const allDiagnosisItems = await db
+            .select({
+              id: diagnosisItems.id,
+              question: diagnosisItems.question,
+              answerType: diagnosisItems.answerType,
+              options: diagnosisItems.options,
+              categoryId: diagnosisItems.categoryId,
+            })
+            .from(diagnosisItems)
+
+          for (const [itemId, value] of Object.entries(itemsJson)) {
+            const itemInfo = allDiagnosisItems.find(i => i.id === itemId)
+            diagnosisResponsesList.push({
+              id: `legacy-${itemId}`,
+              item_id: itemId,
+              value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+              metadata: null,
+              answered_at: null,
+              diagnosis_items: itemInfo ? {
+                id: itemInfo.id,
+                question: itemInfo.question,
+                answer_type: itemInfo.answerType,
+                options: itemInfo.options,
+                category_id: itemInfo.categoryId,
+                diagnosis_categories: null,
+              } : null,
+            })
+          }
+        }
+      }
 
       // レポートを取得
       let reportData = null
