@@ -270,12 +270,8 @@ async function handlePostbackEvent(event: any) {
 
 async function handleTextMessage(userId: string, text: string) {
   if (text === '問診を始めます') {
-    // LIFF側からのliff.sendMessages()による自動送信 → 軽い応答のみ
-    const reply = {
-      type: 'text',
-      text: '問診登録ありがとうございます😊\nご不明な点がありましたら、お気軽にメッセージください。',
-    }
-    await sendMessage(userId, reply)
+    // LIFF側からのliff.sendMessages()による自動送信 → 応答不要
+    return
   } else if (text.toLowerCase().includes('問診')) {
     // 手動で「問診」と入力した場合は問診リンクを送信
     await sendQuestionnaireLink(userId)
