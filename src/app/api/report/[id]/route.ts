@@ -127,10 +127,10 @@ export async function GET(
 
     if (child?.birthday) {
       const birthDate = new Date(child.birthday)
-      const today = new Date()
-      childAge = today.getFullYear() - birthDate.getFullYear()
-      const monthDiff = today.getMonth() - birthDate.getMonth()
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      const referenceDate = visit?.visitDate ? new Date(visit.visitDate) : new Date()
+      childAge = referenceDate.getFullYear() - birthDate.getFullYear()
+      const monthDiff = referenceDate.getMonth() - birthDate.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < birthDate.getDate())) {
         childAge--
       }
     } else if (childAgeMonths) {

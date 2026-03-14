@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
                 startDate: new Date('2026-03-01T09:00:00+09:00'),
                 endDate: new Date('2026-03-01T18:00:00+09:00'),
                 venue: '鹿児島',
-                status: 'active',
+                status: 'completed',
             },
             {
                 eventId: 'oizumigakuen-yourtime-2026',
