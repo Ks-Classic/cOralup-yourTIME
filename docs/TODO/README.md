@@ -1,6 +1,6 @@
 # Coralup TODO プロジェクト管理
 
-**最終更新: 2026-06-29（セキュリティハードニング3コミットを本番デプロイ・ライブ検証パス）**
+**最終更新: 2026-06-30（運用正本化の大リファクタを本番デプロイ・Lark撤去完了・AIモデル/プロンプト正本化）**
 
 ---
 
@@ -40,6 +40,24 @@ Lark Base は当日運用・レポート反映に必須ではなく、DBに正�
 **残課題（次スプリント）**: H-1恒久=Upstashレート制限 / M-1=admin Cookie HMAC化 / H-3=デモ送信rate-limit ほか。詳細 → [21-残リスク台帳と最高品質レビュー.md §6.5](./21-残リスク台帳と最高品質レビュー.md)
 
 **残・実機確認（15.x と重複）**: スタッフLIFFログイン→デモ診断UI操作→本人デモLINE着信 / 保護者 問診→QR→診断→レポート 通し / 管理者 `/admin-login`→schema-editor。
+
+### ♻️ 2026-06-30 運用正本化リファクタリング 本番デプロイ完了 ✅
+
+**追加4コミットを本番デプロイ。型チェック+本番ビルド+全フロー本番ライブ200を検証。**
+
+| コミット | 内容 |
+|---|---|
+| `c0817b6` | デモ診断のLINE送信失敗・問診UI・分析文面を本番相当に修正 |
+| `8e76007` | AIモデル一覧を公式現行IDに修正（Gemini 3.1 Flash-Lite追加・無効ID削除） |
+| `5fec5bd` | 運用正本化（Lark撤去・visit-status統一・レポートURL=visitId・本番/デモUI共通化） |
+| `883bfec` | 親レポート生成プロンプトを正本化（最適化版＋原本バックアップ） |
+
+**確定事項**:
+- **Lark sync 完全終了**: コード撤去（lib/lark・lark-sync・test 削除）＋ 本番DBにトリガー/関数が**元から存在せず**を確認（撤去migration実行=no-op）。Lark依存は残っていない。
+- **AIモデル**: `/admin/ai-test` で active プロンプトの `model_name` を変えるだけで本番モデルが切替可。推奨=`gemini-3.1-flash-lite`（公式コスパ/低レイテンシ最適）。本番プロンプト正本= [docs/prompts/親レポート生成プロンプト.md](../prompts/親レポート生成プロンプト.md)。
+- **既知の運用注意**: 旧SDK `@google/generative-ai` は非推奨（thinking明示制御不可）→ `@google/genai` 移行は thinking制御が要るとき。死にenv `GEMINI_MODEL`(本番)はコード未参照。
+
+**残・実機確認**: `/admin/ai-test` で 3.1 Flash-Lite ＋ 新プロンプト → テスト診断1本（速度・文面）。
 
 ### Phase 1 完了: YourTIME イベント（2024/12/21）✅ 成功
 
@@ -178,11 +196,11 @@ Lark Base は当日運用・レポート反映に必須ではなく、DBに正�
 
 | # | タスク | 詳細 | 状態 |
 |---|--------|------|------|
-| 20.1 | Lark連携削除 | trigger/function/env/docs を削除し、アプリ挙動不変をテスト | 📋 |
-| 20.2 | status/currentStep統一 | DB制約・型・API更新を一致させる | 📋 |
-| 20.3 | レポートURL統一 | `/report/{visitId}` と `reports.visit_id` を正本化 | 📋 |
-| 20.4 | sessionId依存削減 | 保存・取得APIを `visitId` 優先へ移行 | 📋 |
-| 20.5 | レガシーAPI棚卸し | 未使用API/旧helper/旧docsを削除または非推奨化 | 📋 |
+| 20.1 | Lark連携削除 | lib/lark・lark-sync・test 削除。本番DBにトリガー/関数無しを確認(no-op)。完全終了 | ✅ |
+| 20.2 | status/currentStep統一 | visit-status.ts/core/types・updateVisitProgress を各APIに適用。デプロイ済 | ✅ |
+| 20.3 | レポートURL統一 | `reportUuid→/report/{visitId}` 移行。旧 report/create・staff/report 削除。デプロイ済 | ✅ |
+| 20.4 | sessionId依存削減 | 保存・取得APIを `visitId` 優先へ移行（5fec5bd） | ✅ |
+| 20.5 | レガシーAPI棚卸し | 旧report/staff API・旧lark helper・旧docs を削除/注記。デプロイ済 | ✅ |
 | 20.6 | 本番反映チェックリスト | migration/疎通/ロールバック基準を運用可能にする | ✅ |
 
 ### 22-demo: デモモード本番UI統一（2026-06-29追加）
@@ -194,7 +212,7 @@ Lark Base は当日運用・レポート反映に必須ではなく、DBに正�
 | 22.1 | 本番/デモ差分棚卸し | state/API/UI差分を一覧化 | 📋 |
 | 22.2 | 共通型切り出し | `src/types/staff-diagnosis.ts` を新設しdemo pageで使用（4d07229） | ✅ |
 | 22.3 | Provider分離 | production/demo のデータソース切替 | 📋 |
-| 22.4 | UI単一化 | 共有 `StaffDiagnosisBottomNav`/`PhotoModals` 抽出でdemo page -369行（4d07229）。`StaffDiagnosisExperience` 完全統合は残 | 🔧 |
+| 22.4 | UI単一化 | 共有 `StaffDiagnosisBottomNav`/`PhotoModals`/型に統一。本番 `staff/diagnosis/[id]` も共有化しデプロイ済（5fec5bd）。`StaffDiagnosisExperience` 名での完全1コンポ統合は任意で残 | ✅ |
 | 22.5 | デモ副作用防止 | LINE/DB/Storageを呼ばない保証 | 📋 |
 | 22.6 | UI同一性テスト | 本番/デモの主要操作差分を検証 | 📋 |
 
