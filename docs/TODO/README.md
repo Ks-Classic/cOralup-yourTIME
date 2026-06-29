@@ -1,10 +1,45 @@
 # Coralup TODO プロジェクト管理
 
-**最終更新: 2025-12-16**
+**最終更新: 2026-06-29（セキュリティハードニング3コミットを本番デプロイ・ライブ検証パス）**
 
 ---
 
-## 🎯 現在のフェーズ: Phase 2 自社CRM整備
+## 🎯 現在のフェーズ: Phase 2 自社CRM整備 / 運用正本リファクタリング
+
+### 2026-06-29 方針更新
+
+現行運用では **Supabase/Postgres + アプリ内管理画面を唯一の正本** とする。
+Lark Base は当日運用・レポート反映に必須ではなく、DBに正規化データが残っていれば後続の集計・レポート・外部出力は再生成可能。
+
+そのため、Lark連携は新規開発対象から外し、既存のLark関連実装・マイグレーション・環境変数・設計書は「アプリ挙動に影響しないこと」を確認しながら削除する。
+
+**最優先の整備対象**
+
+| 優先度 | 領域 | 方針 |
+|---|---|---|
+| P0 | ID正本 | `visits.id` / `visitId` を全データ紐付けの正本にする。`sessionId` はQR・受付表示・サポート用のみ |
+| P0 | 状態管理 | `visits.status` は `waiting/in_progress/completed/published/cancelled` のみ。詳細進捗は `currentStep` に閉じる |
+| P0 | レポート | レポートURLは現行実装に合わせて `/report/{visitId}`。DBに `reports.visit_id` があれば後から再表示・再送可能 |
+| P1 | リアルタイム | Larkではなく `/api/admin/realtime-status` と管理画面を正本にする。必要なら将来Supabase Realtimeへ一本化 |
+| P1 | レガシー削除 | Lark同期、旧Supabase helper、旧report/staff API、旧status前提ドキュメントを段階的に削除 |
+
+### 🔐 2026-06-29 セキュリティハードニング 本番デプロイ完了 ✅
+
+**3コミットを origin/main へ push＝107日ぶりの本番デプロイ。ビルド成功・本番ライブ検証パス。**
+
+| コミット | 内容 |
+|---|---|
+| `34dbde2` | スタッフ認証ハードニング（デフォルトJWT鍵廃止＋LINE IDトークン検証） |
+| `4d07229` | デモ診断レポートをスタッフ本人LINEへ送信＋デモ診断UI刷新 |
+| `6f747fb` | admin認証を middleware で一元 fail-closed 化（C-1権限昇格修正含む） |
+
+**直った穴（本番で401/307を実証）**: `/api/admin/*` 10本超の無認証/ fail-open（DB書込・削除可能だった）→ middleware一箇所でfail-closed集約。`/admin` の `ADMIN_PASSWORD` 未設定 fail-open も解消。
+
+**デプロイ前必須env**: `ADMIN_PASSWORD`（本番設定済）/ `STAFF_SESSION_SECRET`（設定済）。
+
+**残課題（次スプリント）**: H-1恒久=Upstashレート制限 / M-1=admin Cookie HMAC化 / H-3=デモ送信rate-limit ほか。詳細 → [21-残リスク台帳と最高品質レビュー.md §6.5](./21-残リスク台帳と最高品質レビュー.md)
+
+**残・実機確認（15.x と重複）**: スタッフLIFFログイン→デモ診断UI操作→本人デモLINE着信 / 保護者 問診→QR→診断→レポート 通し / 管理者 `/admin-login`→schema-editor。
 
 ### Phase 1 完了: YourTIME イベント（2024/12/21）✅ 成功
 
@@ -112,8 +147,8 @@
 | 5.1 | 診断結果集計View作成 | `diagnosis_summary_view` SQL作成 | 📋 | |
 | 5.2 | 問診結果集計View作成 | `questionnaire_summary_view` SQL作成 | 📋 | |
 | 5.3 | イベント別集計View作成 | `event_analytics_view` SQL作成 | 📋 | |
-| 5.4 | Lark Base同期設定 | DB Trigger + Edge Function | 📋 | |
-| 5.5 | Larkダッシュボード作成 | 診断数、項目別集計 | 📋 | |
+| 5.4 | Lark Base同期設定 | **削除対象**。アプリ挙動に影響しないことを確認して廃止 | 🗑️ | |
+| 5.5 | Larkダッシュボード作成 | **廃止**。管理画面/レポートAPIに集約 | 🗑️ | |
 
 ### 06-admin-ext: 管理画面拡張
 
@@ -135,6 +170,33 @@
 | 8.3 | visits と sessions 紐付け | 過去データのマッピング | 📋 | |
 | 8.4 | children データ整備 | 患者情報の正規化 | 📋 | |
 | 8.5 | event_staffs 設定 | イベント×スタッフの紐付け | 📋 | |
+
+### 20-refactor: 運用正本リファクタリング（2026-06-29追加）
+
+**詳細**: [20-運用正本リファクタリング.md](./20-運用正本リファクタリング.md)
+**残リスク台帳**: [21-残リスク台帳と最高品質レビュー.md](./21-残リスク台帳と最高品質レビュー.md)
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 20.1 | Lark連携削除 | trigger/function/env/docs を削除し、アプリ挙動不変をテスト | 📋 |
+| 20.2 | status/currentStep統一 | DB制約・型・API更新を一致させる | 📋 |
+| 20.3 | レポートURL統一 | `/report/{visitId}` と `reports.visit_id` を正本化 | 📋 |
+| 20.4 | sessionId依存削減 | 保存・取得APIを `visitId` 優先へ移行 | 📋 |
+| 20.5 | レガシーAPI棚卸し | 未使用API/旧helper/旧docsを削除または非推奨化 | 📋 |
+| 20.6 | 本番反映チェックリスト | migration/疎通/ロールバック基準を運用可能にする | ✅ |
+
+### 22-demo: デモモード本番UI統一（2026-06-29追加）
+
+**詳細**: [22-デモモード本番UI統一.md](./22-デモモード本番UI統一.md)
+
+| # | タスク | 詳細 | 状態 |
+|---|--------|------|------|
+| 22.1 | 本番/デモ差分棚卸し | state/API/UI差分を一覧化 | 📋 |
+| 22.2 | 共通型切り出し | `src/types/staff-diagnosis.ts` を新設しdemo pageで使用（4d07229） | ✅ |
+| 22.3 | Provider分離 | production/demo のデータソース切替 | 📋 |
+| 22.4 | UI単一化 | 共有 `StaffDiagnosisBottomNav`/`PhotoModals` 抽出でdemo page -369行（4d07229）。`StaffDiagnosisExperience` 完全統合は残 | 🔧 |
+| 22.5 | デモ副作用防止 | LINE/DB/Storageを呼ばない保証 | 📋 |
+| 22.6 | UI同一性テスト | 本番/デモの主要操作差分を検証 | 📋 |
 
 ### 残作業: 診断フロー改善
 

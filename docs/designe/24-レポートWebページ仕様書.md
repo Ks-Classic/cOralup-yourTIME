@@ -1,13 +1,18 @@
 # レポートWebページ仕様書
 
 ## 概要
-PDF出力からUUID形式のWebページに変更。スピードと確実性を重視。
+PDF出力からWebページ形式に変更。スピードと確実性を重視。
+
+2026-06-29時点の正本は `visits.id` / `reports.visit_id`。
+DBにレポートデータが保存されていれば、後から表示・再送・再生成できる。
 
 ## URL形式
 ```
-/report/{uuid}
+/report/{visitId}
 例: /report/550e8400-e29b-41d4-a716-446655440000
 ```
+
+`reportUuid` / `reports.uuid` をURL正本にする古い設計は廃止。
 
 ## ページ構成
 
@@ -54,8 +59,10 @@ PDF出力からUUID形式のWebページに変更。スピードと確実性を�
 ### API
 ```
 GET /api/report/{id}
-POST /api/report/create
+POST /api/report/{visitId}/create
 ```
+
+`GET /api/report/{id}` の `{id}` は `visitId` として扱う。
 
 ### データ型
 ```typescript
@@ -90,8 +97,11 @@ interface ReportData {
 ## 実装ファイル
 - `src/app/report/[id]/page.tsx` - レポート表示ページ
 - `src/app/api/report/[id]/route.ts` - レポート取得API
-- `src/app/api/report/create/route.ts` - レポート作成API
+- `src/app/api/report/[id]/create/route.ts` - レポート作成API
 - `src/components/staff/ReportPreview.tsx` - レポートプレビューコンポーネント
+
+削除対象:
+- `src/app/api/report/create/route.ts` - 旧Supabase版。debug fetchが残っているため運用導線から外す。
 
 ## 編集モード管理
 

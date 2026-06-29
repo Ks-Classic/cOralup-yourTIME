@@ -1,6 +1,7 @@
 # Phase 2: 自社CRM整備・データ分析基盤
 
 **作成日: 2025-12-16**
+**更新日: 2026-06-29**
 **期間: 2025 Q1（1月〜3月）**
 
 ---
@@ -14,7 +15,7 @@ Phase 1（YourTIMEイベント）の成功を受けて、以下の目標に向�
 1. **データ分析基盤の構築**: イベントで蓄積したデータを可視化・分析
 2. **CRMデータ整備**: profiles, children, events のデータ整備
 3. **管理画面拡張**: イベント管理、セッション管理の強化
-4. **Lark連携強化**: リアルタイム同期の本格運用
+4. **運用正本整備**: LarkではなくDB・管理画面・CSV/API出力を正本にする
 
 ---
 
@@ -27,8 +28,8 @@ Phase 1（YourTIMEイベント）の成功を受けて、以下の目標に向�
 | 5.1 | 診断結果集計View | `diagnosis_summary_view` SQL作成 | 🔴 高 | 📋 |
 | 5.2 | 問診結果集計View | `questionnaire_summary_view` SQL作成 | 🔴 高 | 📋 |
 | 5.3 | イベント別集計View | `event_analytics_view` SQL作成 | 🟡 中 | 📋 |
-| 5.4 | Lark Base同期設定 | DB Trigger + Edge Function | 🟡 中 | 📋 |
-| 5.5 | Larkダッシュボード | 診断数、項目別集計 | 🟡 中 | 📋 |
+| 5.4 | Lark Base同期設定 | 廃止対象。DB Trigger + Edge Function は削除へ | 🔴 高 | 🗑️ |
+| 5.5 | Larkダッシュボード | 廃止。管理画面/集計View/CSV出力で代替 | 🔴 高 | 🗑️ |
 
 ### 06-admin-ext: 管理画面拡張
 
@@ -62,10 +63,10 @@ Week 1-2: 集計Viewの作成・テスト
 ├── questionnaire_summary_view
 └── event_analytics_view
 
-Week 3-4: Lark連携
-├── Edge Function実装
-├── DB Trigger設定
-└── ダッシュボード構築
+Week 3-4: 運用正本リファクタリング
+├── Lark Trigger / Edge Function 削除
+├── 管理画面リアルタイム集計の正本化
+└── レポート/CSV/API出力の整備
 ```
 
 ### 2月: 管理画面拡張
@@ -120,12 +121,16 @@ GROUP BY e.id, e.name, di.id, di.question, dr.value
 ORDER BY e.name, di.display_order, count DESC;
 ```
 
-### Lark連携アーキテクチャ
+### 運用正本アーキテクチャ
 
 ```
-Supabase → DB Trigger → Edge Function → Lark Base API
-    └── 1〜3秒以内にリアルタイム反映
+UI → API Route → Supabase/Postgres
+                 ├── 管理画面リアルタイムAPI
+                 ├── レポート表示API
+                 └── CSV/APIエクスポート
 ```
+
+Lark Baseは正本ではない。外部可視化が必要になった場合も、DB正本から後処理で再生成できる形にする。
 
 ---
 
@@ -134,7 +139,7 @@ Supabase → DB Trigger → Edge Function → Lark Base API
 ### Phase 2 完了条件
 
 - [ ] 集計Viewが全て動作している
-- [ ] Larkダッシュボードでリアルタイム監視が可能
+- [ ] 管理画面でリアルタイム監視が可能
 - [ ] イベント管理画面でCRUD操作が可能
 - [ ] スタッフ・患者データが正規化されている
 - [ ] 運用マニュアルが完成している
@@ -146,5 +151,6 @@ Supabase → DB Trigger → Edge Function → Lark Base API
 | ファイル | 内容 |
 |---------|------|
 | [06-DB設計書.md](../designe/06-DB設計書.md) | データベース設計 |
-| [23-Lark-Base-テーブル設計.md](../designe/23-Lark-Base-テーブル設計.md) | Lark同期設計 |
+| [23-Lark-Base-テーブル設計.md](../designe/23-Lark-Base-テーブル設計.md) | 廃止済みLark同期設計の記録 |
+| [20-運用正本リファクタリング.md](./20-運用正本リファクタリング.md) | 最新の運用正本リファクタリングTODO |
 | [07-実装ロードマップ.md](../designe/07-実装ロードマップ.md) | ロードマップ |

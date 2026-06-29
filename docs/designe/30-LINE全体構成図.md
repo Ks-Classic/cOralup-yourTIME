@@ -1,6 +1,6 @@
 # LINE全体構成図 (cOralup Platform)
 
-**最終更新: 2024-12-12**
+**最終更新: 2026-06-29**
 
 ---
 
@@ -40,6 +40,7 @@
 │                                                                     │
 │  【スタッフ向け】 ✅ 実装完了                                        │
 │  /api/line/staff-webhook    - 友だち追加処理 + 名前登録             │
+│  /api/line/send-demo-report - スタッフ本人宛デモレポート送信        │
 │  /api/auth/staff-session    - LIFF→セッション発行（Cookie）        │
 │  /staff/liff-login          - LIFF専用ログイン画面                  │
 │  /staff/login               - ログイン案内画面（Cookie切れ時）      │
@@ -94,6 +95,7 @@
 | **用途** | スタッフ事前登録・認証・通知 |
 | **機能** | 友だち追加で自動登録、名前登録（メッセージ）、LIFF認証 |
 | **Webhook** | `/api/line/staff-webhook` ✅ |
+| **デモLINE送信** | `/api/line/send-demo-report` ✅ スタッフ本人宛のみ |
 | **LIFF** | `/staff/liff-login` ✅ |
 | **環境変数** | `LINE_STAFF_CHANNEL_ID`, `LINE_STAFF_CHANNEL_SECRET`, `LINE_STAFF_CHANNEL_ACCESS_TOKEN`, `NEXT_PUBLIC_STAFF_LIFF_ID` |
 
@@ -182,6 +184,36 @@
    ↓
 5. /staff/diagnosis/[visitId] → 診断入力
 ```
+
+#### デモモードLINE送信（スタッフ本人限定）
+
+```
+1. スタッフが /staff/diagnosis/demo を開く
+   ↓
+2. デモ診断 → デモレポート生成
+   ↓
+3. 「デモLINE送信」タップ
+   ↓
+4. /api/line/send-demo-report
+   - Cookie: staff_session を検証
+   - JWT内の lineUserId を送信先にする
+   - リクエストbodyの送信先IDは受け取らない
+   ↓
+5. スタッフ用LINE公式から、ログイン中スタッフ本人へPush
+   ↓
+6. DB更新なし
+   - visits 更新なし
+   - reports 作成なし
+   - line_message_logs 作成なし
+   - confirm-delivery 呼び出しなし
+```
+
+複数スタッフ同時ログイン時の保証:
+- 各ブラウザは自分の `staff_session` Cookieを持つ。
+- APIはCookie内JWTから `lineUserId` を取り出す。
+- 送信先はその `lineUserId` だけ。
+- スタッフAの操作でスタッフBのLINE IDへ送る入力経路は存在しない。
+- 患者/保護者用LINE公式の `/api/line/send-report` とは完全に別API。
 
 ---
 

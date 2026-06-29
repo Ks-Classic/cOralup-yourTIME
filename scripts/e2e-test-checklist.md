@@ -1,6 +1,7 @@
 # E2Eテストチェックリスト
 
 **作成日: 2024-12-13**
+**更新日: 2026-06-29**
 
 ---
 
@@ -14,7 +15,7 @@
 | スタッフホーム | `/staff/home` | 要ログイン |
 | スタッフQRスキャン | `/staff/scan` | 要ログイン |
 | スタッフ診断 | `/staff/diagnosis/{visitId}` | 要ログイン |
-| レポートページ | `/report/{reportUuid}` | 公開URL |
+| レポートページ | `/report/{visitId}` | 公開URL |
 
 ### デモURL（認証不要）
 | 画面 | URL | 備考 |
@@ -81,11 +82,11 @@
    ```
    - [ ] `profiles.first_name`, `last_name`, `phone_number` が更新されている
    - [ ] `children` レコードが作成されている
-   - [ ] `visits` レコードが作成されている（`status = 'questionnaire_in_progress'`）
+   - [ ] `visits` レコードが作成されている（`status = 'in_progress'`, `current_step = 'questionnaire_started'` または `line_registered`）
 
 5. **問診入力テスト**
    - [ ] 問診項目を入力
-   - [ ] 自動保存が動作している（コンソールログ確認）
+   - [ ] 自動保存が動作している（DB保存結果で確認）
    - [ ] 「次へ：QR表示」タップ
 
 6. **DB登録確認（問診回答）**
@@ -97,7 +98,8 @@
    ORDER BY qr.answered_at;
    ```
    - [ ] `questionnaire_responses` に回答が保存されている
-   - [ ] `visits.status = 'questionnaire_completed'`
+   - [ ] `visits.status = 'in_progress'`
+   - [ ] `visits.current_step = 'questionnaire_completed'`
 
 7. **QRコード表示確認**
    - [ ] QRコードが表示されている
@@ -163,7 +165,7 @@
    SELECT * FROM reports WHERE visit_id = '{visitId}';
    ```
    - [ ] `reports` レコードが作成されている
-   - [ ] `reports.uuid` が生成されている
+   - [ ] `reports.visit_id = '{visitId}'`
    - [ ] `reports.ai_summary` が設定されている
 
 3. **LINE送信テスト**
@@ -180,9 +182,10 @@
 
 5. **DB確認（Visit更新）**
    ```sql
-   SELECT status, report_sent_at FROM visits WHERE id = '{visitId}';
+   SELECT status, current_step, report_sent_at FROM visits WHERE id = '{visitId}';
    ```
-   - [ ] `visits.status = 'report_sent'`
+   - [ ] `visits.status = 'published'`
+   - [ ] `visits.current_step = 'line_sent'`
    - [ ] `visits.report_sent_at` が設定されている
 
 6. **親御さんLINE確認**
@@ -191,9 +194,42 @@
    - [ ] ボタンタップでレポートページが開く
 
 7. **レポートページ確認**
-   - [ ] `/report/{reportUuid}` でレポートが表示される
+   - [ ] `/report/{visitId}` でレポートが表示される
    - [ ] 診断結果が正しく表示されている
    - [ ] 写真が表示されている
+
+---
+
+### Phase 4.5: デモLINE送信テスト（スタッフ本人限定）
+
+1. **スタッフ本人へのデモ送信**
+   - [ ] スタッフAでログイン済みブラウザから `/staff/diagnosis/demo` を開く
+   - [ ] デモ診断 → 分析 → レポート表示まで進める
+   - [ ] 「デモLINE送信」タップ
+   - [ ] 確認ダイアログに「ログイン中スタッフ本人」「患者/保護者には送信されません」と表示される
+   - [ ] スタッフA本人のLINEにデモレポート通知が届く
+
+2. **DB非更新確認**
+   ```sql
+   -- テスト前後で件数が増えないこと
+   SELECT COUNT(*) FROM line_message_logs;
+   SELECT COUNT(*) FROM reports;
+   ```
+   - [ ] デモLINE送信で `line_message_logs` が増えない
+   - [ ] デモLINE送信で `reports` が増えない
+   - [ ] デモLINE送信で `visits.report_sent_at` / `current_step` が更新されない
+
+3. **複数スタッフ同時ログイン確認**
+   - [ ] スタッフAとスタッフBを別ブラウザ/別端末でログインする
+   - [ ] スタッフAでデモLINE送信 → スタッフA本人にだけ届く
+   - [ ] スタッフBでデモLINE送信 → スタッフB本人にだけ届く
+   - [ ] スタッフAの操作でスタッフBに届かない
+   - [ ] スタッフBの操作でスタッフAに届かない
+
+4. **API境界確認**
+   - [ ] デモ画面は `/api/line/send-report` を呼ばない
+   - [ ] デモ画面は `/api/line/confirm-delivery` を呼ばない
+   - [ ] デモ画面は `/api/line/send-demo-report` だけを呼ぶ
 
 ---
 
@@ -280,8 +316,6 @@ curl -X POST http://localhost:3000/api/diagnosis/complete \
 - LINE Channel Access Tokenが正しいか確認
 - `profiles.line_user_id` が正しく登録されているか確認
 - `line_message_logs` のエラーメッセージを確認
-
-
 
 
 
