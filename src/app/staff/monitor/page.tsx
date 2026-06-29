@@ -229,15 +229,14 @@ export default function MonitorPage() {
   // 進行中のvisitsのみ
   const activeVisits = visits.filter(v =>
     v.status === 'in_progress' ||
-    v.status === 'questionnaire_in_progress' ||
-    v.status === 'diagnosis_completed'
+    (v.status === 'completed' && v.current_step !== 'line_confirmed')
   )
 
   // 統計
   const stats = {
     total: visits.length,
     active: activeVisits.length,
-    completed: visits.filter(v => v.status === 'report_sent' || v.status === 'completed').length,
+    completed: visits.filter(v => v.status === 'published' || v.status === 'completed').length,
     errors: errorVisits.length,
   }
 

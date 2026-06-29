@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'idToken is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'idToken is required' },
+        { status: 400 }
+      )
     }
     const { idToken } = body as { idToken?: unknown }
 
@@ -67,7 +70,9 @@ export async function POST(request: NextRequest) {
     const staff = staffRows[0]
 
     if (!staff) {
-      logger.warn('Staff not found in DB', { lineUserIdHash: hashId(lineUserId) })
+      logger.warn('Staff not found in DB', {
+        lineUserIdHash: hashId(lineUserId),
+      })
       return NextResponse.json({ error: 'not_registered' }, { status: 404 })
     }
 

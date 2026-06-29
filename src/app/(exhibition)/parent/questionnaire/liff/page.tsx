@@ -254,7 +254,11 @@ function LiffQuestionnairePageContent() {
 
   const loadExistingData = async (lineUserId: string) => {
     try {
-      const res = await fetch(`/api/parent/visit?line_user_id=${encodeURIComponent(lineUserId)}`)
+      const params = new URLSearchParams({ line_user_id: lineUserId })
+      if (urlChildId) {
+        params.set('child_id', urlChildId)
+      }
+      const res = await fetch(`/api/parent/visit?${params.toString()}`)
       const data = await res.json()
 
       if (!data.success) {
@@ -476,6 +480,21 @@ function LiffQuestionnairePageContent() {
       const result = await res.json()
 
       if (result.success) {
+        const nextChildData: ChildData = result.child || {
+          id: result.childId,
+          firstName: data.childFirstName,
+          lastName: data.childLastName,
+          firstNameKana: data.childFirstNameKana,
+          lastNameKana: data.childLastNameKana,
+          birthday: birthdayStr,
+          gender: data.childGender,
+        }
+
+        setChildData(nextChildData)
+        setSelectedChildId(result.childId || nextChildData.id)
+        setIsNewChild(false)
+        setRestoredResponses({})
+
         // visitDataを更新
         if (result.visitId || result.sessionId) {
           setVisitData(prev => ({
@@ -506,7 +525,11 @@ function LiffQuestionnairePageContent() {
   // ============================================================================
 
   const handleQuestionnaireComplete = async (formData: Record<string, unknown>) => {
-    if (!visitData?.sessionId) return
+    if (!visitData?.sessionId || !visitData?.id) {
+      alert('受付情報の作成が完了していません。基本情報からもう一度お試しください。')
+      setCurrentStep(1)
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -1139,4 +1162,3 @@ function QRCodeDisplay({ visitId }: { visitId: string }) {
     <img src={qrUrl} alt="QRコード" className="w-[200px] h-[200px]" />
   )
 }
-

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { X, Send, Search, MessageCircle, Loader2, ChevronLeft } from 'lucide-react';
 
 // チャットメッセージ型
@@ -258,7 +259,14 @@ export function LineChatPanel({ initialLineUserId, initialDisplayName, onClose }
                                             {/* アバター */}
                                             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0 overflow-hidden">
                                                 {user.avatarUrl ? (
-                                                    <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                                    <Image
+                                                        src={user.avatarUrl}
+                                                        alt=""
+                                                        className="w-full h-full object-cover"
+                                                        width={40}
+                                                        height={40}
+                                                        unoptimized
+                                                    />
                                                 ) : (
                                                     <span className="text-green-600 font-bold text-sm">
                                                         {(user.displayName || user.fullName || '?')[0]}

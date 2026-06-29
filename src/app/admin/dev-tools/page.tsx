@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/utils';
 import { Wrench, Trash2, RefreshCcw, Plus } from 'lucide-react';
 
@@ -186,7 +186,7 @@ function DataListViewer() {
     const [data, setData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await fetch(`/api/admin/data-list?type=${activeTab}&limit=50`);
@@ -199,11 +199,11 @@ function DataListViewer() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [activeTab]);
 
     useEffect(() => {
         fetchData();
-    }, [activeTab]);
+    }, [fetchData]);
 
     const handleDelete = async (type: string, id: string) => {
         if (!confirm('本当に削除しますか？関連データもすべて削除されます。')) return;

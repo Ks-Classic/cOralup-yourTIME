@@ -4,6 +4,7 @@ import { visits } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 import { logger } from '@/lib/logger'
+import { updateVisitProgress } from '@/lib/visit-status'
 
 /**
  * POST: QRスキャン時にスタッフを診断セッションに紐付け
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
             staffProfileId: staffId,
             visitDate: new Date(),
             status: 'in_progress',
+            currentStep: 'diagnosis_started',
           } as typeof visits.$inferInsert)
           .returning()
 
@@ -80,31 +82,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 既存のvisitにスタッフを紐付け
-    // ステップタイムスタンプを更新
-    const currentVisitRows = await db
-      .select({ stepTimestamps: visits.stepTimestamps })
-      .from(visits)
-      .where(eq(visits.id, targetVisitId))
-      .limit(1)
-
-    const timestamps = (currentVisitRows[0]?.stepTimestamps as Record<string, string>) || {}
-    timestamps.diagnosis_started = new Date().toISOString()
-
-    console.log('[Assign] Setting staffProfileId:', { visitId: targetVisitId, staffId, staffName })
-
-    const updatedRows = await db
-      .update(visits)
-      .set({
-        staffProfileId: staffId,
-        status: 'in_progress',
-        currentStep: 'diagnosis_started',
-        stepTimestamps: timestamps,
-      } as Partial<typeof visits.$inferInsert>)
-      .where(eq(visits.id, targetVisitId))
-      .returning()
-
-    console.log('[Assign] Updated visit:', { visitId: targetVisitId, updatedStaffProfileId: updatedRows[0]?.staffProfileId })
+    const updatedRows = await updateVisitProgress(targetVisitId, 'diagnosis_started', {
+      staffProfileId: staffId,
+    })
 
     if (updatedRows.length === 0) {
       return NextResponse.json(

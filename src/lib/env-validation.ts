@@ -119,7 +119,5 @@ export function logEnvValidation(): void {
         result.warnings.forEach(w => console.warn(`  ${w}`))
     }
 
-    if (result.valid && result.warnings.length === 0) {
-        console.log('[ENV] ✅ すべての環境変数が設定済み')
-    }
+    if (result.valid && result.warnings.length === 0) return
 }

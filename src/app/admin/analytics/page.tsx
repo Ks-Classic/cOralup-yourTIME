@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import {
     RefreshCw, TrendingUp, Users, Clock, Activity,
     CheckCircle, XCircle, AlertTriangle, ArrowRight,
-    BarChart3, MessageCircle, FileText, ChevronDown
+    BarChart3, MessageCircle, FileText, ChevronDown, GraduationCap
 } from 'lucide-react'
+import Link from 'next/link'
 
 // ============================================================
 // Types
@@ -180,7 +181,7 @@ export default function AnalyticsPage() {
 
     useEffect(() => {
         fetchData()
-    }, []) // 初回のみ自動取得
+    }, [fetchData])
 
     if (error) {
         return (
@@ -247,6 +248,17 @@ export default function AnalyticsPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Evidence Report Link */}
+            <Link href="/admin/analytics/report"
+                className="flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl px-5 py-3 hover:from-emerald-100 hover:to-teal-100 transition-all group shadow-sm">
+                <GraduationCap className="w-5 h-5 text-emerald-600" />
+                <div className="flex-1">
+                    <span className="text-sm font-bold text-emerald-800">世界水準エビデンスレポート</span>
+                    <span className="text-xs text-emerald-600 block">臨床エビデンス・相関分析・年齢ベンチマーク・マーケインサイト</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-emerald-500 group-hover:translate-x-1 transition-transform" />
+            </Link>
 
             {/* ローディング */}
             {loading && !data && (

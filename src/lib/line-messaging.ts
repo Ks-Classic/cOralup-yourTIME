@@ -48,7 +48,9 @@ export async function getLineMessageQuota(): Promise<LineQuotaInfo | null> {
         const isLimitReached = totalUsage !== -1 && remaining <= 0
         const isLow = totalUsage !== -1 && remaining > 0 && (remaining / totalUsage) <= 0.1
 
-        console.log(`[LINE Quota] 上限: ${totalUsage}, 使用済み: ${usedCount}, 残り: ${remaining}`)
+        if (isLow || isLimitReached) {
+            console.warn(`[LINE Quota] 上限: ${totalUsage}, 使用済み: ${usedCount}, 残り: ${remaining}`)
+        }
 
         return { totalUsage, usedCount, remaining, isLimitReached, isLow }
     } catch (error) {

@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import Image from 'next/image'
 
+export const dynamic = 'force-dynamic'
+
 // Supabase クライアント (Service Role)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +26,7 @@ export default async function StaffHomePage() {
       id,
       visit_date,
       status,
+      current_step,
       session_id,
       children (
         id,
@@ -34,7 +37,7 @@ export default async function StaffHomePage() {
       )
     `)
     .eq('staff_profile_id', session.staffId)
-    .in('status', ['diagnosis_completed', 'report_sent'])
+    .in('status', ['completed', 'published'])
     .order('visit_date', { ascending: false })
     .limit(5)
 
@@ -164,16 +167,16 @@ export default async function StaffHomePage() {
                   waiting: 'bg-amber-100 text-amber-700',
                   in_progress: 'bg-blue-100 text-blue-700',
                   completed: 'bg-emerald-100 text-emerald-700',
-                  report_sent: 'bg-purple-100 text-purple-700',
-                  diagnosis_completed: 'bg-green-100 text-green-700',
+                  published: 'bg-purple-100 text-purple-700',
+                  cancelled: 'bg-gray-100 text-gray-600',
                 }
 
                 const statusLabels: Record<string, string> = {
                   waiting: '待機中',
                   in_progress: '診断中',
                   completed: '完了',
-                  report_sent: '送信済',
-                  diagnosis_completed: '診断完了',
+                  published: '送信済',
+                  cancelled: '中止',
                 }
 
                 const honorific = child?.gender === 'male' ? 'くん' : 'ちゃん'
@@ -257,8 +260,6 @@ export default async function StaffHomePage() {
     </div>
   )
 }
-
-
 
 
 

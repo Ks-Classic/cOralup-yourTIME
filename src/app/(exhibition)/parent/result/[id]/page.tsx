@@ -44,7 +44,7 @@ export default function ResultPage({ params }: PageProps) {
   const mockSession: SessionData = useMemo(() => ({
     id: sessionId,
     session_id: sessionId,
-    status: 'questionnaire_completed',
+    status: 'in_progress',
     created_at: new Date().toISOString(),
   }), [sessionId])
 
@@ -218,5 +218,4 @@ export default function ResultPage({ params }: PageProps) {
     </div>
   )
 }
-
 

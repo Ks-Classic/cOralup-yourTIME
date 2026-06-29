@@ -34,10 +34,6 @@ interface RequestBody {
  */
 export async function POST(request: NextRequest) {
     try {
-        // デバッグ: 環境変数の状態を確認
-        const dbUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_DIRECT
-        console.log('[save-questionnaire] DATABASE_URL set:', !!dbUrl, dbUrl ? dbUrl.substring(0, 40) + '...' : 'not set')
-
         const body = await request.json() as RequestBody
         const { visitId, questionnaire, gender } = body
 
@@ -80,8 +76,6 @@ export async function POST(request: NextRequest) {
                         .update(children)
                         .set({ gender: normalizedGender, updatedAt: new Date() })
                         .where(eq(children.id, visitRows[0].childId))
-
-                    console.log(`[Paper Recovery] Updated gender to '${normalizedGender}' for childId: ${visitRows[0].childId}`)
                 }
             } else {
                 console.warn(`[Paper Recovery] Invalid gender value: '${gender}', skipping update`)
@@ -111,7 +105,6 @@ export async function POST(request: NextRequest) {
                     saved_at: new Date().toISOString(),
                 },
             } as typeof visitPhotos.$inferInsert)
-            console.log(`[Paper Recovery] Created new paper_questionnaire record for visitId: ${visitId}`)
         } else {
             // 既存の写真のmetadataを更新
             const existingMetadata = (paperPhotos[0].metadata as Record<string, any>) || {}
@@ -125,8 +118,6 @@ export async function POST(request: NextRequest) {
                 .update(visitPhotos)
                 .set({ metadata: newMetadata } as Partial<typeof visitPhotos.$inferInsert>)
                 .where(eq(visitPhotos.id, paperPhotos[0].id))
-
-            console.log(`[Paper Recovery] Updated paper_questionnaire metadata for visitId: ${visitId}`)
         }
 
         return NextResponse.json({
@@ -145,4 +136,3 @@ export async function POST(request: NextRequest) {
         )
     }
 }
-

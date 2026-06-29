@@ -173,11 +173,6 @@ export default function SchemaEditorPage() {
             throw new Error(diagnosisJson.error || '診断データの取得に失敗しました')
           }
 
-          console.log('[SchemaEditor] 診断データ取得結果:', {
-            success: diagnosisJson.success,
-            categoryOrderLength: diagnosisJson.data?.categoryOrder?.length,
-            categorizedKeys: Object.keys(diagnosisJson.data?.categorized || {}),
-          })
           if (diagnosisJson.data) {
             setDiagnosisData(diagnosisJson.data)
           }

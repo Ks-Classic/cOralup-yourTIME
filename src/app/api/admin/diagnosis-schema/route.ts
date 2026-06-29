@@ -22,11 +22,9 @@ interface SavePayload {
 
 // POST: 診断スキーマを保存
 export async function POST(request: NextRequest) {
-  console.log('[diagnosis-schema POST] 保存開始')
   try {
     const body: SavePayload = await request.json()
     const { categoryOrder, items } = body
-    console.log('[diagnosis-schema POST] カテゴリ数:', categoryOrder.length, '項目数:', items.length)
 
     // 1. カテゴリの順序を更新
     for (let i = 0; i < categoryOrder.length; i++) {
@@ -55,7 +53,7 @@ export async function POST(request: NextRequest) {
       const item = items[idx]
       const categoryId = categoryMap.get(item.category)
       if (!categoryId) {
-        console.log('[diagnosis-schema POST] カテゴリが見つからない:', item.category)
+        console.warn('[diagnosis-schema POST] カテゴリが見つからない:', item.category)
         continue
       }
 
@@ -80,7 +78,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[diagnosis-schema POST] 保存完了')
     return NextResponse.json({ success: true, message: '診断スキーマを保存しました' })
   } catch (error) {
     console.error('診断スキーマ保存エラー:', error)

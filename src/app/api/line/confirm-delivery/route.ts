@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { visits, lineMessageLogs } from '@/db/schema'
+import { lineMessageLogs } from '@/db/schema'
 import { eq, desc, and } from 'drizzle-orm'
+import { updateVisitProgress } from '@/lib/visit-status'
+
+const CONFIRMATION_STATUSES = ['confirmed', 'not_received', 'unknown'] as const
+
+function isConfirmationStatus(value: unknown): value is typeof CONFIRMATION_STATUSES[number] {
+  return typeof value === 'string' && (CONFIRMATION_STATUSES as readonly string[]).includes(value)
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { visitId, confirmationStatus } = body
 
-    if (!visitId || !confirmationStatus) return NextResponse.json({ error: 'Required' }, { status: 400 })
+    if (!visitId || !isConfirmationStatus(confirmationStatus)) {
+      return NextResponse.json({ error: 'Invalid confirmationStatus' }, { status: 400 })
+    }
 
     const logs = await db
       .select({ id: lineMessageLogs.id })
@@ -24,20 +33,7 @@ export async function POST(request: NextRequest) {
       staffConfirmedAt: new Date()
     } as any).where(eq(lineMessageLogs.id, logs[0].id))
 
-    const visitRows = await db.select({ stepTimestamps: visits.stepTimestamps, staffProfileId: visits.staffProfileId }).from(visits).where(eq(visits.id, visitId)).limit(1)
-    const timestamps = (visitRows[0]?.stepTimestamps as Record<string, string>) || {}
-    timestamps.line_confirmed = new Date().toISOString()
-
-    console.log('[Line Confirm] Before update:', { visitId, staffProfileId: visitRows[0]?.staffProfileId, confirmationStatus })
-
-    const updateResult = await db.update(visits).set({
-      status: 'published',
-      currentStep: 'line_confirmed',
-      stepTimestamps: timestamps,
-      updatedAt: new Date()
-    } as Partial<typeof visits.$inferInsert>).where(eq(visits.id, visitId)).returning()
-
-    console.log('[Line Confirm] After update:', { visitId, updatedStatus: updateResult[0]?.status })
+    await updateVisitProgress(visitId, 'line_confirmed')
 
     return NextResponse.json({ success: true })
   } catch (error) {

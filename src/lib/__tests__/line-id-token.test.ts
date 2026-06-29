@@ -70,7 +70,10 @@ describe('verifyLineIdToken', () => {
   test('omits displayName when name is absent', async () => {
     mockFetchResponse(true, { sub: 'Uverified123', aud: CHANNEL_ID })
     const result = await verifyLineIdToken(VALID_TOKEN)
-    expect(result).toEqual({ lineUserId: 'Uverified123', displayName: undefined })
+    expect(result).toEqual({
+      lineUserId: 'Uverified123',
+      displayName: undefined,
+    })
   })
 
   test('returns the verified identity on a valid token', async () => {

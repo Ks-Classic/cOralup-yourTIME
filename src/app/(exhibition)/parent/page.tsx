@@ -85,7 +85,7 @@ function ParentPageContent() {
             sessionStorage.setItem(chatThreadKey, '1')
           } catch (e) {
             // sendMessages失敗は無視（権限なし・チャット外起動等）
-            console.log('[LIFF] sendMessages skipped:', e)
+            console.warn('[LIFF] sendMessages skipped:', e)
           }
         }
 

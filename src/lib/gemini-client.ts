@@ -126,7 +126,7 @@ export async function generateText(
                     retryConfig.baseDelayMs * Math.pow(2, attempt),
                     retryConfig.maxDelayMs
                 )
-                console.log(`[${logTag}] Retrying in ${waitMs}ms...`)
+                console.warn(`[${logTag}] Retrying in ${waitMs}ms...`)
                 await new Promise(resolve => setTimeout(resolve, waitMs))
             }
         }
@@ -193,7 +193,7 @@ export async function generateWithImages(
                     retryConfig.baseDelayMs * Math.pow(2, attempt),
                     retryConfig.maxDelayMs
                 )
-                console.log(`[${logTag}] Retrying in ${waitMs}ms...`)
+                console.warn(`[${logTag}] Retrying in ${waitMs}ms...`)
                 await new Promise(resolve => setTimeout(resolve, waitMs))
             }
         }

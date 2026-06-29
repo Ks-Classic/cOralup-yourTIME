@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { questionnaireResponses, visits } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { updateVisitProgress } from '@/lib/visit-status'
 
 interface QuestionnaireRequest {
   sessionId?: string  // 後方互換用
@@ -64,14 +65,7 @@ export async function POST(request: NextRequest) {
 
     // visitsステータスを更新（Two-Layer Status System）
     if (resolvedVisitId) {
-      await db
-        .update(visits)
-        .set({
-          status: 'in_progress',
-          currentStep: 'questionnaire_completed',
-          updatedAt: new Date(),
-        } as Partial<typeof visits.$inferInsert>)
-        .where(eq(visits.id, resolvedVisitId))
+      await updateVisitProgress(resolvedVisitId, 'questionnaire_completed')
     }
 
     return NextResponse.json({

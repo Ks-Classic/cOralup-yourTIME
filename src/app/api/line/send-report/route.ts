@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { visits, lineMessageLogs } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { lineMessageLogs } from '@/db/schema'
 import { sendPushMessageSafe } from '@/lib/line-messaging'
+import { updateVisitProgress } from '@/lib/visit-status'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
 
@@ -11,26 +11,25 @@ export const maxDuration = 60
 
 interface SendReportRequest {
   lineUserId: string
-  reportUuid: string
+  visitId: string
   childName: string
   eventName?: string
-  visitId?: string
   sessionId?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SendReportRequest = await request.json()
-    const { lineUserId, reportUuid, childName, eventName, visitId, sessionId } = body
+    const { lineUserId, childName, eventName, visitId, sessionId } = body
 
-    if (!lineUserId || !reportUuid) {
+    if (!lineUserId || !visitId) {
       return NextResponse.json(
-        { error: 'lineUserId と reportUuid は必須です' },
+        { error: 'lineUserId と visitId は必須です' },
         { status: 400 }
       )
     }
 
-    const reportUrl = `${APP_URL}/report/${reportUuid}`
+    const reportUrl = `${APP_URL}/report/${visitId}`
 
     // Flex Messageでリッチな通知を送信
     const flexMessage = {
@@ -180,26 +179,9 @@ export async function POST(request: NextRequest) {
       sentAt,
     } as typeof lineMessageLogs.$inferInsert)
 
-    // visits.status と report_sent_at を更新
-    if (visitId) {
-      await db
-        .update(visits)
-        .set({
-          status: 'published',
-          currentStep: 'line_sent',
-          reportSentAt: sentAt,
-        } as Partial<typeof visits.$inferInsert>)
-        .where(eq(visits.id, visitId))
-    } else if (sessionId) {
-      await db
-        .update(visits)
-        .set({
-          status: 'published',
-          currentStep: 'line_sent',
-          reportSentAt: sentAt,
-        } as Partial<typeof visits.$inferInsert>)
-        .where(eq(visits.sessionId, sessionId))
-    }
+    await updateVisitProgress(visitId, 'line_sent', {
+      reportSentAt: sentAt,
+    })
 
     return NextResponse.json({
       success: true,

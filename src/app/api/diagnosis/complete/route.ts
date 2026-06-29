@@ -4,6 +4,7 @@ import { visits, children, profiles, reports, lineMessageLogs } from '@/db/schem
 import { eq, and } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 import { sendPushMessageSafe } from '@/lib/line-messaging'
+import { updateVisitProgress } from '@/lib/visit-status'
 
 // Vercel Serverless: DB取得 + LINE送信で時間がかかるため60秒に延長
 export const maxDuration = 60
@@ -148,15 +149,7 @@ export async function POST(request: NextRequest) {
       report = updatedReports[0]
     }
 
-    // 4. Visitステータスを更新
-    await db
-      .update(visits)
-      .set({
-        status: 'completed',
-        currentStep: 'analysis_completed',
-        updatedAt: new Date(),
-      } as Partial<typeof visits.$inferInsert>)
-      .where(eq(visits.id, visitId))
+    await updateVisitProgress(visitId, 'analysis_completed')
 
     // 5. LINE通知送信（オプション）
     let lineNotificationResult = null
@@ -285,17 +278,9 @@ async function sendReportNotification(params: {
     } as typeof lineMessageLogs.$inferInsert)
 
     if (result.success) {
-      // Visitステータス更新
-      const visitRows = await db.select({ stepTimestamps: visits.stepTimestamps }).from(visits).where(eq(visits.id, visitId)).limit(1)
-      const timestamps = (visitRows[0]?.stepTimestamps as Record<string, string>) || {}
-      timestamps.line_sent = sentAt.toISOString()
-
-      await db.update(visits).set({
-        status: 'published',
+      await updateVisitProgress(visitId, 'line_sent', {
         reportSentAt: sentAt,
-        currentStep: 'line_sent',
-        stepTimestamps: timestamps,
-      } as Partial<typeof visits.$inferInsert>).where(eq(visits.id, visitId))
+      })
     }
 
     return {

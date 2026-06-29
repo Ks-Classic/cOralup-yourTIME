@@ -115,7 +115,7 @@ function ChildCard({
     // ステータスバッジ
     const statusBadge = useMemo(() => {
         const status = child.questionnaireStatus
-        if (status === 'questionnaire_completed' || status === 'completed' || status === 'report_sent') {
+        if (status === 'questionnaire_completed' || status === 'completed' || status === 'published') {
             return {
                 text: '問診完了',
                 icon: '✓',

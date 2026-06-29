@@ -47,44 +47,32 @@ export default function DemoPage() {
         <Card className="border-blue-200">
           <CardHeader>
             <CardTitle className="text-2xl">🧑‍⚕️ スタッフ向け画面</CardTitle>
-            <CardDescription>セッション管理から診断入力、AI分析まで</CardDescription>
+          <CardDescription>本番導線と同じ統合診断フローを確認できます</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link href="/staff">
+              <Link href="/staff/home">
                 <Button variant="outline" className="w-full h-20 flex flex-col">
-                  <span className="font-semibold">スタッフトップ</span>
-                  <span className="text-xs text-gray-500">/staff</span>
-                </Button>
-              </Link>
-              <Link href="/staff/session/demo">
-                <Button variant="outline" className="w-full h-20 flex flex-col">
-                  <span className="font-semibold">セッション詳細</span>
-                  <span className="text-xs text-gray-500">/staff/session/demo</span>
+                  <span className="font-semibold">スタッフホーム</span>
+                  <span className="text-xs text-gray-500">/staff/home</span>
                 </Button>
               </Link>
               <Link href="/staff/diagnosis/demo">
                 <Button variant="outline" className="w-full h-20 flex flex-col">
-                  <span className="font-semibold">診断入力</span>
+                  <span className="font-semibold">統合診断デモ</span>
                   <span className="text-xs text-gray-500">/staff/diagnosis/demo</span>
                 </Button>
               </Link>
-              <Link href="/staff/review/demo">
+              <Link href="/staff/scan">
                 <Button variant="outline" className="w-full h-20 flex flex-col">
-                  <span className="font-semibold">確認画面</span>
-                  <span className="text-xs text-gray-500">/staff/review/demo</span>
+                  <span className="font-semibold">QRスキャン</span>
+                  <span className="text-xs text-gray-500">/staff/scan</span>
                 </Button>
               </Link>
-              <Link href="/staff/analysis/demo">
+              <Link href="/staff/monitor">
                 <Button variant="outline" className="w-full h-20 flex flex-col">
-                  <span className="font-semibold">AI分析</span>
-                  <span className="text-xs text-gray-500">/staff/analysis/demo</span>
-                </Button>
-              </Link>
-              <Link href="/staff/report/demo">
-                <Button variant="outline" className="w-full h-20 flex flex-col">
-                  <span className="font-semibold">レポート送信</span>
-                  <span className="text-xs text-gray-500">/staff/report/demo</span>
+                  <span className="font-semibold">リアルタイム監視</span>
+                  <span className="text-xs text-gray-500">/staff/monitor</span>
                 </Button>
               </Link>
             </div>

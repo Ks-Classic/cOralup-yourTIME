@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, children, profiles, questionnaireResponses, questionnaireItems } from '@/db/schema'
 import { eq, or, desc } from 'drizzle-orm'
+import { selectQuestionnaireChild } from '@/lib/parent-questionnaire-flow'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const lineUserId = searchParams.get('line_user_id')
+    const requestedChildId = searchParams.get('child_id')
 
     if (!lineUserId) {
       return NextResponse.json(
@@ -122,13 +124,12 @@ export async function GET(request: NextRequest) {
       })
     )
 
-    // 後方互換: 最新の子供とvisitを取得
-    const latestChild = childrenWithVisits[0] || null
-    const latestVisit = latestChild?.latestVisit || null
+    const selectedChild = selectQuestionnaireChild(childrenWithVisits, requestedChildId)
+    const selectedVisit = selectedChild?.latestVisit || null
 
-    // 4. 問診回答を取得（最新visitがある場合のみ、後方互換用）
+    // 4. 問診回答を取得（選択中visitがある場合のみ、後方互換用）
     let questionnaireResponsesList: any[] = []
-    if (latestVisit?.id) {
+    if (selectedVisit?.id) {
       const responseRows = await db
         .select({
           id: questionnaireResponses.id,
@@ -143,9 +144,9 @@ export async function GET(request: NextRequest) {
         .from(questionnaireResponses)
         .leftJoin(questionnaireItems, eq(questionnaireResponses.itemId, questionnaireItems.id))
         .where(
-          latestVisit.sessionId
-            ? or(eq(questionnaireResponses.visitId, latestVisit.id), eq(questionnaireResponses.sessionId, latestVisit.sessionId))
-            : eq(questionnaireResponses.visitId, latestVisit.id)
+          selectedVisit.sessionId
+            ? or(eq(questionnaireResponses.visitId, selectedVisit.id), eq(questionnaireResponses.sessionId, selectedVisit.sessionId))
+            : eq(questionnaireResponses.visitId, selectedVisit.id)
         )
         .orderBy(questionnaireResponses.answeredAt)
 
@@ -176,16 +177,16 @@ export async function GET(request: NextRequest) {
         phoneNumber: profile.phoneNumber,
       },
       children: childrenWithVisits,
-      child: latestChild ? {
-        id: latestChild.id,
-        firstName: latestChild.firstName,
-        lastName: latestChild.lastName,
-        firstNameKana: latestChild.firstNameKana,
-        lastNameKana: latestChild.lastNameKana,
-        birthday: latestChild.birthday,
-        gender: latestChild.gender,
+      child: selectedChild ? {
+        id: selectedChild.id,
+        firstName: selectedChild.firstName,
+        lastName: selectedChild.lastName,
+        firstNameKana: selectedChild.firstNameKana,
+        lastNameKana: selectedChild.lastNameKana,
+        birthday: selectedChild.birthday,
+        gender: selectedChild.gender,
       } : null,
-      visit: latestVisit,
+      visit: selectedVisit,
       questionnaireResponses: questionnaireResponsesList,
     })
   } catch (error) {

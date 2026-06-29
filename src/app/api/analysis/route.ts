@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { visits, children, questionnaires, diagnoses, aiAnalysisLogs } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { analyzeWithRetry, extractJSON } from '@/lib/gemini'
+import { updateVisitProgress } from '@/lib/visit-status'
 import {
   OralDiagnosisOutput,
   OralDiagnosisOutputSchema,
@@ -83,8 +84,7 @@ export async function POST(request: NextRequest) {
       finalContent: analysisResult.parentComment,
     } as typeof aiAnalysisLogs.$inferInsert).returning()
 
-    // Status更新
-    await db.update(visits).set({ status: 'analysis_completed' } as any).where(eq(visits.id, visitId))
+    await updateVisitProgress(visitId, 'analysis_completed')
 
     return NextResponse.json({
       success: true,

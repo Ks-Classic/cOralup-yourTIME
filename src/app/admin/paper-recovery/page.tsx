@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import Image from 'next/image'
 import { useDropzone } from 'react-dropzone'
 import { FileImage, Check, AlertCircle, Loader2, ArrowRight, ChevronDown, Upload, X, ZoomIn } from 'lucide-react'
 import Link from 'next/link'
@@ -366,10 +367,13 @@ export default function PaperRecoveryPage() {
                                             className="relative cursor-zoom-in"
                                             onClick={() => setIsZoomed(true)}
                                         >
-                                            <img
+                                            <Image
                                                 src={imagePreview}
                                                 alt="問診票"
                                                 className="w-full rounded-lg border border-gray-200"
+                                                width={900}
+                                                height={1200}
+                                                unoptimized
                                             />
                                             <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
                                                 <ZoomIn className="w-3 h-3" />
@@ -825,10 +829,13 @@ export default function PaperRecoveryPage() {
                         >
                             <X className="w-8 h-8" />
                         </button>
-                        <img
+                        <Image
                             src={imagePreview}
                             alt="問診票（拡大）"
                             className="max-w-full max-h-full object-contain"
+                            width={1200}
+                            height={1600}
+                            unoptimized
                             onClick={(e) => e.stopPropagation()}
                         />
                     </div>

@@ -6,6 +6,7 @@
 
 export type DiagnosisStep =
   | 'line_registered'        // LINE友だち登録完了
+  | 'questionnaire_started'  // 問診開始
   | 'questionnaire_completed' // 問診完了
   | 'diagnosis_started'      // QR読み込み（診断スタート）
   | 'photos_uploaded'       // 写真撮影・保存成功
@@ -16,6 +17,7 @@ export type DiagnosisStep =
 
 export interface StepTimestamps {
   line_registered?: string
+  questionnaire_started?: string
   questionnaire_completed?: string
   diagnosis_started?: string
   photos_uploaded?: string
@@ -91,6 +93,7 @@ export async function recordVisitError(
 export function getStepDisplayName(step: DiagnosisStep): string {
   const names: Record<DiagnosisStep, string> = {
     line_registered: 'LINE友だち登録',
+    questionnaire_started: '問診開始',
     questionnaire_completed: '問診完了',
     diagnosis_started: '診断スタート',
     photos_uploaded: '写真撮影完了',
@@ -108,15 +111,15 @@ export function getStepDisplayName(step: DiagnosisStep): string {
 export function getStepOrder(step: DiagnosisStep): number {
   const order: Record<DiagnosisStep, number> = {
     line_registered: 1,
-    questionnaire_completed: 2,
-    diagnosis_started: 3,
-    photos_uploaded: 4,
-    analysis_completed: 5,
-    report_generated: 6,
-    line_sent: 7,
-    line_confirmed: 8,
+    questionnaire_started: 2,
+    questionnaire_completed: 3,
+    diagnosis_started: 4,
+    photos_uploaded: 5,
+    analysis_completed: 6,
+    report_generated: 7,
+    line_sent: 8,
+    line_confirmed: 9,
   }
   return order[step] || 0
 }
-
 

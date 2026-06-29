@@ -18,9 +18,7 @@ export async function GET(request: NextRequest) {
 
         let items: any[] = []
         try {
-            // Debug: fetch ALL items first to see total count
-            const allItemsDebug = await db.select().from(diagnosisItems).where(eq(diagnosisItems.isActive, true))
-            console.log(`[diagnosis-schema] DEBUG: Total active items in DB: ${allItemsDebug.length}`)
+            const allItems = await db.select().from(diagnosisItems).where(eq(diagnosisItems.isActive, true))
 
             // Filter at SQL level to avoid camelCase/snake_case issues
             if (inputType) {
@@ -33,9 +31,8 @@ export async function GET(request: NextRequest) {
                     ))
                     .orderBy(asc(diagnosisItems.displayOrder))
             } else {
-                items = allItemsDebug
+                items = allItems
             }
-            console.log(`[diagnosis-schema] inputType param: "${inputType}", items count: ${items.length}`)
         } catch (itemError) {
             console.error('[diagnosis-schema] Error fetching items:', itemError)
         }

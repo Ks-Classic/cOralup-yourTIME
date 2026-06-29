@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { profiles, children, visits } from '@/db/schema'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, desc } from 'drizzle-orm'
+import { canReuseVisitForChild } from '@/lib/parent-questionnaire-flow'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,13 @@ export async function POST(request: NextRequest) {
     if (!lineUserId) {
       return NextResponse.json(
         { success: false, error: 'lineUserId is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!childBirthday || !childGender) {
+      return NextResponse.json(
+        { success: false, error: 'childBirthday and childGender are required' },
         { status: 400 }
       )
     }
@@ -168,7 +176,6 @@ export async function POST(request: NextRequest) {
           .returning()
         child = updatedChildren[0]
         childIdToUse = child?.id
-        console.log('[Basic Info] Found duplicate child, updating instead:', child?.id)
       }
     }
 
@@ -189,7 +196,7 @@ export async function POST(request: NextRequest) {
     // sessionIdがあればそれで検索
     if (sessionId) {
       const existingVisitRows = await db
-        .select({ id: visits.id, sessionId: visits.sessionId })
+        .select({ id: visits.id, sessionId: visits.sessionId, childId: visits.childId })
         .from(visits)
         .where(
           and(
@@ -201,13 +208,15 @@ export async function POST(request: NextRequest) {
 
       const existingVisit = existingVisitRows[0]
 
-      if (existingVisit) {
+      if (canReuseVisitForChild(existingVisit, child.id)) {
         visitId = existingVisit.id
         finalSessionId = existingVisit.sessionId
         await db
           .update(visits)
           .set({
             childId: child.id,
+            parentProfileId: profile.id,
+            lineUserId,
             childAgeMonths: ageMonths,
             status: 'in_progress',
             currentStep: 'questionnaire_started',
@@ -228,7 +237,7 @@ export async function POST(request: NextRequest) {
             inArray(visits.status, ['waiting', 'questionnaire_in_progress', 'in_progress'])
           )
         )
-        .orderBy(visits.createdAt)
+        .orderBy(desc(visits.createdAt))
         .limit(1)
 
       const existingChildVisit = childVisitRows[0]
@@ -238,13 +247,14 @@ export async function POST(request: NextRequest) {
         await db
           .update(visits)
           .set({
+            parentProfileId: profile.id,
+            lineUserId,
             childAgeMonths: ageMonths,
             status: 'in_progress',
             currentStep: 'questionnaire_started',
             updatedAt: new Date(),
           } as Partial<typeof visits.$inferInsert>)
           .where(eq(visits.id, visitId))
-        console.log('[Basic Info] Found existing visit for child, reusing:', visitId)
       }
     }
 
@@ -252,12 +262,13 @@ export async function POST(request: NextRequest) {
     if (!visitId) {
       finalSessionId = `S${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-      console.log('[Basic Info] Creating new visit with childId:', child.id)
       const insertedVisits = await db
         .insert(visits)
         .values({
           sessionId: finalSessionId,
           childId: child.id,
+          parentProfileId: profile.id,
+          lineUserId,
           childAgeMonths: ageMonths,
           eventId: (process.env.DEFAULT_EVENT_ID as any) || null,
           organizationId: (process.env.CORALUP_ORG_ID as any) || null,
@@ -267,16 +278,23 @@ export async function POST(request: NextRequest) {
         } as typeof visits.$inferInsert)
         .returning()
       visitId = insertedVisits[0].id
-      console.log('[Basic Info] Created new visit:', visitId)
     }
 
-    console.log('[Basic Info] Success - returning:', { profileId: profile.id, childId: child.id, visitId, sessionId: finalSessionId })
     return NextResponse.json({
       success: true,
       profileId: profile.id,
       childId: child.id,
       visitId,
       sessionId: finalSessionId,
+      child: {
+        id: child.id,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        firstNameKana: child.firstNameKana,
+        lastNameKana: child.lastNameKana,
+        birthday: child.birthday,
+        gender: child.gender,
+      },
     })
   } catch (error) {
     console.error('[Basic Info] Error:', error)

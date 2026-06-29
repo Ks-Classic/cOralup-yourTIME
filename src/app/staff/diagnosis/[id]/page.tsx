@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import Image from 'next/image'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
@@ -11,6 +12,11 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { StaffDiagnosisBottomNav } from '@/components/staff/StaffDiagnosisBottomNav'
+import {
+  StaffDiagnosisPhotoPreviewModal,
+  StaffDiagnosisPhotoViewerModal,
+} from '@/components/staff/StaffDiagnosisPhotoModals'
 import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
 import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save, AlertCircle, RotateCcw } from 'lucide-react'
@@ -20,99 +26,21 @@ import { generateStaffDiagnosisSampleData } from '@/utils/staff-sample-data-gene
 import { generateQRCode } from '@/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useDiagnosisStorage, cleanupOldDiagnosisData } from '@/hooks/useDiagnosisStorage'
+import {
+  calculateDiagnosisProgressPercentage,
+  calculateOverallProgressPercentage,
+} from '@/lib/staff-diagnosis-progress'
 import { updateVisitStep, recordVisitError } from '@/lib/visit-steps'
-
-// メインビューの定義（下部メニューで切り替え）
-type MainView = 'questionnaire' | 'photos' | 'diagnosis' | 'review' | 'report' | 'memo'
-
-// ステップ定義（後方互換性のため残す）
-type DiagnosisStep =
-  | 'start'       // QR読み取り・セッションID入力（セッションID未確定時）
-  | 'session'     // セッション情報確認（問診票確認）
-  | 'photos'      // 写真撮影
-  | 'diagnosis'   // 診断項目入力
-  | 'review'      // 確認・修正
-  | 'analysis'    // AI分析
-  | 'report'      // レポート送信
-
-const steps: DiagnosisStep[] = [
-  'session',
-  'photos',
-  'diagnosis',
-  'review',
-  'analysis',
-  'report'
-]
-
-interface SessionData {
-  id: string
-  session_id: string
-  status: string
-  parent_name?: string
-  parent_phone?: string
-  child_name?: string
-  child_age?: number
-  child_gender?: string
-  created_at: string
-}
-
-interface QuestionnaireData {
-  child_name: string
-  child_age: number
-  child_gender: string
-  medical_history: string[]
-  concerns: string[]
-  ideal_goals: string[]
-  notes?: string
-}
-
-interface PhotoData {
-  id: string
-  url: string
-  type: 'posture_front' | 'posture_side' | 'oral_front' | 'oral_side' | 'oral_closeup'
-  uploaded_at: string
-}
-
-interface AnalysisResult {
-  postureAnalysis?: {
-    overallScore: number
-    issues: string[]
-    recommendations: string[]
-    severity: 'low' | 'medium' | 'high'
-    details: {
-      headPosition: string
-      shoulderBalance: string
-      spineCurve: string
-      pelvisTilt: string
-      footBalance: string
-    }
-  }
-  oralAnalysis?: {
-    overallScore: number
-    issues: string[]
-    recommendations: string[]
-    severity: 'low' | 'medium' | 'high'
-    details: {
-      biteCondition: string
-      teethAlignment: string
-      tonguePosition: string
-      oralCleanliness: string
-      functionEstimation: string
-    }
-  }
-  // レポート用サマリー（分析シート形式）
-  reportSummary?: string
-  report?: {
-    summary: string
-    analysis: string
-    recommendations: string[]
-    nextSteps: string[]
-    encouragingMessage: string
-  }
-  // レポートURL情報（visit_idベース）
-  reportUrl?: string
-  hasReport?: boolean
-}
+import {
+  STAFF_DIAGNOSIS_PHOTO_TYPES,
+  STAFF_DIAGNOSIS_STEPS,
+  type StaffDiagnosisAnalysisResult as AnalysisResult,
+  type StaffDiagnosisMainView as MainView,
+  type StaffDiagnosisPhotoData as PhotoData,
+  type StaffDiagnosisQuestionnaireData as QuestionnaireData,
+  type StaffDiagnosisSessionData as SessionData,
+  type StaffDiagnosisStep as DiagnosisStep,
+} from '@/types/staff-diagnosis'
 
 // 問診回答データの型定義
 interface QuestionnaireResponseData {
@@ -511,7 +439,7 @@ export default function DiagnosisPageWithId() {
         })
 
         // DBから写真を復元（既存の写真がない場合のみ）
-        if (visit.photos && visit.photos.length > 0 && photos.length === 0) {
+        if (visit.photos && visit.photos.length > 0) {
           const restoredPhotos: PhotoData[] = visit.photos
             .filter((p: any) => p.url) // URLがある写真のみ
             .map((p: any) => ({
@@ -521,7 +449,7 @@ export default function DiagnosisPageWithId() {
               uploaded_at: p.uploaded_at || new Date().toISOString(),
             }))
           if (restoredPhotos.length > 0) {
-            setPhotos(restoredPhotos)
+            setPhotos(prev => prev.length === 0 ? restoredPhotos : prev)
           }
         }
 
@@ -545,7 +473,7 @@ export default function DiagnosisPageWithId() {
   // URLハッシュ同期
   useEffect(() => {
     const hash = window.location.hash.replace('#step=', '')
-    if (hash && steps.includes(hash as DiagnosisStep)) {
+    if (hash && STAFF_DIAGNOSIS_STEPS.includes(hash as DiagnosisStep)) {
       setCurrentStep(hash as DiagnosisStep)
     }
   }, [])
@@ -721,44 +649,15 @@ export default function DiagnosisPageWithId() {
     }, 1000)
   }, [])
 
-  const photoTypes = [
-    { key: 'posture_front', label: '正面姿勢', description: '正面から全身を撮影', icon: '📸' },
-    { key: 'posture_side', label: '横向き姿勢', description: '横向きから全身を撮影', icon: '📸' },
-    { key: 'oral_front', label: '口腔内（正面）', description: '口を開けて口腔内を撮影', icon: '🦷' },
-  ]
+  const photoTypes = STAFF_DIAGNOSIS_PHOTO_TYPES
 
   // 進捗計算
-  const totalItems = staffItems.length
-  const completedItems = Object.keys(diagnosisValues).filter(
-    key => diagnosisValues[key] !== undefined && diagnosisValues[key] !== null && diagnosisValues[key] !== ''
-  ).length
-  const diagnosisProgressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+  const diagnosisProgressPercentage = calculateDiagnosisProgressPercentage(diagnosisValues, staffItems.length)
 
   // 全体進捗計算（各ステップの完了状況）
   const overallProgressPercentage = useMemo(() => {
-    const stepWeights: Record<DiagnosisStep, number> = {
-      start: 0,
-      session: 10,
-      photos: 20,
-      diagnosis: 40,
-      review: 10,
-      analysis: 10,
-      report: 10,
-    }
-
-    let totalWeight = 0
-    let completedWeight = 0
-
-    steps.forEach(step => {
-      totalWeight += stepWeights[step]
-      if (isStepCompleted(step)) {
-        completedWeight += stepWeights[step]
-      }
-    })
-
-    return totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedSteps, isStepCompleted])
+    return calculateOverallProgressPercentage(completedSteps)
+  }, [completedSteps])
 
   // 写真プレビュー状態
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string, type: string } | null>(null)
@@ -1057,7 +956,6 @@ export default function DiagnosisPageWithId() {
     setIsAnalyzing(true)
     try {
       // 1. 診断データをDBに保存
-      console.log('[Diagnosis] 診断データをDBに保存中...')
       const diagnosisItemsData: Record<string, any> = {}
       staffItems.forEach(item => {
         const rawValue = diagnosisValues[item.id]
@@ -1079,8 +977,6 @@ export default function DiagnosisPageWithId() {
 
       if (!saveDiagnosisResponse.ok) {
         console.warn('[Diagnosis] DBへの保存に失敗しましたが、分析は続行します')
-      } else {
-        console.log('[Diagnosis] 診断データをDBに保存しました')
       }
 
       // 2. 診断値をtestData形式に変換（diagnosisMeta: { itemId: { question, value } }）
@@ -2107,11 +2003,13 @@ export default function DiagnosisPageWithId() {
                                   label: type.label
                                 })}
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={existingPhoto.url}
                                   alt={type.label}
                                   className="w-20 h-20 object-cover rounded-lg border-2 border-green-300"
+                                  width={80}
+                                  height={80}
+                                  unoptimized
                                 />
                                 <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
                                   <span className="text-white text-xs font-medium opacity-0 hover:opacity-100">タップで確認</span>
@@ -2571,112 +2469,21 @@ export default function DiagnosisPageWithId() {
         </AnimatePresence>
       </main>
 
-      {/* 下部ナビゲーションメニュー */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50 safe-area-inset-bottom">
-        <div className="flex">
-          {[
-            { view: 'questionnaire' as MainView, label: '問診', icon: <FileText className="w-4 h-4" /> },
-            { view: 'photos' as MainView, label: '写真', icon: <Camera className="w-4 h-4" /> },
-            { view: 'diagnosis' as MainView, label: '診断', icon: <CheckCircle2 className="w-4 h-4" /> },
-            { view: 'review' as MainView, label: '分析', icon: <Brain className="w-4 h-4" /> },
-            { view: 'memo' as MainView, label: 'メモ', icon: <StickyNote className="w-4 h-4" /> },
-          ].map(({ view, label, icon }) => (
-            <button
-              key={view}
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                setCurrentMainView(view)
-              }}
-              className={cn(
-                "flex-1 flex flex-col items-center justify-center py-2.5 px-1 transition-colors min-h-[60px] touch-manipulation",
-                currentMainView === view
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-600 active:bg-gray-50"
-              )}
-            >
-              <div className="relative">
-                {icon}
-                {completedViews[view] && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
-                )}
-              </div>
-              <span className="text-[10px] mt-0.5 leading-tight">{label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
+      <StaffDiagnosisBottomNav
+        currentView={currentMainView}
+        completedViews={completedViews}
+        onChangeView={setCurrentMainView}
+      />
 
-      {/* 写真プレビューモーダル（フルスクリーン） */}
       {previewPhoto && (
-        <div
-          className="fixed inset-0 bg-black z-[9999] flex flex-col"
-          style={{
-            touchAction: 'none',
-            overscrollBehavior: 'none',
-          }}
-        >
-          {/* 上部：画像エリア（60%） */}
-          <div
-            className="flex-1 flex items-center justify-center p-2 overflow-hidden"
-            style={{ maxHeight: '60vh' }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewPhoto.url}
-              alt="プレビュー"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-          </div>
-
-          {/* 下部：ボタンエリア（40%） */}
-          <div className="bg-black p-4 flex flex-col justify-center" style={{ height: '40vh' }}>
-            <div className="text-center text-white mb-4">
-              <p className="text-lg font-semibold">
-                {photoTypes.find(t => t.key === previewPhoto.type)?.label}
-              </p>
-              <p className="text-sm text-gray-300 mt-1">
-                この写真でよろしいですか？
-              </p>
-            </div>
-
-            <div className="flex gap-3 max-w-md mx-auto w-full">
-              <Button
-                variant="outline"
-                onClick={closePreview}
-                className="flex-1 h-14 bg-white/10 border-white/30 text-white hover:bg-white/20 text-base"
-              >
-                <X className="w-5 h-5 mr-2" />
-                キャンセル
-              </Button>
-              <Button
-                variant="outline"
-                onClick={retakePhoto}
-                className="flex-1 h-14 bg-yellow-500/30 border-yellow-500/50 text-yellow-200 hover:bg-yellow-500/40 text-base"
-              >
-                <Camera className="w-5 h-5 mr-2" />
-                撮り直す
-              </Button>
-              <Button
-                onClick={savePreviewPhoto}
-                disabled={isUploadingPhoto}
-                className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white text-base font-bold disabled:bg-green-400"
-              >
-                {isUploadingPhoto ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                    保存中...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-5 h-5 mr-2" />
-                    保存
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <StaffDiagnosisPhotoPreviewModal
+          imageUrl={previewPhoto.url}
+          label={photoTypes.find(t => t.key === previewPhoto.type)?.label || '写真'}
+          isSaving={isUploadingPhoto}
+          onCancel={closePreview}
+          onRetake={retakePhoto}
+          onSave={savePreviewPhoto}
+        />
       )}
 
       {/* レガシーカメラモーダル（フォールバック用） */}
@@ -2854,58 +2661,17 @@ export default function DiagnosisPageWithId() {
         </div>
       )}
 
-      {/* 写真確認モーダル（写真メニューから） */}
       {viewingPhotoInMenu && (
-        <div
-          className="fixed inset-0 bg-black z-[9999] flex flex-col"
-          style={{
-            touchAction: 'none',
-            overscrollBehavior: 'none',
+        <StaffDiagnosisPhotoViewerModal
+          imageUrl={viewingPhotoInMenu.url}
+          label={viewingPhotoInMenu.label}
+          onClose={() => setViewingPhotoInMenu(null)}
+          onRetake={() => {
+            const photoType = viewingPhotoInMenu.type
+            setViewingPhotoInMenu(null)
+            startCamera(photoType)
           }}
-        >
-          {/* 上部：画像エリア（65%） */}
-          <div
-            className="flex-1 flex items-center justify-center p-2 overflow-hidden"
-            style={{ maxHeight: '65vh' }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={viewingPhotoInMenu.url}
-              alt={viewingPhotoInMenu.label}
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-          </div>
-
-          {/* 下部：ボタンエリア（35%） */}
-          <div className="bg-black p-4 flex flex-col justify-center" style={{ height: '35vh' }}>
-            <div className="text-center text-white mb-4">
-              <p className="text-lg font-semibold">{viewingPhotoInMenu.label}</p>
-              <p className="text-sm text-gray-300 mt-1">撮影済みの写真</p>
-            </div>
-
-            <div className="flex gap-3 max-w-md mx-auto w-full">
-              <Button
-                variant="outline"
-                onClick={() => setViewingPhotoInMenu(null)}
-                className="flex-1 h-14 bg-white/10 border-white/30 text-white hover:bg-white/20 text-base"
-              >
-                <X className="w-5 h-5 mr-2" />
-                戻る
-              </Button>
-              <Button
-                onClick={() => {
-                  const photoType = viewingPhotoInMenu.type
-                  setViewingPhotoInMenu(null)
-                  startCamera(photoType)
-                }}
-                className="flex-1 h-14 bg-yellow-500 hover:bg-yellow-600 text-white text-base font-bold"
-              >
-                <Camera className="w-5 h-5 mr-2" />
-                再撮影
-              </Button>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {/* LINE配信確認モーダル */}
@@ -3010,7 +2776,3 @@ export default function DiagnosisPageWithId() {
     </div>
   )
 }
-
-
-
-

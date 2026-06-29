@@ -94,14 +94,16 @@ class Logger {
                 debug: '\x1b[90m', // Gray
             }
             const reset = '\x1b[0m'
-            console.log(
-                `${colorMap[level]}[${level.toUpperCase()}]${reset} ${message}`,
-                context,
-                error || ''
-            )
+            const details = [context, error].filter(Boolean).map(item => JSON.stringify(item)).join(' ')
+            process.stdout.write(`${colorMap[level]}[${level.toUpperCase()}]${reset} ${message}${details ? ` ${details}` : ''}\n`)
         } else {
             // 本番環境（Vercelなど）ではJSON形式で出力
-            console.log(JSON.stringify(logEntry))
+            const output = `${JSON.stringify(logEntry)}\n`
+            if (level === 'error') {
+                process.stderr.write(output)
+            } else {
+                process.stdout.write(output)
+            }
         }
     }
 

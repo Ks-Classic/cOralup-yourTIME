@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
  * GET: 管理者向け履歴取得
  * Query params:
  *   - staffId?: 特定スタッフのID（指定しない場合は全スタッフ）
- *   - status?: ステータスフィルタ（diagnosis_completed, report_sent等）
+ *   - status?: ステータスフィルタ（completed, published等）
  *   - limit?: 取得件数（デフォルト: 50）
  *   - offset?: オフセット（デフォルト: 0）
  */
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         id: visits.id,
         visitDate: visits.visitDate,
         status: visits.status,
+        currentStep: visits.currentStep,
         sessionId: visits.sessionId,
         staffProfileId: visits.staffProfileId,
         childId: visits.childId,
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       .where(
         status
           ? eq(visits.status, status)
-          : inArray(visits.status, ['diagnosis_completed', 'report_sent'])
+          : inArray(visits.status, ['completed', 'published'])
       )
       .orderBy(desc(visits.visitDate))
       .limit(limit)
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
           id: v.id,
           visit_date: v.visitDate,
           status: v.status,
+          current_step: v.currentStep,
           session_id: v.sessionId,
           staff_profile_id: v.staffProfileId,
           child_id: v.childId,
@@ -132,7 +134,7 @@ export async function GET(request: NextRequest) {
       .where(
         status
           ? eq(visits.status, status)
-          : inArray(visits.status, ['diagnosis_completed', 'report_sent'])
+          : inArray(visits.status, ['completed', 'published'])
       )
 
     // スタッフ一覧も取得（フィルタ用）

@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic'
 const mockVisits = [
   {
     id: '550e8400-e29b-41d4-a716-446655440000',
-    status: 'questionnaire_completed',
+    status: 'in_progress',
+    current_step: 'questionnaire_completed',
     visit_date: new Date().toISOString(),
     child_age_months: 48,
     children: {
@@ -36,7 +37,8 @@ const mockVisits = [
   },
   {
     id: '660e8400-e29b-41d4-a716-446655440001',
-    status: 'questionnaire_completed',
+    status: 'in_progress',
+    current_step: 'questionnaire_completed',
     visit_date: new Date().toISOString(),
     child_age_months: 72,
     children: {
@@ -120,9 +122,6 @@ export async function GET(request: NextRequest) {
 
       const visit = visitRows[0]
 
-      // デバッグログ: childIdがnullの場合を確認
-      console.log('[Session API] Visit found:', { visitId: visit.id, childId: visit.childId, status: visit.status })
-
       // childを取得
       let childData = null
       if (visit.childId) {
@@ -146,8 +145,6 @@ export async function GET(request: NextRequest) {
       // childIdがnullの場合、sessionIdで子供を紐付ける試み
       // （壊れたvisitデータの復旧のため）
       if (!childData && visit.sessionId) {
-        console.log('[Session API] Trying to find child by sessionId:', visit.sessionId)
-
         // 問診回答からvisitIdを取得し、そのvisitに紐づく子供を探す
         // または、同じsessionIdを持つ別のvisitから子供を探す
         const relatedVisitRows = await db
@@ -159,7 +156,6 @@ export async function GET(request: NextRequest) {
         const validChildId = relatedVisitRows.find(v => v.childId)?.childId
 
         if (validChildId) {
-          console.log('[Session API] Found child from related visit:', validChildId)
           const childRows = await db
             .select({
               id: children.id,
@@ -182,7 +178,6 @@ export async function GET(request: NextRequest) {
               .update(visits)
               .set({ childId: childData.id, updatedAt: new Date() } as Partial<typeof visits.$inferInsert>)
               .where(eq(visits.id, visit.id))
-            console.log('[Session API] Fixed broken visit, set childId:', childData.id)
           }
         }
       }
@@ -459,6 +454,7 @@ export async function GET(request: NextRequest) {
         .select({
           id: visits.id,
           status: visits.status,
+          currentStep: visits.currentStep,
           visitDate: visits.visitDate,
           childId: visits.childId,
         })
@@ -469,7 +465,7 @@ export async function GET(request: NextRequest) {
       // 各visitのchildrenを取得
       const visitsWithChildren = await Promise.all(
         visitRows
-          .filter(v => v.status === 'questionnaire_completed')
+          .filter(v => v.status === 'in_progress' && v.currentStep === 'questionnaire_completed')
           .map(async (v) => {
             let childData = null
             if (v.childId) {
@@ -486,6 +482,7 @@ export async function GET(request: NextRequest) {
             return {
               id: v.id,
               status: v.status,
+              current_step: v.currentStep,
               visit_date: v.visitDate,
               children: childData ? {
                 first_name: childData.firstName,
@@ -529,7 +526,8 @@ export async function POST(request: NextRequest) {
         success: true,
         visit: {
           id: visitId,
-          status: action === 'start_diagnosis' ? 'diagnosis_started' : 'questionnaire_completed',
+          status: 'in_progress',
+          current_step: action === 'start_diagnosis' ? 'diagnosis_started' : 'questionnaire_completed',
           staff_profile_id: staffId,
         },
       })
