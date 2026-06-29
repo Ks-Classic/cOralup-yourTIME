@@ -1,6 +1,6 @@
 # スタッフLINE認証仕様書 (cOralup Platform)
 
-**最終更新: 2024-12-08**
+**最終更新: 2026-06-29**
 
 ## 1. 概要
 
@@ -62,6 +62,7 @@
 │                                                                 │
 │  /api/line/staff-webhook     - 友だち追加イベント処理           │
 │  /api/auth/staff-session     - LIFF→セッション発行             │
+│  /api/line/send-demo-report  - スタッフ本人宛デモLINE送信       │
 │  /staff/liff-login           - LIFF専用ログイン画面（1画面のみ）│
 │  /staff/home                 - ホーム画面（通常ブラウザ）       │
 │  /staff/history              - 対応履歴一覧                     │
@@ -144,8 +145,11 @@ LINE_STAFF_CHANNEL_ID=xxxxx
 LINE_STAFF_CHANNEL_SECRET=xxxxx
 LINE_STAFF_CHANNEL_ACCESS_TOKEN=xxxxx
 
-# セッション暗号化キー（JWT署名用）
+# セッション暗号化キー（JWT署名用 / 必須・デフォルト値なし）
 STAFF_SESSION_SECRET=your-random-secret-key
+
+# LINE Login チャネルID（IDトークン検証 aud 用 / 必須）
+LINE_STAFF_LOGIN_CHANNEL_ID=xxxxx
 
 # cOralup組織ID（profiles.organization_id用）
 CORALUP_ORG_ID=xxxxx
@@ -153,10 +157,11 @@ CORALUP_ORG_ID=xxxxx
 
 **環境変数設定手順:**
 1. LINE Developers ConsoleでMessaging APIチャネル作成 → `LINE_STAFF_CHANNEL_*` を取得
-2. `STAFF_SESSION_SECRET` は `openssl rand -hex 32` で生成
-3. Vercel環境変数とローカル `.env.local` に設定
+2. `STAFF_SESSION_SECRET` は `openssl rand -hex 32` で生成（**未設定/32文字未満なら起動時に fail-closed で例外**。デフォルト鍵フォールバックは持たない）
+3. LIFFが紐づくLINE Loginチャネルの Channel ID（Basic settings）→ `LINE_STAFF_LOGIN_CHANNEL_ID` に設定
+4. Vercel環境変数とローカル `.env.local` に設定
 
-**⚠️ LINE Loginチャネル関連の環境変数は不要**（ブラウザ想定のため）
+**セキュリティ前提:** スタッフのLINE本人性は `liff.getIDToken()` のIDトークンをサーバ側でLINE公式 `oauth2/v2.1/verify` に通して検証する。bodyの生 `lineUserId`/`userId` は信頼しない（なりすまし防止）。検証には `LINE_STAFF_LOGIN_CHANNEL_ID` が必須。
 
 ---
 
@@ -220,6 +225,46 @@ QRスキャン → visitId取得
     ↓
 診断開始 → /staff/diagnosis/[visitId]
 ```
+
+### 4.4 デモLINE送信フロー（スタッフ本人限定）
+
+デモモードでは、実運用DBの `visits` / `reports` / `line_message_logs` を更新しない。
+ただしスタッフ説明・練習・検証のため、ログイン中スタッフ本人のLINEにだけデモレポート通知を送信できる。
+
+```mermaid
+sequenceDiagram
+    participant StaffA as スタッフAのブラウザ
+    participant StaffB as スタッフBのブラウザ
+    participant Demo as /staff/diagnosis/demo
+    participant API as /api/line/send-demo-report
+    participant Auth as staff_session JWT
+    participant StaffLINE as スタッフ用LINE公式
+
+    StaffA->>Demo: デモLINE送信
+    Demo->>API: POST childName, reportSummary
+    API->>Auth: CookieからJWT検証
+    Auth-->>API: staffId=A, lineUserId=A, staffName=A
+    API->>StaffLINE: Push Message to lineUserId=A
+    StaffLINE-->>StaffA: デモレポート通知
+
+    StaffB->>Demo: 同時にデモLINE送信
+    Demo->>API: POST childName, reportSummary
+    API->>Auth: CookieからJWT検証
+    Auth-->>API: staffId=B, lineUserId=B, staffName=B
+    API->>StaffLINE: Push Message to lineUserId=B
+    StaffLINE-->>StaffB: デモレポート通知
+```
+
+本人限定保証:
+- セッション発行時、LINE本人性は `liff.getIDToken()` をサーバ側でLINE公式検証し、検証済み `sub` のみを `lineUserId` に採用する。body の生 `lineUserId`/`userId` は信頼しない。
+- JWT署名鍵 `STAFF_SESSION_SECRET` はデフォルト値フォールバックを持たず、未設定なら fail-closed（鍵漏洩・偽造JWTによる宛先すり替えを防止）。
+- 送信先 `lineUserId` はリクエストbodyで受け取らない。
+- 送信先は `staff_session` Cookie内JWTの `lineUserId` のみ。
+- 複数スタッフが同時ログインしていても、各ブラウザのCookieが別なら、それぞれ自分の `lineUserId` にだけ送られる。
+- 同一スタッフが複数端末でログインしている場合は、同じスタッフ本人のLINEに届く。
+- 患者/保護者の `lineUserId`、任意入力ID、URLパラメータ、localStorage値は送信先に使わない。
+- 送信チャネルはスタッフ用 `LINE_STAFF_CHANNEL_ACCESS_TOKEN`。親御さん用チャネルは使わない。
+- DBログ、visit更新、report作成、LINE配信確認更新は行わない。
 
 ---
 
@@ -332,15 +377,22 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const { lineUserId } = await request.json()
-    
-    if (!lineUserId) {
+    const { idToken } = await request.json()
+
+    if (!idToken) {
       return NextResponse.json(
-        { error: 'lineUserId is required' },
+        { error: 'idToken is required' },
         { status: 400 }
       )
     }
-    
+
+    // LINE公式 verify でIDトークン検証 → 検証済み sub のみ採用（bodyのlineUserIdは信頼しない）
+    const identity = await verifyLineIdToken(idToken)
+    if (!identity) {
+      return NextResponse.json({ error: 'invalid_id_token' }, { status: 401 })
+    }
+    const lineUserId = identity.lineUserId
+
     // DBでスタッフ確認
     const { data: staff, error } = await supabase
       .from('profiles')
@@ -528,14 +580,18 @@ export default function LiffLoginPage() {
           return
         }
         
-        // プロフィール取得
-        const profile = await liff.getProfile()
-        
+        // IDトークン取得（userIdは送らない。サーバ側でLINE検証する）
+        const idToken = liff.getIDToken()
+        if (!idToken) {
+          // openidスコープ未付与等。再ログインを促す
+          return
+        }
+
         // セッション発行API呼び出し
         const res = await fetch('/api/auth/staff-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lineUserId: profile.userId })
+          body: JSON.stringify({ idToken })
         })
         
         const data = await res.json()
@@ -1079,4 +1135,3 @@ const startDiagnosis = async (sessionId: string, staffId: string) => {
 - 友だち追加 → 名前入力 → **イベント選択（Flex Messageボタン）** → 登録完了
 - `event_staffs` テーブル（Many-to-Many）で柔軟に管理
 - エッジケース（2回押し、ブロック復帰、イベント0件等）を包括的に対策済み
-

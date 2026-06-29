@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers'
 import { jwtVerify, SignJWT } from 'jose'
 
-const STAFF_SESSION_SECRET = process.env.STAFF_SESSION_SECRET || 'default-secret-change-in-production'
 const SESSION_COOKIE_NAME = 'staff_session'
 const SESSION_EXPIRY_DAYS = 7
+const MIN_SECRET_LENGTH = 32
 
 export interface StaffSession {
   staffId: string
@@ -13,37 +13,68 @@ export interface StaffSession {
 }
 
 /**
- * JWTシークレットをエンコード
+ * JWTシークレットをエンコード。
+ * CR-S: ハードコードのフォールバックは持たない。未設定/脆弱なら fail-closed で例外。
+ * （デフォルト鍵で署名すると任意lineUserIdのJWT偽造→デモ/チャット送信のなりすましが可能になるため）
  */
-function getSecret() {
-  return new TextEncoder().encode(STAFF_SESSION_SECRET)
+function getSecret(): Uint8Array {
+  const secret = process.env.STAFF_SESSION_SECRET
+  if (!secret || secret.length < MIN_SECRET_LENGTH) {
+    throw new Error(
+      `STAFF_SESSION_SECRET is not set or too short (>= ${MIN_SECRET_LENGTH} chars required)`
+    )
+  }
+  return new TextEncoder().encode(secret)
+}
+
+/**
+ * セッショントークンを検証して StaffSession を返す（無効なら null）。
+ * Cookie/外部ブラウザ引き継ぎ等、トークン文字列を直接持つ経路で共用する。
+ */
+export async function verifyStaffSessionToken(
+  token: string
+): Promise<StaffSession | null> {
+  // 鍵未設定(設定ミス)は「無効トークン」と区別したいので try の外で評価し、
+  // getSecret() の例外は呼び出し元へ伝播させる(fail-closed・5xx相当)。
+  const secret = getSecret()
+  try {
+    const { payload } = await jwtVerify(token, secret)
+    // jwtVerifyは署名/期限のみ検証。クレームの型はここで実行時に確定する。
+    if (
+      typeof payload.staffId !== 'string' ||
+      typeof payload.staffName !== 'string' ||
+      typeof payload.role !== 'string'
+    ) {
+      return null
+    }
+    return {
+      staffId: payload.staffId,
+      staffName: payload.staffName,
+      role: payload.role,
+      lineUserId:
+        typeof payload.lineUserId === 'string' ? payload.lineUserId : undefined,
+    }
+  } catch (error) {
+    // 署名不正・期限切れ等の「無効トークン」のみ null
+    console.error('[Staff Auth] Token verification failed:', error)
+    return null
+  }
 }
 
 /**
  * スタッフセッションを取得（nullの場合は未認証）
  */
 export async function getStaffSession(): Promise<StaffSession | null> {
-  try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
 
-    if (!token) {
-      return null
-    }
-
-    const { payload } = await jwtVerify(token, getSecret())
-
-    return {
-      staffId: payload.staffId as string,
-      staffName: payload.staffName as string,
-      role: payload.role as string,
-      lineUserId: payload.lineUserId as string | undefined,
-    }
-  } catch (error) {
-    // トークンが無効または期限切れ
-    console.error('[Staff Auth] Session verification failed:', error)
+  if (!token) {
     return null
   }
+
+  // 無効トークンは verifyStaffSessionToken が null を返す。
+  // 鍵未設定(設定ミス)は例外として伝播 → 呼び出し元で5xx相当(401と区別)。
+  return await verifyStaffSessionToken(token)
 }
 
 /**
@@ -109,13 +140,3 @@ export async function isStaffAuthenticated(): Promise<boolean> {
   const session = await getStaffSession()
   return session !== null
 }
-
-
-
-
-
-
-
-
-
-
