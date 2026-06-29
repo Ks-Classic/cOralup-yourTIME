@@ -62,13 +62,14 @@ interface AIPrompt {
     created_at: string
 }
 
-// 利用可能なGeminiモデル (2.5以上のみ)
+// 利用可能なGeminiモデル（公式の現行モデルIDのみ。2026-06 Google公式価格表に準拠）
+// 旧 'gemini-3-pro-preview' / 'gemini-3-flash-preview' は無効IDのため削除。
 const GEMINI_MODELS = [
-    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (最高品質)' },
-    { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (高速・高品質)' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (安定版・高品質)' },
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (安定版・バランス)' },
-    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (安定版・高速)' },
+    { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite（推奨・低レイテンシ/コスパ）' },
+    { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash（高品質・やや高コスト）' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash（安定版・バランス）' },
+    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite（安定版・最安/現行既定）' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro（高品質・割高）' },
 ]
 
 interface DBCategory {
