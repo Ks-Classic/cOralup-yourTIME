@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStaffSession } from '@/lib/staff-auth'
 import { logger } from '@/lib/logger'
+import { db } from '@/db'
+import { profiles } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export const maxDuration = 30
 
@@ -35,7 +38,8 @@ function parseRequestBody(body: unknown): SendDemoReportRequest | null {
   const reportSummary = isNonEmptyString(record.reportSummary)
     ? record.reportSummary.trim()
     : undefined
-  if (reportSummary && reportSummary.length > MAX_REPORT_SUMMARY_LENGTH) return null
+  if (reportSummary && reportSummary.length > MAX_REPORT_SUMMARY_LENGTH)
+    return null
 
   return { childName, reportSummary }
 }
@@ -45,7 +49,9 @@ function buildDemoReportMessage(params: {
   staffName: string
   reportSummary?: string
 }): LineTextMessage {
-  const summary = params.reportSummary || 'デモ診断レポートの送信確認です。実運用データは保存・更新されていません。'
+  const summary =
+    params.reportSummary ||
+    'デモ診断レポートの送信確認です。実運用データは保存・更新されていません。'
 
   return {
     type: 'text',
@@ -64,7 +70,10 @@ function buildDemoReportMessage(params: {
   }
 }
 
-async function sendStaffLineMessage(lineUserId: string, message: LineTextMessage): Promise<{
+async function sendStaffLineMessage(
+  lineUserId: string,
+  message: LineTextMessage
+): Promise<{
   success: boolean
   responseData?: unknown
   error?: string
@@ -72,7 +81,10 @@ async function sendStaffLineMessage(lineUserId: string, message: LineTextMessage
   // 呼び出し時にenvを読む(モジュール初期化時固定を避ける)
   const accessToken = process.env.LINE_STAFF_CHANNEL_ACCESS_TOKEN
   if (!accessToken) {
-    return { success: false, error: 'LINE_STAFF_CHANNEL_ACCESS_TOKEN is not set' }
+    return {
+      success: false,
+      error: 'LINE_STAFF_CHANNEL_ACCESS_TOKEN is not set',
+    }
   }
 
   let response: Response
@@ -92,7 +104,8 @@ async function sendStaffLineMessage(lineUserId: string, message: LineTextMessage
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'LINE push request failed',
+      error:
+        error instanceof Error ? error.message : 'LINE push request failed',
     }
   }
 
@@ -117,9 +130,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    if (!isNonEmptyString(session.lineUserId)) {
+    // 宛先は常に「認証済みスタッフ本人のLINE」。
+    // LIFFログインならセッションJWTに lineUserId がある。
+    // PINログイン等で無い場合は、本人(staffId)のプロフィールから登録済みLINEを引く。
+    // いずれもサーバ側で確定し、body からは受け取らない(なりすまし防止)。
+    let recipientLineUserId = isNonEmptyString(session.lineUserId)
+      ? session.lineUserId
+      : undefined
+
+    if (!recipientLineUserId) {
+      const rows = await db
+        .select({ lineUserId: profiles.lineUserId })
+        .from(profiles)
+        .where(eq(profiles.id, session.staffId))
+        .limit(1)
+      if (isNonEmptyString(rows[0]?.lineUserId)) {
+        recipientLineUserId = rows[0].lineUserId
+      }
+    }
+
+    if (!recipientLineUserId) {
       return NextResponse.json(
-        { error: 'スタッフ本人のLINE IDがセッションにありません。LINEスタッフログインから入り直してください。' },
+        {
+          error:
+            'スタッフ本人のLINEが未登録です。スタッフ用LINE公式アカウントを友だち追加し、LINEログインで入り直すとデモLINEを受け取れます。',
+        },
         { status: 400 }
       )
     }
@@ -138,14 +173,18 @@ export async function POST(request: NextRequest) {
       reportSummary: parsedBody.reportSummary,
     })
 
-    const result = await sendStaffLineMessage(session.lineUserId, message)
+    const result = await sendStaffLineMessage(recipientLineUserId, message)
 
     if (!result.success) {
       // 内部エラー詳細(env名/LINE生エラー)はサーバログのみ。クライアントには返さない。
-      logger.error('Demo LINE report send failed', {
-        path: '/api/line/send-demo-report',
-        staffId: session.staffId,
-      }, result.error)
+      logger.error(
+        'Demo LINE report send failed',
+        {
+          path: '/api/line/send-demo-report',
+          staffId: session.staffId,
+        },
+        result.error
+      )
 
       return NextResponse.json(
         { error: 'デモLINE送信に失敗しました' },
@@ -158,10 +197,11 @@ export async function POST(request: NextRequest) {
       message: 'スタッフ本人へデモLINEを送信しました',
     })
   } catch (error) {
-    logger.error('Demo LINE report send error', { path: '/api/line/send-demo-report' }, error)
-    return NextResponse.json(
-      { error: 'サーバーエラー' },
-      { status: 500 }
+    logger.error(
+      'Demo LINE report send error',
+      { path: '/api/line/send-demo-report' },
+      error
     )
+    return NextResponse.json({ error: 'サーバーエラー' }, { status: 500 })
   }
 }

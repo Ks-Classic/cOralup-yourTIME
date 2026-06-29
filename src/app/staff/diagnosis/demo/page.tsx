@@ -4,20 +4,54 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
 import { StaffDiagnosisBottomNav } from '@/components/staff/StaffDiagnosisBottomNav'
 import {
   StaffDiagnosisPhotoPreviewModal,
   StaffDiagnosisPhotoViewerModal,
 } from '@/components/staff/StaffDiagnosisPhotoModals'
-import { diagnosisItems as staticDiagnosisItems, diagnosisItemsByCategory as staticItemsByCategory, categoryOrder as staticCategoryOrder } from '@/data/staff-diagnosis-items'
+import {
+  diagnosisItems as staticDiagnosisItems,
+  diagnosisItemsByCategory as staticItemsByCategory,
+  categoryOrder as staticCategoryOrder,
+} from '@/data/staff-diagnosis-items'
 import type { DiagnosisItem } from '@/data/staff-diagnosis-items'
-import { Camera, X, Check, ChevronLeft, ChevronRight, Sparkles, QrCode, FileText, Eye, Brain, Send, CheckCircle2, Edit2, ExternalLink, StickyNote, Save, AlertCircle } from 'lucide-react'
+import {
+  Camera,
+  X,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  QrCode,
+  FileText,
+  Eye,
+  Brain,
+  Send,
+  CheckCircle2,
+  Edit2,
+  ExternalLink,
+  StickyNote,
+  Save,
+  AlertCircle,
+} from 'lucide-react'
 import { ReportPreview } from '@/components/staff/ReportPreview'
 import { cn } from '@/utils'
 import {
@@ -46,30 +80,44 @@ export default function IntegratedDiagnosisPage() {
   const [sessionId] = useState<string>('demo')
 
   // メインビューの管理（下部メニューで切り替え）
-  const [currentMainView, setCurrentMainView] = useState<MainView>('questionnaire')
+  const [currentMainView, setCurrentMainView] =
+    useState<MainView>('questionnaire')
 
   // ステップ管理（後方互換性のため残す）
   const [currentStep, setCurrentStep] = useState<DiagnosisStep>('session')
-  const [completedSteps, setCompletedSteps] = useState<Set<DiagnosisStep>>(new Set())
+  const [completedSteps, setCompletedSteps] = useState<Set<DiagnosisStep>>(
+    new Set()
+  )
 
   // データ管理
   const [session, setSession] = useState<SessionData | null>(null)
-  const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null)
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(
+    null
+  )
   const [photos, setPhotos] = useState<PhotoData[]>([])
-  const [diagnosisValues, setDiagnosisValues] = useState<Record<string, any>>({})
+  const [diagnosisValues, setDiagnosisValues] = useState<Record<string, any>>(
+    {}
+  )
   const [staffNotes, setStaffNotes] = useState('')
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  )
   const [editableReport, setEditableReport] = useState<any>(null)
   const [editableSummary, setEditableSummary] = useState('')
   const [isReportConfirmed, setIsReportConfirmed] = useState(false)
   const [showLineSendConfirm, setShowLineSendConfirm] = useState(false)
   const [lineSendConfirmed, setLineSendConfirmed] = useState(false)
-  const [viewingPhotoInMenu, setViewingPhotoInMenu] = useState<{ url: string, type: string, label: string } | null>(null)
+  const [viewingPhotoInMenu, setViewingPhotoInMenu] = useState<{
+    url: string
+    type: string
+    label: string
+  } | null>(null)
   const [showLineDeliveryCheck, setShowLineDeliveryCheck] = useState(false)
   const [lineDeliveryConfirmed, setLineDeliveryConfirmed] = useState(false)
   const [isDiagnosisComplete, setIsDiagnosisComplete] = useState(false)
   const [isEditingQuestionnaire, setIsEditingQuestionnaire] = useState(false)
-  const [editingQuestionnaire, setEditingQuestionnaire] = useState<QuestionnaireData | null>(null)
+  const [editingQuestionnaire, setEditingQuestionnaire] =
+    useState<QuestionnaireData | null>(null)
 
   // スキーマデータ（動的取得）
   const [diagnosisItems, setDiagnosisItems] = useState<DiagnosisItem[]>([])
@@ -91,7 +139,9 @@ export default function IntegratedDiagnosisPage() {
           // APIデータをアプリケーションの形式に変換
           const apiItems = json.data.items.map((item: any) => ({
             id: item.id,
-            category: json.data.categories.find((c: any) => c.id === item.categoryId)?.name || '未分類',
+            category:
+              json.data.categories.find((c: any) => c.id === item.categoryId)
+                ?.name || '未分類',
             question: item.question,
             answerType: item.answerType,
             options: item.options,
@@ -102,7 +152,7 @@ export default function IntegratedDiagnosisPage() {
             max: item.maxValue,
             unit: item.unit,
             placeholder: item.placeholder,
-            analysisUse: item.analysisUse
+            analysisUse: item.analysisUse,
           }))
 
           // 舌カテゴリの確認
@@ -187,23 +237,26 @@ export default function IntegratedDiagnosisPage() {
 
   // ステップ完了状態の管理
   const markStepCompleted = useCallback((step: DiagnosisStep) => {
-    setCompletedSteps(prev => new Set([...prev, step]))
+    setCompletedSteps((prev) => new Set([...prev, step]))
   }, [])
 
-  const isStepCompleted = useCallback((step: DiagnosisStep) => {
-    return completedSteps.has(step)
-  }, [completedSteps])
+  const isStepCompleted = useCallback(
+    (step: DiagnosisStep) => {
+      return completedSteps.has(step)
+    },
+    [completedSteps]
+  )
 
   // スタッフ用項目のみフィルタリング（動的データ使用）
-  const staffItems = useMemo(() =>
-    diagnosisItems.filter(item => item.inputType === 'staff'),
+  const staffItems = useMemo(
+    () => diagnosisItems.filter((item) => item.inputType === 'staff'),
     [diagnosisItems]
   )
 
   // カテゴリ別にグループ化（スタッフ用のみ）
   const staffItemsByCategory = useMemo(() => {
     const grouped: Record<string, DiagnosisItem[]> = {}
-    staffItems.forEach(item => {
+    staffItems.forEach((item) => {
       if (!grouped[item.category]) {
         grouped[item.category] = []
       }
@@ -222,14 +275,22 @@ export default function IntegratedDiagnosisPage() {
         .filter((cat: string) => staffItemsByCategory[cat]?.length > 0)
     }
     // フォールバック: 静的カテゴリ順序
-    return staticCategoryOrder.filter(cat => staffItemsByCategory[cat]?.length > 0)
+    return staticCategoryOrder.filter(
+      (cat) => staffItemsByCategory[cat]?.length > 0
+    )
   }, [staffItemsByCategory, categoryList])
 
   // アクティブカテゴリの初期化（デフォルトは「舌」）
   useEffect(() => {
-    if (currentMainView === 'diagnosis' && staffCategoryOrder.length > 0 && !activeCategory) {
+    if (
+      currentMainView === 'diagnosis' &&
+      staffCategoryOrder.length > 0 &&
+      !activeCategory
+    ) {
       // デフォルトで「舌」カテゴリを選択
-      const defaultCategory = staffCategoryOrder.includes('舌') ? '舌' : staffCategoryOrder[0]
+      const defaultCategory = staffCategoryOrder.includes('舌')
+        ? '舌'
+        : staffCategoryOrder[0]
       setActiveCategory(defaultCategory)
     }
   }, [currentMainView, staffCategoryOrder, activeCategory])
@@ -246,11 +307,12 @@ export default function IntegratedDiagnosisPage() {
       const tabRect = tabElement.getBoundingClientRect()
 
       // タブを中央に配置するためのスクロール位置を計算
-      const scrollLeft = tabElement.offsetLeft - (containerRect.width / 2) + (tabRect.width / 2)
+      const scrollLeft =
+        tabElement.offsetLeft - containerRect.width / 2 + tabRect.width / 2
 
       container.scrollTo({
         left: Math.max(0, scrollLeft),
-        behavior: 'smooth'
+        behavior: 'smooth',
       })
     }
   }, [activeCategory, currentMainView])
@@ -269,7 +331,7 @@ export default function IntegratedDiagnosisPage() {
           if (isScrollingRef.current) return
 
           // 最も上に表示されているカテゴリを検出
-          const visibleEntries = entries.filter(entry => entry.isIntersecting)
+          const visibleEntries = entries.filter((entry) => entry.isIntersecting)
           if (visibleEntries.length > 0) {
             // 最も上に近いカテゴリを選択
             const topEntry = visibleEntries.reduce((prev, current) => {
@@ -285,7 +347,7 @@ export default function IntegratedDiagnosisPage() {
         {
           root: mainContainerRef.current,
           rootMargin: '-140px 0px -60% 0px', // ヘッダー分のオフセットを調整
-          threshold: [0, 0.1, 0.5, 1.0] // 複数の閾値でより正確に検出
+          threshold: [0, 0.1, 0.5, 1.0], // 複数の閾値でより正確に検出
         }
       )
 
@@ -307,40 +369,50 @@ export default function IntegratedDiagnosisPage() {
   }, [currentMainView, staffCategoryOrder])
 
   // タブクリック時のスクロール処理
-  const handleCategoryClick = useCallback((e: React.MouseEvent, category: string) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const handleCategoryClick = useCallback(
+    (e: React.MouseEvent, category: string) => {
+      e.preventDefault()
+      e.stopPropagation()
 
-    isScrollingRef.current = true
-    setActiveCategory(category)
+      isScrollingRef.current = true
+      setActiveCategory(category)
 
-    const element = document.getElementById(`category-${category}`)
-    const mainContainer = mainContainerRef.current
+      const element = document.getElementById(`category-${category}`)
+      const mainContainer = mainContainerRef.current
 
-    if (element && mainContainer) {
-      // mainコンテナ内でのスクロール
-      const containerRect = mainContainer.getBoundingClientRect()
-      const elementRect = element.getBoundingClientRect()
-      // ヘッダー分の高さを考慮（カテゴリタブ + 進捗バー）
-      const headerOffset = 120
-      const offsetTop = elementRect.top - containerRect.top + mainContainer.scrollTop - headerOffset
+      if (element && mainContainer) {
+        // mainコンテナ内でのスクロール
+        const containerRect = mainContainer.getBoundingClientRect()
+        const elementRect = element.getBoundingClientRect()
+        // ヘッダー分の高さを考慮（カテゴリタブ + 進捗バー）
+        const headerOffset = 120
+        const offsetTop =
+          elementRect.top -
+          containerRect.top +
+          mainContainer.scrollTop -
+          headerOffset
 
-      mainContainer.scrollTo({
-        top: Math.max(0, offsetTop),
-        behavior: 'smooth'
-      })
-    }
+        mainContainer.scrollTo({
+          top: Math.max(0, offsetTop),
+          behavior: 'smooth',
+        })
+      }
 
-    // スクロール完了後にフラグを解除（概算時間）
-    setTimeout(() => {
-      isScrollingRef.current = false
-    }, 1000)
-  }, [])
+      // スクロール完了後にフラグを解除（概算時間）
+      setTimeout(() => {
+        isScrollingRef.current = false
+      }, 1000)
+    },
+    []
+  )
 
   const photoTypes = STAFF_DIAGNOSIS_PHOTO_TYPES
 
   // 進捗計算
-  const diagnosisProgressPercentage = calculateDiagnosisProgressPercentage(diagnosisValues, staffItems.length)
+  const diagnosisProgressPercentage = calculateDiagnosisProgressPercentage(
+    diagnosisValues,
+    staffItems.length
+  )
 
   // 全体進捗計算（各ステップの完了状況）
   const overallProgressPercentage = useMemo(() => {
@@ -348,7 +420,10 @@ export default function IntegratedDiagnosisPage() {
   }, [completedSteps])
 
   // 写真プレビュー状態
-  const [previewPhoto, setPreviewPhoto] = useState<{ url: string, type: string } | null>(null)
+  const [previewPhoto, setPreviewPhoto] = useState<{
+    url: string
+    type: string
+  } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // カメラ開始（input file経由でネイティブカメラを起動）
@@ -384,10 +459,14 @@ export default function IntegratedDiagnosisPage() {
       uploaded_at: new Date().toISOString(),
     }
 
-    setPhotos(prev => [...prev.filter(p => p.type !== previewPhoto.type), newPhoto])
+    setPhotos((prev) => [
+      ...prev.filter((p) => p.type !== previewPhoto.type),
+      newPhoto,
+    ])
 
     // 全ての写真が撮影済みならステップ完了
-    const newPhotoCount = photos.filter(p => p.type !== previewPhoto.type).length + 1
+    const newPhotoCount =
+      photos.filter((p) => p.type !== previewPhoto.type).length + 1
     if (newPhotoCount >= photoTypes.length) {
       markStepCompleted('photos')
     }
@@ -422,7 +501,7 @@ export default function IntegratedDiagnosisPage() {
   // カメラ停止（後方互換性のため残す）
   const stopCamera = () => {
     if (stream) {
-      stream.getTracks().forEach(track => track.stop())
+      stream.getTracks().forEach((track) => track.stop())
       setStream(null)
     }
     setIsCameraOpen(false)
@@ -447,9 +526,13 @@ export default function IntegratedDiagnosisPage() {
       context.drawImage(video, 0, 0)
 
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob)
-        }, 'image/jpeg', 0.9)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob)
+          },
+          'image/jpeg',
+          0.9
+        )
       })
 
       const objectUrl = URL.createObjectURL(blob)
@@ -461,11 +544,17 @@ export default function IntegratedDiagnosisPage() {
         uploaded_at: new Date().toISOString(),
       }
 
-      setPhotos(prev => [...prev.filter(p => p.type !== currentPhotoType), newPhoto])
+      setPhotos((prev) => [
+        ...prev.filter((p) => p.type !== currentPhotoType),
+        newPhoto,
+      ])
       stopCamera()
 
       // 全ての写真が撮影済みならステップ完了
-      if (photos.filter(p => p.type !== currentPhotoType).length + 1 >= photoTypes.length) {
+      if (
+        photos.filter((p) => p.type !== currentPhotoType).length + 1 >=
+        photoTypes.length
+      ) {
         markStepCompleted('photos')
       }
     } catch (error) {
@@ -506,13 +595,15 @@ export default function IntegratedDiagnosisPage() {
       ]
       setPhotos(samplePhotos)
     } else if (currentMainView === 'memo') {
-      setStaffNotes('診断時の観察事項：\n・姿勢に軽度の改善点が見られる\n・口腔機能は良好\n・継続的な観察を推奨\n\n保護者への伝達事項：\n・日常的な姿勢意識の重要性\n・定期的な検診の推奨')
+      setStaffNotes(
+        '診断時の観察事項：\n・姿勢に軽度の改善点が見られる\n・口腔機能は良好\n・継続的な観察を推奨\n\n保護者への伝達事項：\n・日常的な姿勢意識の重要性\n・定期的な検診の推奨'
+      )
     }
   }, [currentMainView, staffItems])
 
   // 写真削除
   const deletePhoto = useCallback((photoId: string) => {
-    setPhotos(prev => prev.filter(p => p.id !== photoId))
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId))
   }, [])
 
   // ヘッダーのサンプルボタンからのイベントをリッスン
@@ -528,30 +619,35 @@ export default function IntegratedDiagnosisPage() {
 
   // 診断値の更新
   const updateDiagnosisValue = (itemId: string, value: any) => {
-    setDiagnosisValues(prev => ({
+    setDiagnosisValues((prev) => ({
       ...prev,
       [itemId]: value,
     }))
   }
 
   // 値から日本語ラベルに変換
-  const getDisplayValue = useCallback((item: DiagnosisItem, value: any): string => {
-    if (value === undefined || value === null || value === '') return ''
+  const getDisplayValue = useCallback(
+    (item: DiagnosisItem, value: any): string => {
+      if (value === undefined || value === null || value === '') return ''
 
-    if (Array.isArray(value)) {
-      return value.map(v => {
-        const option = item.options?.find(opt => opt.value === v)
-        return option ? option.label : v
-      }).join(', ')
-    }
+      if (Array.isArray(value)) {
+        return value
+          .map((v) => {
+            const option = item.options?.find((opt) => opt.value === v)
+            return option ? option.label : v
+          })
+          .join(', ')
+      }
 
-    if (item.options) {
-      const option = item.options.find(opt => opt.value === value)
-      return option ? option.label : String(value)
-    }
+      if (item.options) {
+        const option = item.options.find((opt) => opt.value === value)
+        return option ? option.label : String(value)
+      }
 
-    return String(value)
-  }, [])
+      return String(value)
+    },
+    []
+  )
 
   // AI分析実行
   const runAnalysis = async () => {
@@ -587,7 +683,14 @@ export default function IntegratedDiagnosisPage() {
             functionEstimation: '良好',
           },
         },
-        reportSummary: 'お子さんの姿勢は背中が丸くなりお腹が前に出る「凹円背」で、歯は噛み合わせが深い過蓋咬合の状態です。どちらも体の使い方やバランスの乱れから起こることがあります。姿勢がゆるやかに変わるとあごの動きにも影響しやすく、歯並びにも関わることがあります。また、歯並びが整うと口まわりの筋肉の使い方が安定して、姿勢も自然と整いやすくなります。そのため、姿勢と歯並びはつながっていると考え、両方を一緒に見ることが大切です。',
+        reportSummary: `【口腔機能について】
+お子さんの歯は噛み合わせが深い過蓋咬合の状態で、舌の位置が低くなる「低位舌」も見られます。口呼吸の傾向があると口まわりの筋肉のバランスが崩れやすく、歯並びにも影響します。口まわりの筋肉の使い方が安定すると、歯並びへの負担も軽減されやすくなります。日常的な口腔トレーニング（あいうべ体操など）を継続することで、改善が期待できます。
+
+【姿勢について】
+背中が丸くなりお腹が前に出る「凹円背」の傾向があります。肩のバランスに左右差があり、骨盤のわずかな前傾も確認されました。姿勢の癖は顎の動きや咬合状態にも影響しやすいため、放置すると歯並びの乱れにつながることがあります。日常的な姿勢への意識づけと、軽い体幹トレーニングを取り入れることが効果的です。
+
+【総合評価】
+姿勢と歯並びは筋肉・骨格を通じてつながっており、片方だけでなく両方を一緒に見ていくことが大切です。今回の診断結果を参考に、口腔トレーニングと姿勢改善を並行して取り組んでいただくことをお勧めします。ご家庭でできる簡単なケアから始め、定期的なフォローアップを行うことで、お子さんの健やかな成長をサポートします。`,
       }
 
       setAnalysisResult(mockResult)
@@ -611,22 +714,24 @@ export default function IntegratedDiagnosisPage() {
     try {
       const mockReport = {
         summary: '保護者様のお子様の口腔・姿勢診断が完了いたしました。',
-        analysis: '今回の診断では、姿勢と口腔機能の総合的な評価を行いました。姿勢については肩のバランスと背骨のカーブに軽度の改善点が見られましたが、全体的には良好な状態です。口腔機能については、歯並びと咬合状態が良好で、口腔内の清潔度も保たれています。',
+        analysis:
+          '今回の診断では、姿勢と口腔機能の総合的な評価を行いました。姿勢については肩のバランスと背骨のカーブに軽度の改善点が見られましたが、全体的には良好な状態です。口腔機能については、歯並びと咬合状態が良好で、口腔内の清潔度も保たれています。',
         recommendations: [
           '日常的に正しい姿勢を意識するよう指導してください',
           '定期的な歯科検診を継続してください',
           '食事の際の姿勢にも注意を払いましょう',
-          '口腔内の清潔を保つための習慣を身につけましょう'
+          '口腔内の清潔を保つための習慣を身につけましょう',
         ],
         nextSteps: [
           '3ヶ月後のフォローアップ診断を予定してください',
           '気になる症状が出た場合は早めにご相談ください',
-          '家庭での姿勢改善エクササイズを実践してください'
+          '家庭での姿勢改善エクササイズを実践してください',
         ],
-        encouragingMessage: 'お子様の健康な成長を一緒にサポートしていきましょう。何か気になることがありましたら、いつでもご相談ください。'
+        encouragingMessage:
+          'お子様の健康な成長を一緒にサポートしていきましょう。何か気になることがありましたら、いつでもご相談ください。',
       }
 
-      setAnalysisResult(prev => ({
+      setAnalysisResult((prev) => ({
         ...prev,
         report: mockReport,
       }))
@@ -649,7 +754,8 @@ export default function IntegratedDiagnosisPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           childName: questionnaire?.child_name || session?.child_name || 'デモ',
-          reportSummary: editableReport?.summary || analysisResult?.reportSummary,
+          reportSummary:
+            editableReport?.summary || analysisResult?.reportSummary,
         }),
       })
 
@@ -664,14 +770,19 @@ export default function IntegratedDiagnosisPage() {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error sending report:', error)
-      alert('レポートの送信に失敗しました')
+      // サーバが返した具体的な理由(LINE未登録 等)をそのまま表示する
+      const message =
+        error instanceof Error ? error.message : 'レポートの送信に失敗しました'
+      alert(message)
     } finally {
       setIsSending(false)
     }
   }
 
   // LINE配信確認後の完了処理
-  const completeDiagnosis = async (confirmationStatus: 'confirmed' | 'not_received' | 'unknown') => {
+  const completeDiagnosis = async (
+    confirmationStatus: 'confirmed' | 'not_received' | 'unknown'
+  ) => {
     try {
       // 状態に応じたメッセージ表示
       if (confirmationStatus === 'not_received') {
@@ -702,13 +813,13 @@ export default function IntegratedDiagnosisPage() {
 
   // ステップアイコン
   const stepIcons: Record<DiagnosisStep, React.ReactNode> = {
-    start: <QrCode className="w-4 h-4" />,
-    session: <FileText className="w-4 h-4" />,
-    photos: <Camera className="w-4 h-4" />,
-    diagnosis: <FileText className="w-4 h-4" />,
-    review: <Eye className="w-4 h-4" />,
-    analysis: <Brain className="w-4 h-4" />,
-    report: <Send className="w-4 h-4" />,
+    start: <QrCode className="h-4 w-4" />,
+    session: <FileText className="h-4 w-4" />,
+    photos: <Camera className="h-4 w-4" />,
+    diagnosis: <FileText className="h-4 w-4" />,
+    review: <Eye className="h-4 w-4" />,
+    analysis: <Brain className="h-4 w-4" />,
+    report: <Send className="h-4 w-4" />,
   }
 
   // フィールドレンダリング
@@ -719,20 +830,23 @@ export default function IntegratedDiagnosisPage() {
       case 'radio':
         return (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-900">
               {item.question}
-              {item.required && <span className="text-red-500 ml-1">*</span>}
+              {item.required && <span className="ml-1 text-red-500">*</span>}
               {item.analysisUse && (
-                <Badge variant="outline" className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                <Badge
+                  variant="outline"
+                  className="ml-2 border-blue-200 bg-blue-50 text-xs text-blue-700"
+                >
                   分析利用
                 </Badge>
               )}
             </label>
             {item.note && (
-              <p className="text-xs text-gray-500 mb-2">{item.note}</p>
+              <p className="mb-2 text-xs text-gray-500">{item.note}</p>
             )}
             <div className="grid grid-cols-2 gap-1.5">
-              {item.options?.map(option => (
+              {item.options?.map((option) => (
                 <div
                   key={option.value}
                   role="radio"
@@ -746,7 +860,7 @@ export default function IntegratedDiagnosisPage() {
                     }
                   }}
                   className={cn(
-                    'flex items-center justify-center p-2.5 border-2 rounded-lg cursor-pointer transition-all touch-manipulation min-h-[44px] font-medium select-none',
+                    'flex min-h-[44px] cursor-pointer touch-manipulation select-none items-center justify-center rounded-lg border-2 p-2.5 font-medium transition-all',
                     value === option.value
                       ? 'border-coral-500 bg-coral-50 text-coral-700'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -763,20 +877,23 @@ export default function IntegratedDiagnosisPage() {
         const checkboxValue = Array.isArray(value) ? value : []
         return (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-900">
               {item.question}
-              {item.required && <span className="text-red-500 ml-1">*</span>}
+              {item.required && <span className="ml-1 text-red-500">*</span>}
               {item.analysisUse && (
-                <Badge variant="outline" className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                <Badge
+                  variant="outline"
+                  className="ml-2 border-blue-200 bg-blue-50 text-xs text-blue-700"
+                >
                   分析利用
                 </Badge>
               )}
             </label>
             {item.note && (
-              <p className="text-xs text-gray-500 mb-2">{item.note}</p>
+              <p className="mb-2 text-xs text-gray-500">{item.note}</p>
             )}
             <div className="grid grid-cols-2 gap-1.5">
-              {item.options?.map(option => {
+              {item.options?.map((option) => {
                 const isChecked = checkboxValue.includes(option.value)
                 return (
                   <div
@@ -786,7 +903,7 @@ export default function IntegratedDiagnosisPage() {
                     tabIndex={0}
                     onClick={() => {
                       const newValue = isChecked
-                        ? checkboxValue.filter(v => v !== option.value)
+                        ? checkboxValue.filter((v) => v !== option.value)
                         : [...checkboxValue, option.value]
                       updateDiagnosisValue(item.id, newValue)
                     }}
@@ -794,13 +911,13 @@ export default function IntegratedDiagnosisPage() {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         const newValue = isChecked
-                          ? checkboxValue.filter(v => v !== option.value)
+                          ? checkboxValue.filter((v) => v !== option.value)
                           : [...checkboxValue, option.value]
                         updateDiagnosisValue(item.id, newValue)
                       }
                     }}
                     className={cn(
-                      'flex items-center justify-center p-2.5 border-2 rounded-lg cursor-pointer transition-all touch-manipulation min-h-[44px] font-medium select-none',
+                      'flex min-h-[44px] cursor-pointer touch-manipulation select-none items-center justify-center rounded-lg border-2 p-2.5 font-medium transition-all',
                       isChecked
                         ? 'border-coral-500 bg-coral-50 text-coral-700'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -817,12 +934,12 @@ export default function IntegratedDiagnosisPage() {
       case 'text':
         return (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-900">
               {item.question}
-              {item.required && <span className="text-red-500 ml-1">*</span>}
+              {item.required && <span className="ml-1 text-red-500">*</span>}
             </label>
             {item.note && (
-              <p className="text-xs text-gray-500 mb-2">{item.note}</p>
+              <p className="mb-2 text-xs text-gray-500">{item.note}</p>
             )}
             <Input
               value={value || ''}
@@ -836,25 +953,32 @@ export default function IntegratedDiagnosisPage() {
       case 'number':
         return (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-900">
               {item.question}
-              {item.required && <span className="text-red-500 ml-1">*</span>}
+              {item.required && <span className="ml-1 text-red-500">*</span>}
             </label>
             {item.note && (
-              <p className="text-xs text-gray-500 mb-2">{item.note}</p>
+              <p className="mb-2 text-xs text-gray-500">{item.note}</p>
             )}
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 value={value || ''}
-                onChange={(e) => updateDiagnosisValue(item.id, e.target.value ? parseFloat(e.target.value) : '')}
+                onChange={(e) =>
+                  updateDiagnosisValue(
+                    item.id,
+                    e.target.value ? parseFloat(e.target.value) : ''
+                  )
+                }
                 placeholder={item.placeholder}
                 min={item.min}
                 max={item.max}
-                className="h-12 text-base flex-1"
+                className="h-12 flex-1 text-base"
               />
               {item.unit && (
-                <span className="text-sm text-gray-600 whitespace-nowrap">{item.unit}</span>
+                <span className="whitespace-nowrap text-sm text-gray-600">
+                  {item.unit}
+                </span>
               )}
             </div>
           </div>
@@ -863,12 +987,12 @@ export default function IntegratedDiagnosisPage() {
       case 'textarea':
         return (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-900">
               {item.question}
-              {item.required && <span className="text-red-500 ml-1">*</span>}
+              {item.required && <span className="ml-1 text-red-500">*</span>}
             </label>
             {item.note && (
-              <p className="text-xs text-gray-500 mb-2">{item.note}</p>
+              <p className="mb-2 text-xs text-gray-500">{item.note}</p>
             )}
             <Textarea
               value={value || ''}
@@ -886,44 +1010,48 @@ export default function IntegratedDiagnosisPage() {
   }
 
   // 完了状態の判定
-  const completedViews = useMemo(() => ({
-    questionnaire: !!questionnaire,
-    photos: photos.length > 0,
-    diagnosis: diagnosisProgressPercentage > 0,
-    review: false,
-    report: !!analysisResult,
-  }), [questionnaire, photos, diagnosisProgressPercentage, analysisResult])
+  const completedViews = useMemo(
+    () => ({
+      questionnaire: !!questionnaire,
+      photos: photos.length > 0,
+      diagnosis: diagnosisProgressPercentage > 0,
+      review: false,
+      report: !!analysisResult,
+    }),
+    [questionnaire, photos, diagnosisProgressPercentage, analysisResult]
+  )
 
   if (!session || !questionnaire) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral-500 mx-auto"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-coral-500"></div>
           <p className="text-gray-600">データを読み込み中...</p>
         </div>
       </div>
     )
   }
   return (
-    <div className="flex flex-col h-screen bg-gray-50 touch-pan-y">
+    <div className="flex h-screen touch-pan-y flex-col bg-gray-50">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
         <div className="px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-base font-bold text-gray-900 truncate">
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-base font-bold text-gray-900">
                 {session?.child_name} ({session?.child_age}歳)
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              {(currentMainView === 'diagnosis' || currentMainView === 'photos') && (
+              {(currentMainView === 'diagnosis' ||
+                currentMainView === 'photos') && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleFillSampleData}
-                  className="bg-coral-50 border-coral-300 text-coral-700 hover:bg-coral-100"
+                  className="border-coral-300 bg-coral-50 text-coral-700 hover:bg-coral-100"
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <Sparkles className="mr-2 h-4 w-4" />
                   サンプル入力
                 </Button>
               )}
@@ -943,8 +1071,10 @@ export default function IntegratedDiagnosisPage() {
       {/* メインコンテンツエリア */}
       <main
         ref={mainContainerRef}
-        className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y"
-        style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
+        className="flex-1 touch-pan-y overflow-y-auto overscroll-y-contain"
+        style={{
+          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+        }}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -953,7 +1083,7 @@ export default function IntegratedDiagnosisPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
-            className="max-w-4xl mx-auto px-3 py-4"
+            className="mx-auto max-w-4xl px-3 py-4"
           >
             {/* 問診ビュー */}
             {currentMainView === 'questionnaire' && questionnaire && (
@@ -961,8 +1091,8 @@ export default function IntegratedDiagnosisPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-base flex items-center space-x-2">
-                        <FileText className="w-4 h-4" />
+                      <CardTitle className="flex items-center space-x-2 text-base">
+                        <FileText className="h-4 w-4" />
                         <span>セッション情報確認</span>
                       </CardTitle>
                       <CardDescription className="text-xs">
@@ -979,7 +1109,7 @@ export default function IntegratedDiagnosisPage() {
                         }}
                         className="text-xs"
                       >
-                        <Edit2 className="w-3 h-3 mr-1" />
+                        <Edit2 className="mr-1 h-3 w-3" />
                         編集
                       </Button>
                     ) : (
@@ -1004,9 +1134,9 @@ export default function IntegratedDiagnosisPage() {
                             setIsEditingQuestionnaire(false)
                             setEditingQuestionnaire(null)
                           }}
-                          className="text-xs bg-blue-600 hover:bg-blue-700"
+                          className="bg-blue-600 text-xs hover:bg-blue-700"
                         >
-                          <Save className="w-3 h-3 mr-1" />
+                          <Save className="mr-1 h-3 w-3" />
                           保存
                         </Button>
                       </div>
@@ -1018,40 +1148,54 @@ export default function IntegratedDiagnosisPage() {
                     // 編集モード
                     <>
                       <div>
-                        <h3 className="text-xs font-medium text-gray-900 mb-2">お子様情報</h3>
-                        <div className="bg-blue-50 rounded-lg p-3 space-y-3">
+                        <h3 className="mb-2 text-xs font-medium text-gray-900">
+                          お子様情報
+                        </h3>
+                        <div className="space-y-3 rounded-lg bg-blue-50 p-3">
                           <div>
-                            <label className="text-xs text-gray-600 block mb-1">お名前</label>
+                            <label className="mb-1 block text-xs text-gray-600">
+                              お名前
+                            </label>
                             <Input
                               value={editingQuestionnaire.child_name}
-                              onChange={(e) => setEditingQuestionnaire({
-                                ...editingQuestionnaire,
-                                child_name: e.target.value
-                              })}
+                              onChange={(e) =>
+                                setEditingQuestionnaire({
+                                  ...editingQuestionnaire,
+                                  child_name: e.target.value,
+                                })
+                              }
                               className="text-sm"
                             />
                           </div>
                           <div className="flex gap-3">
                             <div className="flex-1">
-                              <label className="text-xs text-gray-600 block mb-1">年齢</label>
+                              <label className="mb-1 block text-xs text-gray-600">
+                                年齢
+                              </label>
                               <Input
                                 type="number"
                                 value={editingQuestionnaire.child_age}
-                                onChange={(e) => setEditingQuestionnaire({
-                                  ...editingQuestionnaire,
-                                  child_age: parseInt(e.target.value) || 0
-                                })}
+                                onChange={(e) =>
+                                  setEditingQuestionnaire({
+                                    ...editingQuestionnaire,
+                                    child_age: parseInt(e.target.value) || 0,
+                                  })
+                                }
                                 className="text-sm"
                               />
                             </div>
                             <div className="flex-1">
-                              <label className="text-xs text-gray-600 block mb-1">性別</label>
+                              <label className="mb-1 block text-xs text-gray-600">
+                                性別
+                              </label>
                               <Select
                                 value={editingQuestionnaire.child_gender}
-                                onValueChange={(value) => setEditingQuestionnaire({
-                                  ...editingQuestionnaire,
-                                  child_gender: value
-                                })}
+                                onValueChange={(value) =>
+                                  setEditingQuestionnaire({
+                                    ...editingQuestionnaire,
+                                    child_gender: value,
+                                  })
+                                }
                               >
                                 <SelectTrigger className="text-sm">
                                   <SelectValue />
@@ -1068,15 +1212,19 @@ export default function IntegratedDiagnosisPage() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-medium text-gray-900 mb-2">スタッフへのメッセージ</h3>
+                        <h3 className="mb-2 text-xs font-medium text-gray-900">
+                          スタッフへのメッセージ
+                        </h3>
                         <Textarea
                           value={editingQuestionnaire.notes || ''}
-                          onChange={(e) => setEditingQuestionnaire({
-                            ...editingQuestionnaire,
-                            notes: e.target.value
-                          })}
+                          onChange={(e) =>
+                            setEditingQuestionnaire({
+                              ...editingQuestionnaire,
+                              notes: e.target.value,
+                            })
+                          }
                           placeholder="特記事項があれば入力..."
-                          className="text-sm min-h-[80px]"
+                          className="min-h-[80px] text-sm"
                         />
                       </div>
                     </>
@@ -1084,26 +1232,57 @@ export default function IntegratedDiagnosisPage() {
                     // 表示モード
                     <>
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">お子様情報</h3>
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 space-y-2">
+                        <h3 className="mb-2 text-sm font-medium text-gray-900">
+                          お子様情報
+                        </h3>
+                        <div className="space-y-2 rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 p-4">
                           <p className="text-lg font-bold text-gray-800">
                             {(() => {
-                              const nameParts = questionnaire.child_name.split(' ')
-                              const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : questionnaire.child_name
-                              const honorific = questionnaire.child_gender === 'male' ? 'くん' : 'ちゃん'
+                              const nameParts =
+                                questionnaire.child_name.split(' ')
+                              const firstName =
+                                nameParts.length > 1
+                                  ? nameParts[nameParts.length - 1]
+                                  : questionnaire.child_name
+                              const honorific =
+                                questionnaire.child_gender === 'male'
+                                  ? 'くん'
+                                  : questionnaire.child_gender === 'female'
+                                    ? 'ちゃん'
+                                    : 'さん'
                               return `${firstName}${honorific}`
                             })()}
-                            <span className="text-sm font-normal text-gray-500 ml-2">
+                            <span className="ml-2 text-sm font-normal text-gray-500">
                               ({questionnaire.child_name})
                             </span>
                           </p>
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
-                              🎂 <span className="font-medium">{questionnaire.child_age}歳</span>
+                              🎂{' '}
+                              <span className="font-medium">
+                                {questionnaire.child_age}歳
+                              </span>
                             </span>
                             <span className="flex items-center gap-1">
-                              {questionnaire.child_gender === 'male' ? '👦' : '👧'}
-                              <span className="font-medium">{questionnaire.child_gender === 'male' ? '男の子' : questionnaire.child_gender === 'female' ? '女の子' : 'その他'}</span>
+                              {questionnaire.child_gender === 'male'
+                                ? '👦'
+                                : '👧'}
+                              <span className="font-medium">
+                                {questionnaire.child_gender === 'male'
+                                  ? '男の子'
+                                  : questionnaire.child_gender === 'female'
+                                    ? '女の子'
+                                    : 'その他'}
+                              </span>
+                            </span>
+                          </div>
+                          {/* デモ: 通知手段バッジ(本番のparent連絡先バッジ相当) */}
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
+                              ✅ LINE通知可
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                              📧 メール可
                             </span>
                           </div>
                         </div>
@@ -1111,18 +1290,32 @@ export default function IntegratedDiagnosisPage() {
 
                       {questionnaire.notes && (
                         <div>
-                          <h3 className="text-xs font-medium text-gray-900 mb-2">スタッフへのメッセージ</h3>
-                          <p className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3">{questionnaire.notes}</p>
+                          <h3 className="mb-2 text-xs font-medium text-gray-900">
+                            スタッフへのメッセージ
+                          </h3>
+                          <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                            {questionnaire.notes}
+                          </p>
                         </div>
                       )}
 
                       {/* デモ用問診回答表示 */}
                       <div className="space-y-3">
                         <h3 className="text-sm font-medium text-gray-900">
-                          📋 {(() => {
-                            const nameParts = questionnaire.child_name.split(' ')
-                            const firstName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : questionnaire.child_name
-                            const honorific = questionnaire.child_gender === 'male' ? 'くん' : 'ちゃん'
+                          📋{' '}
+                          {(() => {
+                            const nameParts =
+                              questionnaire.child_name.split(' ')
+                            const firstName =
+                              nameParts.length > 1
+                                ? nameParts[nameParts.length - 1]
+                                : questionnaire.child_name
+                            const honorific =
+                              questionnaire.child_gender === 'male'
+                                ? 'くん'
+                                : questionnaire.child_gender === 'female'
+                                  ? 'ちゃん'
+                                  : 'さん'
                             return `${firstName}${honorific}の問診回答`
                           })()}
                         </h3>
@@ -1131,80 +1324,183 @@ export default function IntegratedDiagnosisPage() {
                         {(() => {
                           // カテゴリアイコンマップ
                           const categoryIcons: Record<string, string> = {
-                            '基本情報': '👤',
-                            '口腔習慣': '👄',
-                            '食事': '🍽️',
-                            '睡眠': '😴',
-                            '姿勢': '🧍',
-                            '運動': '🏃',
-                            '生活習慣': '🏠',
-                            '歯並び': '🦷',
-                            'その他': '📝',
+                            基本情報: '👤',
+                            口腔習慣: '👄',
+                            食事: '🍽️',
+                            睡眠: '😴',
+                            姿勢: '🧍',
+                            運動: '🏃',
+                            生活習慣: '🏠',
+                            歯並び: '🦷',
+                            その他: '📝',
                           }
 
                           // カテゴリ色マップ
-                          const categoryColors: Record<string, { bg: string, border: string, text: string, badge: string }> = {
-                            '基本情報': { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100' },
-                            '口腔習慣': { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700', badge: 'bg-pink-100' },
-                            '食事': { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100' },
-                            '睡眠': { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', badge: 'bg-indigo-100' },
-                            '姿勢': { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', badge: 'bg-teal-100' },
-                            '運動': { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100' },
-                            '生活習慣': { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100' },
-                            '歯並び': { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100' },
+                          const categoryColors: Record<
+                            string,
+                            {
+                              bg: string
+                              border: string
+                              text: string
+                              badge: string
+                            }
+                          > = {
+                            基本情報: {
+                              bg: 'bg-blue-50',
+                              border: 'border-blue-200',
+                              text: 'text-blue-700',
+                              badge: 'bg-blue-100',
+                            },
+                            口腔習慣: {
+                              bg: 'bg-pink-50',
+                              border: 'border-pink-200',
+                              text: 'text-pink-700',
+                              badge: 'bg-pink-100',
+                            },
+                            食事: {
+                              bg: 'bg-orange-50',
+                              border: 'border-orange-200',
+                              text: 'text-orange-700',
+                              badge: 'bg-orange-100',
+                            },
+                            睡眠: {
+                              bg: 'bg-indigo-50',
+                              border: 'border-indigo-200',
+                              text: 'text-indigo-700',
+                              badge: 'bg-indigo-100',
+                            },
+                            姿勢: {
+                              bg: 'bg-teal-50',
+                              border: 'border-teal-200',
+                              text: 'text-teal-700',
+                              badge: 'bg-teal-100',
+                            },
+                            運動: {
+                              bg: 'bg-green-50',
+                              border: 'border-green-200',
+                              text: 'text-green-700',
+                              badge: 'bg-green-100',
+                            },
+                            生活習慣: {
+                              bg: 'bg-amber-50',
+                              border: 'border-amber-200',
+                              text: 'text-amber-700',
+                              badge: 'bg-amber-100',
+                            },
+                            歯並び: {
+                              bg: 'bg-cyan-50',
+                              border: 'border-cyan-200',
+                              text: 'text-cyan-700',
+                              badge: 'bg-cyan-100',
+                            },
                           }
-                          const defaultColors = { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100' }
+                          const defaultColors = {
+                            bg: 'bg-gray-50',
+                            border: 'border-gray-200',
+                            text: 'text-gray-700',
+                            badge: 'bg-gray-100',
+                          }
 
                           // デモ用のサンプル問診回答
                           const demoResponses = [
-                            { category: '基本情報', question: 'お子様のお名前', answer: questionnaire.child_name },
-                            { category: '基本情報', question: 'お子様の年齢', answer: `${questionnaire.child_age}歳` },
-                            { category: '口腔習慣', question: '指しゃぶりをしていますか？', answer: 'いいえ' },
-                            { category: '口腔習慣', question: '口呼吸をしていますか？', answer: 'ときどきある' },
-                            { category: '食事', question: '食事中の姿勢はどうですか？', answer: '気になる' },
-                            { category: '食事', question: 'よく噛んで食べていますか？', answer: 'あまり噛まない' },
-                            { category: '睡眠', question: 'いびきをかきますか？', answer: 'ときどきある' },
-                            { category: '睡眠', question: '寝相が悪いですか？', answer: 'はい' },
+                            {
+                              category: '基本情報',
+                              question: 'お子様のお名前',
+                              answer: questionnaire.child_name,
+                            },
+                            {
+                              category: '基本情報',
+                              question: 'お子様の年齢',
+                              answer: `${questionnaire.child_age}歳`,
+                            },
+                            {
+                              category: '口腔習慣',
+                              question: '指しゃぶりをしていますか？',
+                              answer: 'いいえ',
+                            },
+                            {
+                              category: '口腔習慣',
+                              question: '口呼吸をしていますか？',
+                              answer: 'ときどきある',
+                            },
+                            {
+                              category: '食事',
+                              question: '食事中の姿勢はどうですか？',
+                              answer: '気になる',
+                            },
+                            {
+                              category: '食事',
+                              question: 'よく噛んで食べていますか？',
+                              answer: 'あまり噛まない',
+                            },
+                            {
+                              category: '睡眠',
+                              question: 'いびきをかきますか？',
+                              answer: 'ときどきある',
+                            },
+                            {
+                              category: '睡眠',
+                              question: '寝相が悪いですか？',
+                              answer: 'はい',
+                            },
                           ]
 
                           // カテゴリ別にグループ化
-                          const grouped = demoResponses.reduce((acc, item) => {
-                            if (!acc[item.category]) acc[item.category] = []
-                            acc[item.category].push(item)
-                            return acc
-                          }, {} as Record<string, typeof demoResponses>)
+                          const grouped = demoResponses.reduce(
+                            (acc, item) => {
+                              if (!acc[item.category]) acc[item.category] = []
+                              acc[item.category].push(item)
+                              return acc
+                            },
+                            {} as Record<string, typeof demoResponses>
+                          )
 
-                          return Object.entries(grouped).map(([category, items]) => {
-                            const colors = categoryColors[category] || defaultColors
-                            const icon = categoryIcons[category] || '📝'
+                          return Object.entries(grouped).map(
+                            ([category, items]) => {
+                              const colors =
+                                categoryColors[category] || defaultColors
+                              const icon = categoryIcons[category] || '📝'
 
-                            return (
-                              <div key={category} className={`rounded-xl border ${colors.border} ${colors.bg} overflow-hidden`}>
-                                {/* カテゴリヘッダー */}
-                                <div className={`px-3 py-2 ${colors.badge} border-b ${colors.border}`}>
-                                  <span className={`text-sm font-semibold ${colors.text}`}>
-                                    {icon} {category}
-                                  </span>
-                                </div>
+                              return (
+                                <div
+                                  key={category}
+                                  className={`rounded-xl border ${colors.border} ${colors.bg} overflow-hidden`}
+                                >
+                                  {/* カテゴリヘッダー */}
+                                  <div
+                                    className={`px-3 py-2 ${colors.badge} border-b ${colors.border}`}
+                                  >
+                                    <span
+                                      className={`text-sm font-semibold ${colors.text}`}
+                                    >
+                                      {icon} {category}
+                                    </span>
+                                  </div>
 
-                                {/* 質問と回答 */}
-                                <div className="divide-y divide-gray-100">
-                                  {items.map((item, index) => (
-                                    <div key={index} className="px-3 py-2.5 bg-white/50">
-                                      <div className="flex items-start justify-between gap-3">
-                                        <p className="text-xs text-gray-600 flex-1">
-                                          {item.question}
-                                        </p>
-                                        <span className={`text-xs font-bold ${colors.text} whitespace-nowrap px-2 py-0.5 rounded-full ${colors.badge}`}>
-                                          {item.answer}
-                                        </span>
+                                  {/* 質問と回答 */}
+                                  <div className="divide-y divide-gray-100">
+                                    {items.map((item, index) => (
+                                      <div
+                                        key={index}
+                                        className="bg-white/50 px-3 py-2.5"
+                                      >
+                                        <div className="flex items-start justify-between gap-3">
+                                          <p className="flex-1 text-xs text-gray-600">
+                                            {item.question}
+                                          </p>
+                                          <span
+                                            className={`text-xs font-bold ${colors.text} whitespace-nowrap rounded-full px-2 py-0.5 ${colors.badge}`}
+                                          >
+                                            {item.answer}
+                                          </span>
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })
+                              )
+                            }
+                          )
                         })()}
                       </div>
                     </>
@@ -1217,8 +1513,8 @@ export default function IntegratedDiagnosisPage() {
             {currentMainView === 'photos' && (
               <Card className="shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center space-x-2">
-                    <Camera className="w-4 h-4" />
+                  <CardTitle className="flex items-center space-x-2 text-base">
+                    <Camera className="h-4 w-4" />
                     <span>写真撮影</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
@@ -1238,12 +1534,14 @@ export default function IntegratedDiagnosisPage() {
 
                   <div className="grid grid-cols-1 gap-4">
                     {photoTypes.map((type) => {
-                      const existingPhoto = photos.find(p => p.type === type.key)
+                      const existingPhoto = photos.find(
+                        (p) => p.type === type.key
+                      )
                       return (
                         <div
                           key={type.key}
                           className={cn(
-                            'w-full border-2 rounded-xl p-3 transition-all text-left min-h-[80px]',
+                            'min-h-[80px] w-full rounded-xl border-2 p-3 text-left transition-all',
                             existingPhoto
                               ? 'border-green-300 bg-green-50'
                               : 'border-gray-200 bg-white'
@@ -1251,32 +1549,41 @@ export default function IntegratedDiagnosisPage() {
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
+                              <div className="mb-1 flex items-center space-x-2">
                                 <span className="text-lg">{type.icon}</span>
-                                <h3 className="text-sm font-semibold text-gray-900">{type.label}</h3>
+                                <h3 className="text-sm font-semibold text-gray-900">
+                                  {type.label}
+                                </h3>
                                 {existingPhoto && (
-                                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-[10px]">
+                                  <Badge
+                                    variant="outline"
+                                    className="border-green-300 bg-green-100 text-[10px] text-green-700"
+                                  >
                                     撮影済み
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-600">{type.description}</p>
+                              <p className="text-xs text-gray-600">
+                                {type.description}
+                              </p>
                               {!existingPhoto && (
                                 <button
                                   onClick={() => startCamera(type.key)}
-                                  className="mt-2 px-3 py-1.5 bg-coral-500 text-white text-xs font-medium rounded-lg hover:bg-coral-600 active:scale-95 transition-all touch-manipulation"
+                                  className="mt-2 touch-manipulation rounded-lg bg-coral-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-coral-600 active:scale-95"
                                 >
                                   📷 撮影する
                                 </button>
                               )}
                               {existingPhoto && (
                                 <button
-                                  onClick={() => setViewingPhotoInMenu({
-                                    url: existingPhoto.url,
-                                    type: type.key,
-                                    label: type.label
-                                  })}
-                                  className="mt-2 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 active:scale-95 transition-all touch-manipulation"
+                                  onClick={() =>
+                                    setViewingPhotoInMenu({
+                                      url: existingPhoto.url,
+                                      type: type.key,
+                                      label: type.label,
+                                    })
+                                  }
+                                  className="mt-2 touch-manipulation rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-95"
                                 >
                                   🔍 タップで確認・再撮影
                                 </button>
@@ -1285,27 +1592,31 @@ export default function IntegratedDiagnosisPage() {
                             {existingPhoto ? (
                               <div
                                 className="relative cursor-pointer"
-                                onClick={() => setViewingPhotoInMenu({
-                                  url: existingPhoto.url,
-                                  type: type.key,
-                                  label: type.label
-                                })}
+                                onClick={() =>
+                                  setViewingPhotoInMenu({
+                                    url: existingPhoto.url,
+                                    type: type.key,
+                                    label: type.label,
+                                  })
+                                }
                               >
                                 <Image
                                   src={existingPhoto.url}
                                   alt={type.label}
-                                  className="w-20 h-20 object-cover rounded-lg border-2 border-green-300"
+                                  className="h-20 w-20 rounded-lg border-2 border-green-300 object-cover"
                                   width={80}
                                   height={80}
                                   unoptimized
                                 />
-                                <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
-                                  <span className="text-white text-xs font-medium opacity-0 hover:opacity-100">タップで確認</span>
+                                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 transition-colors hover:bg-black/20">
+                                  <span className="text-xs font-medium text-white opacity-0 hover:opacity-100">
+                                    タップで確認
+                                  </span>
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-gray-100 text-gray-400 border-2 border-dashed border-gray-300">
-                                <Camera className="w-6 h-6" />
+                              <div className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-100 text-gray-400">
+                                <Camera className="h-6 w-6" />
                               </div>
                             )}
                           </div>
@@ -1314,10 +1625,12 @@ export default function IntegratedDiagnosisPage() {
                     })}
                   </div>
 
-                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
                     <p className="text-xs text-blue-800">
-                      <strong>📱 カメラの使い方：</strong><br />
-                      各写真タイプの枠をタップすると、スマホのカメラが起動します。<br />
+                      <strong>📱 カメラの使い方：</strong>
+                      <br />
+                      各写真タイプの枠をタップすると、スマホのカメラが起動します。
+                      <br />
                       撮影後、プレビューで確認してから保存できます。
                     </p>
                   </div>
@@ -1327,53 +1640,67 @@ export default function IntegratedDiagnosisPage() {
 
             {/* 診断ビュー（カテゴリタブ付き） */}
             {currentMainView === 'diagnosis' && (
-              <div className="flex flex-col h-full">
+              <div className="flex h-full flex-col">
                 {/* 進捗バー - 固定 */}
-                <div className="px-3 py-2 bg-gray-50 border-b sticky top-0 z-20">
-                  <div className="flex items-center justify-between mb-1">
+                <div className="sticky top-0 z-20 border-b bg-gray-50 px-3 py-2">
+                  <div className="mb-1 flex items-center justify-between">
                     <span className="text-xs text-gray-600">診断入力進捗</span>
-                    <span className="text-xs font-medium">{diagnosisProgressPercentage}%</span>
+                    <span className="text-xs font-medium">
+                      {diagnosisProgressPercentage}%
+                    </span>
                   </div>
-                  <Progress value={diagnosisProgressPercentage} className="h-1.5" />
+                  <Progress
+                    value={diagnosisProgressPercentage}
+                    className="h-1.5"
+                  />
                 </div>
 
                 {/* カテゴリタブ - 固定 */}
                 <div
                   ref={categoryTabContainerRef}
-                  className="border-b bg-white overflow-x-auto sticky top-[52px] z-10 scrollbar-hide shadow-sm"
+                  className="scrollbar-hide sticky top-[52px] z-10 overflow-x-auto border-b bg-white shadow-sm"
                 >
                   <div className="flex">
                     {staffCategoryOrder.map((category) => {
                       const items = staffItemsByCategory[category] || []
-                      const completedCount = items.filter(item =>
-                        diagnosisValues[item.id] !== undefined &&
-                        diagnosisValues[item.id] !== null &&
-                        diagnosisValues[item.id] !== ''
+                      const completedCount = items.filter(
+                        (item) =>
+                          diagnosisValues[item.id] !== undefined &&
+                          diagnosisValues[item.id] !== null &&
+                          diagnosisValues[item.id] !== ''
                       ).length
-                      const isComplete = completedCount === items.length && items.length > 0
+                      const isComplete =
+                        completedCount === items.length && items.length > 0
 
                       return (
                         <button
                           key={category}
-                          ref={(el) => { categoryTabRefs.current[category] = el }}
+                          ref={(el) => {
+                            categoryTabRefs.current[category] = el
+                          }}
                           type="button"
                           onClick={(e) => handleCategoryClick(e, category)}
                           className={cn(
-                            "px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap touch-manipulation",
-                            "active:scale-95 active:bg-gray-100",
-                            "[&:active]:outline-none [&:active]:ring-0",
+                            'touch-manipulation whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-medium transition-colors',
+                            'active:scale-95 active:bg-gray-100',
+                            '[&:active]:outline-none [&:active]:ring-0',
                             activeCategory === category
-                              ? "border-blue-500 text-blue-600 bg-blue-50"
-                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300",
-                            isComplete && "text-green-600"
+                              ? 'border-blue-500 bg-blue-50 text-blue-600'
+                              : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+                            isComplete && 'text-green-600'
                           )}
                           style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                           <div className="flex items-center gap-1.5">
                             <span>{category}</span>
-                            {isComplete && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                            {isComplete && (
+                              <Check className="h-3.5 w-3.5 flex-shrink-0" />
+                            )}
                             {!isComplete && completedCount > 0 && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                              <Badge
+                                variant="outline"
+                                className="h-4 px-1 py-0 text-[10px]"
+                              >
                                 {completedCount}/{items.length}
                               </Badge>
                             )}
@@ -1385,18 +1712,17 @@ export default function IntegratedDiagnosisPage() {
                 </div>
 
                 {/* 全カテゴリの診断項目 - スクロール可能 */}
-                <div
-                  className="flex-1 px-3 py-3"
-                >
+                <div className="flex-1 px-3 py-3">
                   <div className="space-y-6">
                     {staffCategoryOrder.map((category) => {
                       const items = staffItemsByCategory[category] || []
                       if (items.length === 0) return null
 
-                      const completedCount = items.filter(item =>
-                        diagnosisValues[item.id] !== undefined &&
-                        diagnosisValues[item.id] !== null &&
-                        diagnosisValues[item.id] !== ''
+                      const completedCount = items.filter(
+                        (item) =>
+                          diagnosisValues[item.id] !== undefined &&
+                          diagnosisValues[item.id] !== null &&
+                          diagnosisValues[item.id] !== ''
                       ).length
 
                       return (
@@ -1410,14 +1736,21 @@ export default function IntegratedDiagnosisPage() {
                         >
                           <Card className="shadow-sm">
                             <CardHeader className="pb-3">
-                              <CardTitle className="text-base">{category}</CardTitle>
+                              <CardTitle className="text-base">
+                                {category}
+                              </CardTitle>
                               <CardDescription className="text-xs">
-                                {items.length}項目 {completedCount > 0 && `(${completedCount}/${items.length} 完了)`}
+                                {items.length}項目{' '}
+                                {completedCount > 0 &&
+                                  `(${completedCount}/${items.length} 完了)`}
                               </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                              {items.map(item => (
-                                <div key={item.id} className="pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                              {items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="border-b border-gray-100 pb-4 last:border-0 last:pb-0"
+                                >
                                   {renderField(item)}
                                 </div>
                               ))}
@@ -1435,8 +1768,8 @@ export default function IntegratedDiagnosisPage() {
             {currentMainView === 'memo' && (
               <Card className="shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center space-x-2">
-                    <StickyNote className="w-4 h-4" />
+                  <CardTitle className="flex items-center space-x-2 text-base">
+                    <StickyNote className="h-4 w-4" />
                     <span>スタッフメモ</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
@@ -1448,11 +1781,13 @@ export default function IntegratedDiagnosisPage() {
                     value={staffNotes}
                     onChange={(e) => setStaffNotes(e.target.value)}
                     placeholder="診断時の観察事項：&#10;・姿勢について気になった点&#10;・口腔機能について&#10;・保護者への伝達事項&#10;・次回フォローアップ事項&#10;&#10;自由に記入してください..."
-                    className="min-h-[300px] text-sm leading-relaxed resize-none"
+                    className="min-h-[300px] resize-none text-sm leading-relaxed"
                   />
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-xs text-gray-400">
-                      {staffNotes.length > 0 ? `${staffNotes.length}文字` : 'メモは自動保存されます'}
+                      {staffNotes.length > 0
+                        ? `${staffNotes.length}文字`
+                        : 'メモは自動保存されます'}
                     </p>
                     {staffNotes.length > 0 && (
                       <Button
@@ -1476,8 +1811,8 @@ export default function IntegratedDiagnosisPage() {
                 {!analysisResult && (
                   <Card className="shadow-sm">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center space-x-2">
-                        <CheckCircle2 className="w-4 h-4" />
+                      <CardTitle className="flex items-center space-x-2 text-base">
+                        <CheckCircle2 className="h-4 w-4" />
                         <span>入力チェック</span>
                       </CardTitle>
                       <CardDescription className="text-xs">
@@ -1487,30 +1822,40 @@ export default function IntegratedDiagnosisPage() {
                     <CardContent className="space-y-4">
                       {/* 写真チェック */}
                       <div>
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2">写真（必須3枚）</h4>
+                        <h4 className="mb-2 text-xs font-semibold text-gray-700">
+                          写真（必須3枚）
+                        </h4>
                         <div className="space-y-1">
                           {[
                             { key: 'posture_front', label: '正面姿勢' },
                             { key: 'posture_side', label: '横向き姿勢' },
                             { key: 'oral_front', label: '口腔内（正面）' },
                           ].map(({ key, label }) => {
-                            const hasPhoto = photos.find(p => p.type === key)
+                            const hasPhoto = photos.find((p) => p.type === key)
                             return (
                               <button
                                 key={key}
-                                onClick={() => !hasPhoto && setCurrentMainView('photos')}
+                                onClick={() =>
+                                  !hasPhoto && setCurrentMainView('photos')
+                                }
                                 className={cn(
-                                  "w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors",
+                                  'flex w-full items-center justify-between rounded-lg p-2 text-xs transition-colors',
                                   hasPhoto
-                                    ? "bg-green-50 text-green-700"
-                                    : "bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer"
+                                    ? 'bg-green-50 text-green-700'
+                                    : 'cursor-pointer bg-red-50 text-red-700 hover:bg-red-100'
                                 )}
                               >
                                 <span className="flex items-center gap-2">
-                                  {hasPhoto ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                  {hasPhoto ? (
+                                    <Check className="h-3 w-3" />
+                                  ) : (
+                                    <X className="h-3 w-3" />
+                                  )}
                                   {label}
                                 </span>
-                                {!hasPhoto && <ChevronRight className="w-3 h-3" />}
+                                {!hasPhoto && (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
                               </button>
                             )
                           })}
@@ -1519,78 +1864,111 @@ export default function IntegratedDiagnosisPage() {
 
                       {/* 診断項目チェック */}
                       <div>
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2">診断項目（スタッフ入力）</h4>
-                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                        <h4 className="mb-2 text-xs font-semibold text-gray-700">
+                          診断項目（スタッフ入力）
+                        </h4>
+                        <div className="max-h-48 space-y-1 overflow-y-auto">
                           {/* 未入力項目を先に表示 */}
-                          {[...staffItems.filter(item => item.required)].sort((a, b) => {
-                            const aHasValue = diagnosisValues[a.id] !== undefined && diagnosisValues[a.id] !== null && diagnosisValues[a.id] !== ''
-                            const bHasValue = diagnosisValues[b.id] !== undefined && diagnosisValues[b.id] !== null && diagnosisValues[b.id] !== ''
-                            if (!aHasValue && bHasValue) return -1
-                            if (aHasValue && !bHasValue) return 1
-                            return 0
-                          }).map(item => {
-                            const hasValue = diagnosisValues[item.id] !== undefined &&
-                              diagnosisValues[item.id] !== null &&
-                              diagnosisValues[item.id] !== ''
-                            return (
-                              <button
-                                key={item.id}
-                                onClick={() => !hasValue && setCurrentMainView('diagnosis')}
-                                className={cn(
-                                  "w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors",
-                                  hasValue
-                                    ? "bg-green-50 text-green-700"
-                                    : "bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer"
-                                )}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {hasValue ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                                  <span className="text-gray-400">[{item.category}]</span>
-                                  {item.question}
-                                </span>
-                                {!hasValue && <ChevronRight className="w-3 h-3" />}
-                              </button>
-                            )
-                          })}
+                          {[...staffItems.filter((item) => item.required)]
+                            .sort((a, b) => {
+                              const aHasValue =
+                                diagnosisValues[a.id] !== undefined &&
+                                diagnosisValues[a.id] !== null &&
+                                diagnosisValues[a.id] !== ''
+                              const bHasValue =
+                                diagnosisValues[b.id] !== undefined &&
+                                diagnosisValues[b.id] !== null &&
+                                diagnosisValues[b.id] !== ''
+                              if (!aHasValue && bHasValue) return -1
+                              if (aHasValue && !bHasValue) return 1
+                              return 0
+                            })
+                            .map((item) => {
+                              const hasValue =
+                                diagnosisValues[item.id] !== undefined &&
+                                diagnosisValues[item.id] !== null &&
+                                diagnosisValues[item.id] !== ''
+                              return (
+                                <button
+                                  key={item.id}
+                                  onClick={() =>
+                                    !hasValue && setCurrentMainView('diagnosis')
+                                  }
+                                  className={cn(
+                                    'flex w-full items-center justify-between rounded-lg p-2 text-xs transition-colors',
+                                    hasValue
+                                      ? 'bg-green-50 text-green-700'
+                                      : 'cursor-pointer bg-red-50 text-red-700 hover:bg-red-100'
+                                  )}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {hasValue ? (
+                                      <Check className="h-3 w-3" />
+                                    ) : (
+                                      <X className="h-3 w-3" />
+                                    )}
+                                    <span className="text-gray-400">
+                                      [{item.category}]
+                                    </span>
+                                    {item.question}
+                                  </span>
+                                  {!hasValue && (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
+                                </button>
+                              )
+                            })}
                         </div>
                       </div>
 
                       {/* 分析ボタン */}
                       {(() => {
-                        const requiredPhotos = ['posture_front', 'posture_side', 'oral_front']
-                        const missingPhotos = requiredPhotos.filter(key => !photos.find(p => p.type === key))
-                        const missingDiagnosis = staffItems.filter(item =>
-                          item.required &&
-                          (diagnosisValues[item.id] === undefined ||
-                            diagnosisValues[item.id] === null ||
-                            diagnosisValues[item.id] === '')
+                        const requiredPhotos = [
+                          'posture_front',
+                          'posture_side',
+                          'oral_front',
+                        ]
+                        const missingPhotos = requiredPhotos.filter(
+                          (key) => !photos.find((p) => p.type === key)
                         )
-                        const canAnalyze = missingPhotos.length === 0 && missingDiagnosis.length === 0
+                        const missingDiagnosis = staffItems.filter(
+                          (item) =>
+                            item.required &&
+                            (diagnosisValues[item.id] === undefined ||
+                              diagnosisValues[item.id] === null ||
+                              diagnosisValues[item.id] === '')
+                        )
+                        const canAnalyze =
+                          missingPhotos.length === 0 &&
+                          missingDiagnosis.length === 0
 
                         return (
                           <div className="pt-2">
                             {!canAnalyze && (
-                              <p className="text-xs text-red-600 mb-2 text-center">
-                                未入力項目: 写真{missingPhotos.length}枚、診断{missingDiagnosis.length}項目
+                              <p className="mb-2 text-center text-xs text-red-600">
+                                未入力項目: 写真{missingPhotos.length}枚、診断
+                                {missingDiagnosis.length}項目
                               </p>
                             )}
                             <Button
                               onClick={runAnalysis}
                               disabled={isAnalyzing || !canAnalyze}
                               className={cn(
-                                "w-full",
-                                canAnalyze ? "bg-coral-500 hover:bg-coral-600" : "bg-gray-300"
+                                'w-full',
+                                canAnalyze
+                                  ? 'bg-coral-500 hover:bg-coral-600'
+                                  : 'bg-gray-300'
                               )}
                               size="lg"
                             >
                               {isAnalyzing ? (
                                 <>
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
                                   分析中...
                                 </>
                               ) : (
                                 <>
-                                  <Brain className="w-5 h-5 mr-2" />
+                                  <Brain className="mr-2 h-5 w-5" />
                                   分析
                                 </>
                               )}
@@ -1606,13 +1984,13 @@ export default function IntegratedDiagnosisPage() {
                 {analysisResult && (
                   <Card className="shadow-sm">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center justify-between">
+                      <CardTitle className="flex items-center justify-between text-base">
                         <div className="flex items-center space-x-2">
-                          <Brain className="w-4 h-4" />
+                          <Brain className="h-4 w-4" />
                           <span>分析結果</span>
                         </div>
                         {isReportConfirmed && (
-                          <Badge className="bg-green-100 text-green-700 border-green-200">
+                          <Badge className="border-green-200 bg-green-100 text-green-700">
                             確定済み
                           </Badge>
                         )}
@@ -1621,14 +1999,25 @@ export default function IntegratedDiagnosisPage() {
                     <CardContent className="space-y-4">
                       {/* レポートプレビュー（コメント直接編集可能） */}
                       <ReportPreview
-                        childName={questionnaire?.child_name || session?.child_name || 'お子様'}
-                        childAge={questionnaire?.child_age || session?.child_age}
+                        childName={
+                          questionnaire?.child_name ||
+                          session?.child_name ||
+                          'お子様'
+                        }
+                        childAge={
+                          questionnaire?.child_age || session?.child_age
+                        }
                         eventName="cOral up 診断"
                         diagnosisDate={new Date().toISOString()}
                         photos={{
-                          postureSide: photos.find(p => p.type === 'posture_side')?.url,
-                          postureFront: photos.find(p => p.type === 'posture_front')?.url,
-                          oralFront: photos.find(p => p.type === 'oral_front')?.url,
+                          postureSide: photos.find(
+                            (p) => p.type === 'posture_side'
+                          )?.url,
+                          postureFront: photos.find(
+                            (p) => p.type === 'posture_front'
+                          )?.url,
+                          oralFront: photos.find((p) => p.type === 'oral_front')
+                            ?.url,
                         }}
                         aiSummary={editableSummary}
                         isEditable={!isReportConfirmed}
@@ -1636,7 +2025,11 @@ export default function IntegratedDiagnosisPage() {
                           setEditableSummary(value)
                           setIsReportConfirmed(false)
                         }}
-                        reportUrl={isReportConfirmed ? `https://coralup-yourtime.vercel.app/report/demo-${sessionId}` : undefined}
+                        reportUrl={
+                          isReportConfirmed
+                            ? `https://coralup-yourtime.vercel.app/report/demo-${sessionId}`
+                            : undefined
+                        }
                       />
 
                       {/* 確定・送信ボタン */}
@@ -1646,14 +2039,16 @@ export default function IntegratedDiagnosisPage() {
                           className="w-full bg-blue-500 hover:bg-blue-600"
                           size="lg"
                         >
-                          <Check className="w-5 h-5 mr-2" />
+                          <Check className="mr-2 h-5 w-5" />
                           レポートを確定
                         </Button>
                       ) : (
                         <div className="space-y-2">
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                            <Check className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                            <p className="text-xs text-green-700">レポート確定済み - コメントは編集できません</p>
+                          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-center">
+                            <Check className="mx-auto mb-1 h-5 w-5 text-green-600" />
+                            <p className="text-xs text-green-700">
+                              レポート確定済み - コメントは編集できません
+                            </p>
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -1661,7 +2056,7 @@ export default function IntegratedDiagnosisPage() {
                               variant="outline"
                               className="flex-1"
                             >
-                              <Edit2 className="w-4 h-4 mr-2" />
+                              <Edit2 className="mr-2 h-4 w-4" />
                               編集に戻る
                             </Button>
                             <Button
@@ -1672,7 +2067,7 @@ export default function IntegratedDiagnosisPage() {
                               disabled={isSending}
                               className="flex-1 bg-green-500 hover:bg-green-600"
                             >
-                              <Send className="w-4 h-4 mr-2" />
+                              <Send className="mr-2 h-4 w-4" />
                               LINE送信
                             </Button>
                           </div>
@@ -1698,7 +2093,9 @@ export default function IntegratedDiagnosisPage() {
       {previewPhoto && (
         <StaffDiagnosisPhotoPreviewModal
           imageUrl={previewPhoto.url}
-          label={photoTypes.find(t => t.key === previewPhoto.type)?.label || '写真'}
+          label={
+            photoTypes.find((t) => t.key === previewPhoto.type)?.label || '写真'
+          }
           onCancel={closePreview}
           onRetake={retakePhoto}
           onSave={savePreviewPhoto}
@@ -1707,26 +2104,29 @@ export default function IntegratedDiagnosisPage() {
 
       {/* レガシーカメラモーダル（フォールバック用） */}
       {isCameraOpen && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="flex-1 flex items-center justify-center relative">
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="relative flex flex-1 items-center justify-center">
             <video
               ref={videoRef}
               autoPlay
               playsInline
-              className="w-full h-full object-contain"
+              className="h-full w-full object-contain"
             />
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-4 border-2 border-white border-dashed rounded-lg opacity-50" />
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute inset-4 rounded-lg border-2 border-dashed border-white opacity-50" />
             </div>
           </div>
 
-          <div className="bg-black/80 p-6 space-y-4">
-            <div className="text-center text-white mb-4">
+          <div className="space-y-4 bg-black/80 p-6">
+            <div className="mb-4 text-center text-white">
               <p className="text-lg font-semibold">
-                {photoTypes.find(t => t.key === currentPhotoType)?.label}
+                {photoTypes.find((t) => t.key === currentPhotoType)?.label}
               </p>
               <p className="text-sm text-gray-300">
-                {photoTypes.find(t => t.key === currentPhotoType)?.description}
+                {
+                  photoTypes.find((t) => t.key === currentPhotoType)
+                    ?.description
+                }
               </p>
             </div>
 
@@ -1734,9 +2134,9 @@ export default function IntegratedDiagnosisPage() {
               <Button
                 variant="outline"
                 onClick={stopCamera}
-                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="flex-1 border-white/20 bg-white/10 text-white hover:bg-white/20"
               >
-                <X className="w-4 h-4 mr-2" />
+                <X className="mr-2 h-4 w-4" />
                 キャンセル
               </Button>
               <Button
@@ -1755,56 +2155,63 @@ export default function IntegratedDiagnosisPage() {
 
       {/* LINE送信確認モーダル */}
       {showLineSendConfirm && (
-        <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
             {/* ヘッダー */}
-            <div className="bg-green-500 p-4 text-white text-center">
-              <Send className="w-8 h-8 mx-auto mb-2" />
+            <div className="bg-green-500 p-4 text-center text-white">
+              <Send className="mx-auto mb-2 h-8 w-8" />
               <h2 className="text-lg font-bold">デモLINE送信確認</h2>
             </div>
 
             {/* 確認内容 */}
-            <div className="p-4 space-y-4">
+            <div className="space-y-4 p-4">
               {/* LINE連携情報 */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs text-green-600 font-semibold mb-1">送信先</p>
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="mb-1 text-xs font-semibold text-green-600">
+                  送信先
+                </p>
                 <p className="text-sm font-bold text-gray-800">
                   ログイン中スタッフ本人
                 </p>
-                <p className="text-xs text-green-700 mt-1">
+                <p className="mt-1 text-xs text-green-700">
                   患者/保護者には送信されません
                 </p>
               </div>
 
               {/* 親御さん情報 */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-600 font-semibold mb-1">親御さん</p>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <p className="mb-1 text-xs font-semibold text-blue-600">
+                  親御さん
+                </p>
                 <p className="text-sm font-bold text-gray-800">
                   {session?.parent_name || '保護者 太郎'}
                 </p>
               </div>
 
               {/* お子さん情報 */}
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <p className="text-xs text-orange-600 font-semibold mb-1">お子さん</p>
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                <p className="mb-1 text-xs font-semibold text-orange-600">
+                  お子さん
+                </p>
                 <p className="text-sm font-bold text-gray-800">
                   {questionnaire?.child_name || session?.child_name || '未入力'}
-                  <span className="text-gray-500 font-normal ml-2">
+                  <span className="ml-2 font-normal text-gray-500">
                     ({questionnaire?.child_age || session?.child_age || 0}歳)
                   </span>
                 </p>
               </div>
 
               {/* 確認チェックボックス */}
-              <label className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-gray-50 p-3">
                 <input
                   type="checkbox"
                   checked={lineSendConfirmed}
                   onChange={(e) => setLineSendConfirmed(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                  className="mt-0.5 h-5 w-5 rounded border-gray-300 text-green-500 focus:ring-green-500"
                 />
                 <span className="text-sm text-gray-700">
-                  上記の情報を確認しました。<br />
+                  上記の情報を確認しました。
+                  <br />
                   <span className="text-xs text-gray-500">
                     スタッフ本人へのデモ送信であることを確認してください
                   </span>
@@ -1813,7 +2220,7 @@ export default function IntegratedDiagnosisPage() {
             </div>
 
             {/* ボタン */}
-            <div className="p-4 bg-gray-50 border-t flex gap-3">
+            <div className="flex gap-3 border-t bg-gray-50 p-4">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1854,18 +2261,18 @@ export default function IntegratedDiagnosisPage() {
 
       {/* LINE配信確認モーダル */}
       {showLineDeliveryCheck && (
-        <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
             {/* ヘッダー */}
-            <div className="bg-green-500 p-4 text-white text-center">
-              <Send className="w-8 h-8 mx-auto mb-2" />
+            <div className="bg-green-500 p-4 text-center text-white">
+              <Send className="mx-auto mb-2 h-8 w-8" />
               <h2 className="text-lg font-bold">LINE送信完了</h2>
             </div>
 
             {/* 確認内容 */}
-            <div className="p-4 space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                <p className="text-base font-bold text-yellow-800 mb-2">
+            <div className="space-y-4 p-4">
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center">
+                <p className="mb-2 text-base font-bold text-yellow-800">
                   📱 LINEが届いたことを確認してください
                 </p>
                 <p className="text-sm text-yellow-700">
@@ -1878,31 +2285,31 @@ export default function IntegratedDiagnosisPage() {
                 <div className="flex gap-3">
                   <Button
                     onClick={() => completeDiagnosis('confirmed')}
-                    className="flex-1 h-14 bg-green-500 hover:bg-green-600 text-white"
+                    className="h-14 flex-1 bg-green-500 text-white hover:bg-green-600"
                   >
-                    <Check className="w-5 h-5 mr-2" />
+                    <Check className="mr-2 h-5 w-5" />
                     届いた
                   </Button>
                   <Button
                     onClick={() => completeDiagnosis('not_received')}
                     variant="outline"
-                    className="flex-1 h-14 border-2 border-red-300 text-red-600 hover:bg-red-50"
+                    className="h-14 flex-1 border-2 border-red-300 text-red-600 hover:bg-red-50"
                   >
-                    <X className="w-5 h-5 mr-2" />
+                    <X className="mr-2 h-5 w-5" />
                     届いていない
                   </Button>
                 </div>
                 <Button
                   onClick={() => completeDiagnosis('unknown')}
                   variant="outline"
-                  className="w-full h-14 border-2 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                  className="h-14 w-full border-2 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
                 >
-                  <AlertCircle className="w-5 h-5 mr-2" />
+                  <AlertCircle className="mr-2 h-5 w-5" />
                   確認できなかった
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-center text-xs text-gray-500">
                 ※届いていない場合は、近日中にお送りする旨をお伝えください
               </p>
             </div>
@@ -1912,22 +2319,23 @@ export default function IntegratedDiagnosisPage() {
 
       {/* 診断完了モーダル */}
       {isDiagnosisComplete && (
-        <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
             {/* ヘッダー */}
-            <div className="bg-blue-500 p-6 text-white text-center">
-              <CheckCircle2 className="w-16 h-16 mx-auto mb-3" />
+            <div className="bg-blue-500 p-6 text-center text-white">
+              <CheckCircle2 className="mx-auto mb-3 h-16 w-16" />
               <h2 className="text-xl font-bold">診断完了</h2>
             </div>
 
             {/* 内容 */}
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-6">
               <p className="text-center text-gray-700">
-                {questionnaire?.child_name || session?.child_name}さんの診断が完了しました。
+                {questionnaire?.child_name || session?.child_name}
+                さんの診断が完了しました。
               </p>
 
-              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-                <p className="font-medium mb-2">次のお子様の診断へ進む場合：</p>
+              <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
+                <p className="mb-2 font-medium">次のお子様の診断へ進む場合：</p>
                 <p>「次の診断へ」ボタンを押してQRスキャン画面に戻ります</p>
               </div>
 
@@ -1940,7 +2348,7 @@ export default function IntegratedDiagnosisPage() {
                   setCurrentMainView('questionnaire')
                   // 必要に応じて他の状態もリセット
                 }}
-                className="w-full h-14 bg-blue-500 hover:bg-blue-600 text-white text-base font-bold"
+                className="h-14 w-full bg-blue-500 text-base font-bold text-white hover:bg-blue-600"
               >
                 次の診断へ
               </Button>
