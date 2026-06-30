@@ -1,6 +1,6 @@
 # Coralup TODO プロジェクト管理
 
-**最終更新: 2026-06-30（運用正本化の大リファクタを本番デプロイ・Lark撤去完了・AIモデル/プロンプト正本化）**
+**最終更新: 2026-06-30（デモLINE通知を本番Flexフォーマットに統一・本番デプロイ／運用正本化の大リファクタ・Lark撤去完了・AIモデル/プロンプト正本化）**
 
 ---
 
@@ -58,6 +58,14 @@ Lark Base は当日運用・レポート反映に必須ではなく、DBに正�
 - **既知の運用注意**: 旧SDK `@google/generative-ai` は非推奨（thinking明示制御不可）→ `@google/genai` 移行は thinking制御が要るとき。死にenv `GEMINI_MODEL`(本番)はコード未参照。
 
 **残・実機確認**: `/admin/ai-test` で 3.1 Flash-Lite ＋ 新プロンプト → テスト診断1本（速度・文面）。
+
+### 📨 2026-06-30 デモLINE通知を本番Flexフォーマットに統一 本番デプロイ完了 ✅
+
+**コミット `16bd5e9` を origin/main へ push＝本番デプロイ。型チェック+lint+本番ビルド+単体テスト5件パス。スタッフLINEで実着信確認済み。**
+
+本番(保護者宛=Flexバブル) と デモ(スタッフ本人宛=旧素テキスト) で通知の見た目が別物だった問題を解消。Flex生成を共通lib `src/lib/line-report-message.ts`（`buildReportFlexMessage()`）に切り出し、`send-report`/`send-demo-report` 両ルートが同一生成元を使用（doc 22「UIは1つ、データソースだけ切替」のLINE版・ドリフト防止）。デモは本番と同形Flex＋ボタンが `/report/demo` を開く。安全装置（宛先=スタッフ本人のみ/DBログ書かない/専用チャネル）は維持。
+
+**残（次回・軽微）**: デモ通知の細部に微調整したい点あり（本日は保留）。詳細 → [22-デモモード本番UI統一.md §9](./22-デモモード本番UI統一.md)
 
 ### Phase 1 完了: YourTIME イベント（2024/12/21）✅ 成功
 
@@ -213,8 +221,9 @@ Lark Base は当日運用・レポート反映に必須ではなく、DBに正�
 | 22.2 | 共通型切り出し | `src/types/staff-diagnosis.ts` を新設しdemo pageで使用（4d07229） | ✅ |
 | 22.3 | Provider分離 | production/demo のデータソース切替 | 📋 |
 | 22.4 | UI単一化 | 共有 `StaffDiagnosisBottomNav`/`PhotoModals`/型に統一。本番 `staff/diagnosis/[id]` も共有化しデプロイ済（5fec5bd）。`StaffDiagnosisExperience` 名での完全1コンポ統合は任意で残 | ✅ |
-| 22.5 | デモ副作用防止 | LINE/DB/Storageを呼ばない保証 | 📋 |
+| 22.5 | デモ副作用防止 | デモはDB/Storageへ書き込まない（写真/診断はlocalStorageのみ）。デモLINEは本人宛・DBログ無し。調査で確認済 | ✅ |
 | 22.6 | UI同一性テスト | 本番/デモの主要操作差分を検証 | 📋 |
+| 22.7 | LINE通知フォーマット統一 | `buildReportFlexMessage()` で本番=デモ同形Flex化。実機着信確認（16bd5e9）。細部微調整は次回 | ✅ |
 
 ### 残作業: 診断フロー改善
 
@@ -364,7 +373,8 @@ src/app/api/
 ├── diagnosis-schema/           ✅ 診断スキーマ取得（公開）
 ├── line/
 │   ├── confirm-delivery/       ✅ 配信確認
-│   ├── send-report/            ✅ レポート送信
+│   ├── send-report/            ✅ レポート送信（保護者宛Flex）
+│   ├── send-demo-report/       ✅ デモLINE送信（スタッフ本人宛・本番同形Flex）
 │   ├── staff-webhook/          ✅ スタッフWebhook
 │   └── webhook/                ✅ 親御さんWebhook
 ├── parent/
@@ -429,6 +439,7 @@ src/
 └── lib/
     ├── gemini.ts               ✅ Gemini APIクライアント
     ├── liff-utils.ts           ✅ LIFFユーティリティ
+    ├── line-report-message.ts  ✅ レポート通知Flex生成（本番/デモ共通SSoT）
     ├── staff-auth.ts           ✅ JWT認証ユーティリティ
     └── supabase.ts             ✅ Supabaseクライアント
 ```
