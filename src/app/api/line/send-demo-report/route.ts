@@ -4,22 +4,23 @@ import { logger } from '@/lib/logger'
 import { db } from '@/db'
 import { profiles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import {
+  buildReportFlexMessage,
+  type LineFlexMessage,
+} from '@/lib/line-report-message'
 
 export const maxDuration = 30
 
-// LINEテキストは5000字上限。余裕を持った業務上の上限を設ける。
 const MAX_CHILD_NAME_LENGTH = 100
-const MAX_REPORT_SUMMARY_LENGTH = 2000
 const LINE_PUSH_TIMEOUT_MS = 10_000
+
+// デモ通知のボタンはモックレポートページへ向ける（本番同様にボタンから開ける）
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
+const DEMO_REPORT_URL = `${APP_URL}/report/demo`
 
 interface SendDemoReportRequest {
   childName: string
-  reportSummary?: string
-}
-
-interface LineTextMessage {
-  type: 'text'
-  text: string
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -35,44 +36,12 @@ function parseRequestBody(body: unknown): SendDemoReportRequest | null {
   const childName = record.childName.trim()
   if (childName.length > MAX_CHILD_NAME_LENGTH) return null
 
-  const reportSummary = isNonEmptyString(record.reportSummary)
-    ? record.reportSummary.trim()
-    : undefined
-  if (reportSummary && reportSummary.length > MAX_REPORT_SUMMARY_LENGTH)
-    return null
-
-  return { childName, reportSummary }
-}
-
-function buildDemoReportMessage(params: {
-  childName: string
-  staffName: string
-  reportSummary?: string
-}): LineTextMessage {
-  const summary =
-    params.reportSummary ||
-    'デモ診断レポートの送信確認です。実運用データは保存・更新されていません。'
-
-  return {
-    type: 'text',
-    text: [
-      '【デモ】cOral up 診断レポート',
-      '',
-      `${params.staffName}さん宛のデモ送信です。`,
-      `${params.childName}さんの診断レポートが完成しました。`,
-      '',
-      summary,
-      '',
-      '※これはスタッフ確認用のデモ送信です。',
-      '※患者/保護者には送信されていません。',
-      '※DBのvisit/report/LINE配信確認は更新していません。',
-    ].join('\n'),
-  }
+  return { childName }
 }
 
 async function sendStaffLineMessage(
   lineUserId: string,
-  message: LineTextMessage
+  message: LineFlexMessage
 ): Promise<{
   success: boolean
   responseData?: unknown
@@ -167,10 +136,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const message = buildDemoReportMessage({
+    // 本番と同一フォーマットのFlex。違いはボタンの向き先(デモレポート)と
+    // altText/注記の「デモ」明示だけ。staffNameはaltTextに含めない(本番同様)。
+    const message = buildReportFlexMessage({
       childName: parsedBody.childName,
-      staffName: session.staffName,
-      reportSummary: parsedBody.reportSummary,
+      reportUrl: DEMO_REPORT_URL,
+      isDemo: true,
     })
 
     const result = await sendStaffLineMessage(recipientLineUserId, message)

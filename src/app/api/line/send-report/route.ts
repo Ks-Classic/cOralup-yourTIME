@@ -3,8 +3,10 @@ import { db } from '@/db'
 import { lineMessageLogs } from '@/db/schema'
 import { sendPushMessageSafe } from '@/lib/line-messaging'
 import { updateVisitProgress } from '@/lib/visit-status'
+import { buildReportFlexMessage } from '@/lib/line-report-message'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
 
 // Vercel Serverless: LINE API通信のため60秒に延長
 export const maxDuration = 60
@@ -31,90 +33,12 @@ export async function POST(request: NextRequest) {
 
     const reportUrl = `${APP_URL}/report/${visitId}`
 
-    // Flex Messageでリッチな通知を送信
-    const flexMessage = {
-      type: 'flex',
-      altText: `${childName}さんの分析レポートが完成しました`,
-      contents: {
-        type: 'bubble',
-        hero: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: '🦷 cOral up',
-              weight: 'bold',
-              size: 'sm',
-              color: '#1e40af'
-            }
-          ],
-          paddingAll: 'lg',
-          backgroundColor: '#eff6ff'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: '分析レポート完成',
-              weight: 'bold',
-              size: 'xl',
-              margin: 'md'
-            },
-            {
-              type: 'text',
-              text: `${childName}さんの口腔育成診断レポートが完成しました。`,
-              size: 'sm',
-              color: '#666666',
-              margin: 'md',
-              wrap: true
-            },
-            ...(eventName ? [{
-              type: 'text' as const,
-              text: `📍 ${eventName}`,
-              size: 'xs' as const,
-              color: '#999999',
-              margin: 'md' as const
-            }] : [])
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              height: 'sm',
-              action: {
-                type: 'uri',
-                label: 'レポートを見る',
-                uri: reportUrl
-              },
-              color: '#2563eb'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                {
-                  type: 'text',
-                  text: '※ レポートは90日間有効です',
-                  size: 'xxs',
-                  color: '#aaaaaa',
-                  align: 'center'
-                }
-              ],
-              margin: 'md'
-            }
-          ],
-          flex: 0
-        }
-      }
-    }
+    // Flex Messageでリッチな通知を送信（本番/デモ共通の生成元を使用）
+    const flexMessage = buildReportFlexMessage({
+      childName,
+      reportUrl,
+      eventName,
+    })
 
     // 残数チェック付きで送信
     const result = await sendPushMessageSafe({
@@ -141,7 +65,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         quotaExceeded: true,
-        fallbackMessage: 'LINE通知の月間上限に達しました。こちらのURLをお客様に直接お伝えください。',
+        fallbackMessage:
+          'LINE通知の月間上限に達しました。こちらのURLをお客様に直接お伝えください。',
         fallbackReportUrl: reportUrl,
         reportUrl,
       })
@@ -186,14 +111,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'レポートURLをLINEで送信しました',
-      reportUrl
+      reportUrl,
     })
-
   } catch (error) {
     console.error('Send report error:', error)
-    return NextResponse.json(
-      { error: 'サーバーエラー' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'サーバーエラー' }, { status: 500 })
   }
 }
