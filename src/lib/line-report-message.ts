@@ -37,8 +37,50 @@ export interface LineFlexMessage {
   contents: Record<string, unknown>
 }
 
+export interface LineTextMessage {
+  type: 'text'
+  text: string
+}
+
+export interface LineImageMessage {
+  type: 'image'
+  originalContentUrl: string
+  previewImageUrl: string
+}
+
+export type LineReportMessage =
+  | LineFlexMessage
+  | LineTextMessage
+  | LineImageMessage
+
 const PRODUCTION_FOOTER_NOTE = '※ レポートは90日間有効です'
 const DEMO_FOOTER_NOTE = '※ スタッフ確認用のデモ送信です'
+const FREE_LECTURE_IMAGE_PATH = '/images/free-lecture-notice.jpg'
+const FREE_LECTURE_APPLICATION_URL =
+  'https://docs.google.com/forms/d/e/1FAIpQLScnwSdn1I8U_EdTAMZBDNIBA8RajMzmar5jS2YOSKSne5nymA/viewform?usp=header'
+
+const POST_REPORT_GUIDANCE = [
+  '本日は、cOral up（コーラルアップ）ブースの簡易検査にお越しいただき、ありがとうございました😊',
+  '',
+  '短い時間でしたが、お口や姿勢、呼吸について知っていただくきっかけになっていれば嬉しいです。',
+  '',
+  'ご希望の方は、30分5,500円（税込）の個別相談も承っています。',
+  'お一人おひとりのお悩みに合わせて、今の状態やご家庭でできることをお伝えします。',
+  '',
+  '▼個別相談はこちら',
+  'https://coralup.jp/trainer/',
+  '',
+  'Instagramでも、お口の育ちや姿勢・呼吸・子どもの発達について発信しています🌿',
+  '',
+  '▼Instagram',
+  'https://www.instagram.com/dh_tsuuu_san?igsh=dW9lcDV4Y2l3OWxo&utm_source=qr',
+  '',
+  '▼相談用公式LINE',
+  'https://lin.ee/YKvKfpa',
+  '',
+  '気になることがありましたら、お気軽に公式LINEへメッセージしてください😊',
+  'ありがとうございました✨',
+].join('\n')
 
 /**
  * 本番/デモ共通のレポート通知Flex Messageを生成する。
@@ -142,4 +184,53 @@ export function buildReportFlexMessage(
       },
     },
   }
+}
+
+/**
+ * レポート通知の直後に送る、個別相談・SNS・相談窓口の案内を生成する。
+ */
+export function buildPostReportGuidanceMessage(): LineTextMessage {
+  return {
+    type: 'text',
+    text: POST_REPORT_GUIDANCE,
+  }
+}
+
+/**
+ * 無料講座の告知画像を、レポートと同じ公開オリジンから配信する。
+ */
+export function buildFreeLectureImageMessage(
+  reportUrl: string
+): LineImageMessage {
+  const imageUrl = new URL(FREE_LECTURE_IMAGE_PATH, reportUrl).toString()
+
+  return {
+    type: 'image',
+    originalContentUrl: imageUrl,
+    previewImageUrl: imageUrl,
+  }
+}
+
+/**
+ * 画像の直後に送る、無料講座の申込導線。
+ */
+export function buildFreeLectureApplicationMessage(): LineTextMessage {
+  return {
+    type: 'text',
+    text: `▼ お申し込みはこちら\n${FREE_LECTURE_APPLICATION_URL}`,
+  }
+}
+
+/**
+ * LINE Push APIへ渡すレポート通知一式を、表示順どおりに生成する。
+ */
+export function buildReportMessages(
+  params: ReportFlexMessageParams
+): LineReportMessage[] {
+  return [
+    buildReportFlexMessage(params),
+    buildPostReportGuidanceMessage(),
+    buildFreeLectureImageMessage(params.reportUrl),
+    buildFreeLectureApplicationMessage(),
+  ]
 }

@@ -1,4 +1,10 @@
-import { buildReportFlexMessage } from '../line-report-message'
+import {
+  buildFreeLectureApplicationMessage,
+  buildFreeLectureImageMessage,
+  buildPostReportGuidanceMessage,
+  buildReportFlexMessage,
+  buildReportMessages,
+} from '../line-report-message'
 
 /**
  * このテストの主目的は「本番とデモのレポート通知Flexが同形である」ことの固定。
@@ -74,5 +80,66 @@ describe('buildReportFlexMessage', () => {
     const demoNote = getContents(demo).footer.contents[1].contents[0].text
     expect(prodNote).toBe('※ レポートは90日間有効です')
     expect(demoNote).toBe('※ スタッフ確認用のデモ送信です')
+  })
+})
+
+describe('レポート送信後の案内', () => {
+  test('レポート、既存案内、無料講座画像、申込リンクの順で返す', () => {
+    const messages = buildReportMessages({
+      childName: '花子',
+      reportUrl: 'https://example.com/report/visit-123',
+    })
+
+    expect(messages).toHaveLength(4)
+    expect(messages[0].type).toBe('flex')
+    expect(messages[1].type).toBe('text')
+    expect(messages[2].type).toBe('image')
+    expect(messages[3].type).toBe('text')
+  })
+
+  test('案内に個別相談・Instagram・相談用LINEのリンクを含む', () => {
+    const message = buildPostReportGuidanceMessage()
+
+    expect(message.text).toContain('30分5,500円（税込）の個別相談')
+    expect(message.text).toContain('https://coralup.jp/trainer/')
+    expect(message.text).toContain(
+      'https://www.instagram.com/dh_tsuuu_san?igsh=dW9lcDV4Y2l3OWxo&utm_source=qr'
+    )
+    expect(message.text).toContain('https://lin.ee/YKvKfpa')
+  })
+
+  test('案内文はLINEテキストメッセージの上限内に収まる', () => {
+    const message = buildPostReportGuidanceMessage()
+
+    expect(message.text.length).toBeLessThanOrEqual(5000)
+  })
+
+  test('無料講座画像はレポートと同じ公開オリジンを使う', () => {
+    const message = buildFreeLectureImageMessage(
+      'https://example.com/report/visit-123'
+    )
+
+    expect(message.originalContentUrl).toBe(
+      'https://example.com/images/free-lecture-notice.jpg'
+    )
+    expect(message.previewImageUrl).toBe(message.originalContentUrl)
+  })
+
+  test('無料講座の申込テキストにGoogleフォームURLを含む', () => {
+    const message = buildFreeLectureApplicationMessage()
+
+    expect(message.text).toBe(
+      '▼ お申し込みはこちら\n' +
+        'https://docs.google.com/forms/d/e/1FAIpQLScnwSdn1I8U_EdTAMZBDNIBA8RajMzmar5jS2YOSKSne5nymA/viewform?usp=header'
+    )
+  })
+
+  test('LINE Push APIの1回あたり5メッセージ上限内に収まる', () => {
+    const messages = buildReportMessages({
+      childName: '花子',
+      reportUrl: 'https://example.com/report/visit-123',
+    })
+
+    expect(messages.length).toBeLessThanOrEqual(5)
   })
 })

@@ -5,8 +5,8 @@ import { db } from '@/db'
 import { profiles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import {
-  buildReportFlexMessage,
-  type LineFlexMessage,
+  buildReportMessages,
+  type LineReportMessage,
 } from '@/lib/line-report-message'
 
 export const maxDuration = 30
@@ -39,9 +39,9 @@ function parseRequestBody(body: unknown): SendDemoReportRequest | null {
   return { childName }
 }
 
-async function sendStaffLineMessage(
+async function sendStaffLineMessages(
   lineUserId: string,
-  message: LineFlexMessage
+  messages: LineReportMessage[]
 ): Promise<{
   success: boolean
   responseData?: unknown
@@ -66,7 +66,7 @@ async function sendStaffLineMessage(
       },
       body: JSON.stringify({
         to: lineUserId,
-        messages: [message],
+        messages,
       }),
       signal: AbortSignal.timeout(LINE_PUSH_TIMEOUT_MS),
     })
@@ -138,13 +138,13 @@ export async function POST(request: NextRequest) {
 
     // 本番と同一フォーマットのFlex。違いはボタンの向き先(デモレポート)と
     // altText/注記の「デモ」明示だけ。staffNameはaltTextに含めない(本番同様)。
-    const message = buildReportFlexMessage({
+    const messages = buildReportMessages({
       childName: parsedBody.childName,
       reportUrl: DEMO_REPORT_URL,
       isDemo: true,
     })
 
-    const result = await sendStaffLineMessage(recipientLineUserId, message)
+    const result = await sendStaffLineMessages(recipientLineUserId, messages)
 
     if (!result.success) {
       // 内部エラー詳細(env名/LINE生エラー)はサーバログのみ。クライアントには返さない。

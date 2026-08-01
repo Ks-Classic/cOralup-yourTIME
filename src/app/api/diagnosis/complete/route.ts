@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 import { sendPushMessageSafe } from '@/lib/line-messaging'
 import { updateVisitProgress } from '@/lib/visit-status'
+import { buildReportMessages } from '@/lib/line-report-message'
 
 // Vercel Serverless: DB取得 + LINE送信で時間がかかるため60秒に延長
 export const maxDuration = 60
@@ -212,54 +213,16 @@ async function sendReportNotification(params: {
   const { lineUserId, visitId, childName, eventName, sessionId } = params
   const reportUrl = `${APP_URL}/report/${visitId}`
 
-  const flexMessage = {
-    type: 'flex',
-    altText: `${childName}さんの分析レポートが完成しました`,
-    contents: {
-      type: 'bubble',
-      hero: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: '🦷 cOralup',
-            weight: 'bold',
-            size: 'lg',
-            color: '#F97316',
-            align: 'center',
-          },
-        ],
-        paddingAll: 'lg',
-        backgroundColor: '#FFF7ED',
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          { type: 'text', text: '診断レポート完成', weight: 'bold', size: 'xl', color: '#333333' },
-          { type: 'text', text: `${childName}さんの口腔育成診断レポートが完成しました。`, size: 'sm', color: '#666666', margin: 'md', wrap: true },
-          ...(eventName ? [{ type: 'text' as const, text: `📍 ${eventName}`, size: 'xs' as const, color: '#999999', margin: 'md' as const }] : []),
-        ],
-        paddingAll: '15px',
-      },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          { type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'レポートを見る', uri: reportUrl }, color: '#F97316' },
-          { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: '※ レポートは90日間有効です', size: 'xxs', color: '#aaaaaa', align: 'center' }], margin: 'md' },
-        ],
-        paddingAll: '15px',
-      },
-    },
-  }
+  const messages = buildReportMessages({
+    childName,
+    reportUrl,
+    eventName,
+  })
 
   try {
     const result = await sendPushMessageSafe({
       to: lineUserId,
-      messages: [flexMessage],
+      messages,
     })
 
     const sentAt = new Date()
@@ -270,7 +233,7 @@ async function sendReportNotification(params: {
       sessionId: sessionId,
       lineUserId: lineUserId,
       messageType: 'report',
-      messageContent: JSON.stringify(flexMessage),
+      messageContent: JSON.stringify(messages),
       status: result.success ? 'success' : (result.quotaExceeded ? 'quota_exceeded' : 'failed'),
       response: result.responseData || { quotaExceeded: result.quotaExceeded },
       errorMessage: result.error || (result.quotaExceeded ? 'LINE月間送信上限に達しました' : null),

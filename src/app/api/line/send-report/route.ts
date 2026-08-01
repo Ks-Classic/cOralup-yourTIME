@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { lineMessageLogs } from '@/db/schema'
 import { sendPushMessageSafe } from '@/lib/line-messaging'
 import { updateVisitProgress } from '@/lib/visit-status'
-import { buildReportFlexMessage } from '@/lib/line-report-message'
+import { buildReportMessages } from '@/lib/line-report-message'
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const reportUrl = `${APP_URL}/report/${visitId}`
 
     // Flex Messageでリッチな通知を送信（本番/デモ共通の生成元を使用）
-    const flexMessage = buildReportFlexMessage({
+    const messages = buildReportMessages({
       childName,
       reportUrl,
       eventName,
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // 残数チェック付きで送信
     const result = await sendPushMessageSafe({
       to: lineUserId,
-      messages: [flexMessage],
+      messages,
     })
 
     const sentAt = new Date()
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         sessionId: sessionId || null,
         lineUserId,
         messageType: 'report',
-        messageContent: JSON.stringify(flexMessage),
+        messageContent: JSON.stringify(messages),
         status: 'quota_exceeded',
         response: { quotaExceeded: true, quota: result.quota },
         errorMessage: 'LINE月間送信上限に達しました',
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         sessionId: sessionId || null,
         lineUserId,
         messageType: 'report',
-        messageContent: JSON.stringify(flexMessage),
+        messageContent: JSON.stringify(messages),
         status: 'failed',
         response: result.responseData,
         errorMessage: result.error,
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       sessionId: sessionId || null,
       lineUserId,
       messageType: 'report',
-      messageContent: JSON.stringify(flexMessage),
+      messageContent: JSON.stringify(messages),
       status: 'success',
       response: result.responseData,
       sentAt,
