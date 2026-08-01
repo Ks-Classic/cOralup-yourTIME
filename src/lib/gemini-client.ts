@@ -15,8 +15,10 @@ function getApiKeys(): string[] {
     const keys: string[] = []
     const key1 = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
     const key2 = process.env.GEMINI_API_KEY_2
+    const key3 = process.env.GEMINI_API_KEY_3
     if (key1) keys.push(key1)
     if (key2) keys.push(key2)
+    if (key3) keys.push(key3)
     return keys
 }
 
@@ -39,21 +41,55 @@ const DEFAULT_RETRY: RetryConfig = {
 }
 
 // ─── エラー分類 ────────────────────────────────────────
-function isRetryableError(error: any): boolean {
-    const status = error?.status || error?.statusCode || error?.httpStatusCode
+function getErrorStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined
+
+    const record = error as Record<string, unknown>
+    for (const key of ['status', 'statusCode', 'httpStatusCode']) {
+        if (typeof record[key] === 'number') return record[key]
+    }
+
+    return undefined
+}
+
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message
+    if (error && typeof error === 'object') {
+        const message = (error as Record<string, unknown>).message
+        if (typeof message === 'string') return message
+    }
+    return String(error)
+}
+
+function isRetryableError(error: unknown): boolean {
+    const status = getErrorStatus(error)
     if (status === 429 || status === 503) return true
-    const msg = error?.message || ''
+    const msg = getErrorMessage(error)
     if (msg.includes('429') || msg.includes('Resource has been exhausted')) return true
     if (msg.includes('503') || msg.includes('Service Unavailable')) return true
     if (msg.includes('UNAVAILABLE') || msg.includes('RESOURCE_EXHAUSTED')) return true
     return false
 }
 
-function isKeyExhaustedError(error: any): boolean {
-    const status = error?.status || error?.statusCode || error?.httpStatusCode
+function isKeyExhaustedError(error: unknown): boolean {
+    const status = getErrorStatus(error)
     if (status === 429) return true
-    const msg = error?.message || ''
+    const msg = getErrorMessage(error)
     return msg.includes('429') || msg.includes('Resource has been exhausted') || msg.includes('RESOURCE_EXHAUSTED')
+}
+
+function isKeyAccessError(error: unknown): boolean {
+    const status = getErrorStatus(error)
+    if (status === 401 || status === 403) return true
+
+    const msg = getErrorMessage(error)
+    return (
+        msg.includes('API_KEY_INVALID') ||
+        msg.includes('API key not valid') ||
+        msg.includes('PERMISSION_DENIED') ||
+        msg.includes('denied access') ||
+        msg.includes('403 Forbidden')
+    )
 }
 
 // ─── テキスト生成（リトライ+マルチキー） ───────────────
@@ -98,24 +134,28 @@ export async function generateText(
                 const geminiModel = genAI.getGenerativeModel({ model: modelName })
                 const result = await geminiModel.generateContent(prompt)
                 return result.response.text()
-            } catch (error: any) {
-                lastError = error
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error)
+                lastError = error instanceof Error ? error : new Error(errorMessage)
                 const retriable = isRetryableError(error)
                 console.error(
                     `[${logTag}] Gemini attempt ${attempt + 1}/${retryConfig.maxRetries}${keyLabel} failed` +
                     ` (retryable: ${retriable}):`,
-                    error?.message || error
+                    errorMessage
                 )
+
+                // 権限拒否・無効キー・枯渇は同じキーで再試行せず、次のキーを試す。
+                if (
+                    (isKeyAccessError(error) || isKeyExhaustedError(error)) &&
+                    keyIdx < apiKeys.length - 1
+                ) {
+                    console.warn(`[${logTag}] Key ${keyIdx + 1} unavailable, switching to key ${keyIdx + 2}`)
+                    break
+                }
 
                 // リトライ不可能なエラー → 即座に失敗
                 if (!retriable) {
                     throw error
-                }
-
-                // このキーが枯渇 → 次のキーへ
-                if (isKeyExhaustedError(error) && keyIdx < apiKeys.length - 1) {
-                    console.warn(`[${logTag}] Key ${keyIdx + 1} exhausted, switching to key ${keyIdx + 2}`)
-                    break
                 }
 
                 // 最後のリトライなら待たない
@@ -171,21 +211,25 @@ export async function generateWithImages(
                 const geminiModel = genAI.getGenerativeModel({ model: modelName })
                 const result = await geminiModel.generateContent([prompt, ...imageParts])
                 return result.response.text()
-            } catch (error: any) {
-                lastError = error
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error)
+                lastError = error instanceof Error ? error : new Error(errorMessage)
                 const retriable = isRetryableError(error)
                 console.error(
                     `[${logTag}] Gemini attempt ${attempt + 1}/${retryConfig.maxRetries}${keyLabel} failed` +
                     ` (retryable: ${retriable}):`,
-                    error?.message || error
+                    errorMessage
                 )
 
-                if (!retriable) throw error
-
-                if (isKeyExhaustedError(error) && keyIdx < apiKeys.length - 1) {
-                    console.warn(`[${logTag}] Key ${keyIdx + 1} exhausted, switching to key ${keyIdx + 2}`)
+                if (
+                    (isKeyAccessError(error) || isKeyExhaustedError(error)) &&
+                    keyIdx < apiKeys.length - 1
+                ) {
+                    console.warn(`[${logTag}] Key ${keyIdx + 1} unavailable, switching to key ${keyIdx + 2}`)
                     break
                 }
+
+                if (!retriable) throw error
 
                 if (attempt >= retryConfig.maxRetries - 1) break
 
