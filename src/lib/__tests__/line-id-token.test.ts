@@ -1,4 +1,4 @@
-import { verifyLineIdToken } from '../line-id-token'
+import { verifyLineAccessToken, verifyLineIdToken } from '../line-id-token'
 
 const CHANNEL_ID = '1234567890'
 const VALID_TOKEN = 'valid.id.token'
@@ -104,5 +104,67 @@ describe('verifyLineIdToken', () => {
     const params = init.body as URLSearchParams
     expect(params.get('id_token')).toBe(VALID_TOKEN)
     expect(params.get('client_id')).toBe(CHANNEL_ID)
+  })
+})
+
+describe('verifyLineAccessToken', () => {
+  const originalChannelId = process.env.LINE_STAFF_LOGIN_CHANNEL_ID
+
+  beforeEach(() => {
+    process.env.LINE_STAFF_LOGIN_CHANNEL_ID = CHANNEL_ID
+  })
+
+  afterEach(() => {
+    process.env.LINE_STAFF_LOGIN_CHANNEL_ID = originalChannelId
+    jest.restoreAllMocks()
+  })
+
+  test('returns null for an empty token', async () => {
+    expect(await verifyLineAccessToken(undefined)).toBeNull()
+    expect(await verifyLineAccessToken('')).toBeNull()
+  })
+
+  test('rejects a token issued to another channel', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ client_id: 'other-channel', expires_in: 3600 }),
+    }) as unknown as typeof fetch
+
+    expect(await verifyLineAccessToken('access-token')).toBeNull()
+  })
+
+  test('returns the verified LINE profile', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ client_id: CHANNEL_ID, expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ userId: 'Uverified456', displayName: '確認 花子' }),
+      })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(verifyLineAccessToken('access-token')).resolves.toEqual({
+      lineUserId: 'Uverified456',
+      displayName: '確認 花子',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1][1]?.headers).toEqual({
+      Authorization: 'Bearer access-token',
+    })
+  })
+
+  test('returns null when profile lookup fails', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ client_id: CHANNEL_ID, expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({ ok: false }) as unknown as typeof fetch
+
+    expect(await verifyLineAccessToken('access-token')).toBeNull()
   })
 })

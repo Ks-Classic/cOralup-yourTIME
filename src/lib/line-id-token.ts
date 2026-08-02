@@ -11,6 +11,14 @@
  */
 
 const LINE_VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify'
+const LINE_PROFILE_URL = 'https://api.line.me/v2/profile'
+
+function createRequestSignal(): AbortSignal | undefined {
+  return typeof AbortSignal !== 'undefined' &&
+    typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(5000)
+    : undefined
+}
 
 export interface VerifiedLineIdentity {
   lineUserId: string
@@ -72,5 +80,65 @@ export async function verifyLineIdToken(
   return {
     lineUserId: payload.sub,
     displayName: typeof payload.name === 'string' ? payload.name : undefined,
+  }
+}
+
+/**
+ * LIFFアクセストークンをLINE公式APIで検証し、本人情報を返す。
+ * openid scopeが無くIDトークンを取得できないLIFF設定の安全な代替経路。
+ */
+export async function verifyLineAccessToken(
+  accessToken: unknown
+): Promise<VerifiedLineIdentity | null> {
+  const channelId = process.env.LINE_STAFF_LOGIN_CHANNEL_ID
+  if (!channelId) {
+    throw new Error('LINE_STAFF_LOGIN_CHANNEL_ID is not set')
+  }
+
+  if (typeof accessToken !== 'string' || accessToken.trim().length === 0) {
+    return null
+  }
+
+  try {
+    const verificationResponse = await fetch(
+      `${LINE_VERIFY_URL}?access_token=${encodeURIComponent(accessToken)}`,
+      { signal: createRequestSignal() }
+    )
+    if (!verificationResponse.ok) return null
+
+    const verification = (await verificationResponse.json().catch(() => null)) as {
+      client_id?: unknown
+      expires_in?: unknown
+    } | null
+    if (
+      !verification ||
+      verification.client_id !== channelId ||
+      typeof verification.expires_in !== 'number' ||
+      verification.expires_in <= 0
+    ) {
+      return null
+    }
+
+    const profileResponse = await fetch(LINE_PROFILE_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: createRequestSignal(),
+    })
+    if (!profileResponse.ok) return null
+
+    const profile = (await profileResponse.json().catch(() => null)) as {
+      userId?: unknown
+      displayName?: unknown
+    } | null
+    if (!profile || typeof profile.userId !== 'string' || profile.userId.length === 0) {
+      return null
+    }
+
+    return {
+      lineUserId: profile.userId,
+      displayName:
+        typeof profile.displayName === 'string' ? profile.displayName : undefined,
+    }
+  } catch {
+    return null
   }
 }

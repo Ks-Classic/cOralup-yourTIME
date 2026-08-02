@@ -8,7 +8,7 @@ import {
   clearStaffSessionCookie,
   verifyStaffSessionToken,
 } from '@/lib/staff-auth'
-import { verifyLineIdToken } from '@/lib/line-id-token'
+import { verifyLineAccessToken, verifyLineIdToken } from '@/lib/line-id-token'
 import { logger } from '@/lib/logger'
 import { createHash } from 'crypto'
 
@@ -21,7 +21,7 @@ function hashId(id: string): string {
 
 /**
  * POST: LIFFからのセッション発行
- * Body: { idToken: string }  // liff.getIDToken() の検証済みIDトークン
+ * Body: { idToken?: string, accessToken?: string }
  *
  * セキュリティ: 宛先lineUserIdは body から受け取らず、LINEで検証済みの
  * IDトークンの sub だけを採用する（なりすまし防止）。
@@ -35,17 +35,27 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    const { idToken } = body as { idToken?: unknown }
+    const { idToken, accessToken } = body as {
+      idToken?: unknown
+      accessToken?: unknown
+    }
 
-    if (typeof idToken !== 'string' || idToken.length === 0) {
+    const hasIdToken = typeof idToken === 'string' && idToken.length > 0
+    const hasAccessToken =
+      typeof accessToken === 'string' && accessToken.length > 0
+    if (!hasIdToken && !hasAccessToken) {
       return NextResponse.json(
-        { error: 'idToken is required' },
+        { error: 'LINE token is required' },
         { status: 400 }
       )
     }
 
-    // LINE公式 verify でIDトークンを検証し、検証済みの lineUserId(sub) を取得
-    const identity = await verifyLineIdToken(idToken)
+    // openid scopeがある場合はIDトークン、無い場合はアクセストークンを
+    // LINE公式APIで検証する。bodyのuserIdは一切信用しない。
+    let identity = hasIdToken ? await verifyLineIdToken(idToken) : null
+    if (!identity && hasAccessToken) {
+      identity = await verifyLineAccessToken(accessToken)
+    }
     if (!identity) {
       logger.warn('Invalid LINE ID token on staff session', {
         path: '/api/auth/staff-session',

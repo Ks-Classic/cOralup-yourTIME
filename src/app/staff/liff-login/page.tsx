@@ -44,9 +44,10 @@ export default function LiffLoginPage() {
           return
         }
 
-        // IDトークン取得（サーバ側でLINE検証する。userId は送らない）
+        // LINEトークン取得（サーバ側でLINE検証する。userId は送らない）
         const idToken = liff.getIDToken()
-        if (!idToken) {
+        const accessToken = liff.getAccessToken()
+        if (!idToken && !accessToken) {
           setStatus('error')
           setErrorMessage(
             'LINE認証情報を取得できませんでした。LINEでログインし直してください。'
@@ -58,7 +59,7 @@ export default function LiffLoginPage() {
         const res = await fetch('/api/auth/staff-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({ idToken, accessToken }),
         })
 
         const data = await res.json()
