@@ -6,6 +6,8 @@ import { getStaffSession } from '@/lib/staff-auth'
 import { sendPushMessageSafe } from '@/lib/line-messaging'
 import { updateVisitProgress } from '@/lib/visit-status'
 import { buildReportMessages } from '@/lib/line-report-message'
+import { buildCurrentReportSnapshot } from '@/lib/report-snapshot'
+import type { ReportSnapshotInput } from '@/lib/report-snapshot'
 
 // Vercel Serverless: DB取得 + LINE送信で時間がかかるため60秒に延長
 export const maxDuration = 60
@@ -14,20 +16,8 @@ export const dynamic = 'force-dynamic'
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
 
-interface CompleteDiagnosisRequest {
+interface CompleteDiagnosisRequest extends ReportSnapshotInput {
   visitId: string
-  diagnosisId?: string
-  // AI分析結果（ダミー可）
-  aiSummary?: string
-  ageConsideration?: string
-  postureAnalysis?: {
-    overallScore: number
-    issues: string[]
-  }
-  oralAnalysis?: {
-    overallScore: number
-    issues: string[]
-  }
   // 送信オプション
   sendLineNotification?: boolean
 }
@@ -44,11 +34,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CompleteDiagnosisRequest = await request.json()
-    const { visitId, diagnosisId, sendLineNotification = true } = body
+    const { visitId, sendLineNotification = true } = body
 
     if (!visitId) {
       return NextResponse.json(
         { success: false, error: 'visitId is required' },
+        { status: 400 }
+      )
+    }
+
+    // 送信時点の診断結果を必須にする。既存行の内容をそのまま
+    // 送ると、再診断時に前回のレポートが誤送信されるため fail-closed とする。
+    const currentSnapshot = buildCurrentReportSnapshot(body)
+    if (!currentSnapshot) {
+      return NextResponse.json(
+        { success: false, error: 'current_report_summary_required' },
         { status: 400 }
       )
     }
@@ -115,36 +115,19 @@ export async function POST(request: NextRequest) {
     let report = existingReportRows[0]
 
     if (!report) {
-      const aiSummary = body.aiSummary || generateDummyAiSummary()
-      const ageConsideration = body.ageConsideration || 'お子様の年齢に応じた発達段階を考慮した評価です。'
-      const postureAnalysis = body.postureAnalysis || {
-        overallScore: 75,
-        issues: ['姿勢の改善が推奨されます', '口呼吸の傾向が見られます'],
-      }
-      const oralAnalysis = body.oralAnalysis || {
-        overallScore: 80,
-        issues: ['歯並びは概ね良好です', '定期的な歯科検診をお勧めします'],
-      }
-
       const insertedReports = await db
         .insert(reports)
         .values({
-          visitId: visitId,
-          diagnosisId: diagnosisId as any || null,
-          aiSummary: aiSummary,
-          ageConsideration: ageConsideration,
-          postureAnalysis: postureAnalysis,
-          oralAnalysis: oralAnalysis,
-          status: 'completed',
+          visitId,
+          ...currentSnapshot,
           reportType: 'diagnosis',
-          generatedAt: new Date(),
         } as typeof reports.$inferInsert)
         .returning()
       report = insertedReports[0]
     } else {
       const updatedReports = await db
         .update(reports)
-        .set({ status: 'completed', updatedAt: new Date() } as Partial<typeof reports.$inferInsert>)
+        .set(currentSnapshot as Partial<typeof reports.$inferInsert>)
         .where(eq(reports.id, report.id))
         .returning()
       report = updatedReports[0]
@@ -192,15 +175,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-function generateDummyAiSummary(): string {
-  const summaries = [
-    'お子様の口腔発達は概ね良好です。定期的な歯科検診と、正しい姿勢・呼吸習慣の維持をお勧めします。',
-    '口腔内の状態は年齢相応の発達を示しています。引き続き、バランスの良い食事と適切な口腔ケアを心がけてください。',
-    '全体的に健康的な口腔環境が観察されました。今後も定期的なチェックアップをお勧めします。',
-  ]
-  return summaries[Math.floor(Math.random() * summaries.length)]
 }
 
 async function sendReportNotification(params: {
