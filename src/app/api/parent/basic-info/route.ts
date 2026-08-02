@@ -196,7 +196,13 @@ export async function POST(request: NextRequest) {
     // sessionIdがあればそれで検索
     if (sessionId) {
       const existingVisitRows = await db
-        .select({ id: visits.id, sessionId: visits.sessionId, childId: visits.childId })
+        .select({
+          id: visits.id,
+          sessionId: visits.sessionId,
+          childId: visits.childId,
+          visitDate: visits.visitDate,
+          createdAt: visits.createdAt,
+        })
         .from(visits)
         .where(
           and(
@@ -229,7 +235,13 @@ export async function POST(request: NextRequest) {
     // sessionIdでvisitが見つからなかった場合、同じ子供に対する進行中visitがあれば再利用
     if (!visitId && child?.id) {
       const childVisitRows = await db
-        .select({ id: visits.id, sessionId: visits.sessionId })
+        .select({
+          id: visits.id,
+          sessionId: visits.sessionId,
+          childId: visits.childId,
+          visitDate: visits.visitDate,
+          createdAt: visits.createdAt,
+        })
         .from(visits)
         .where(
           and(
@@ -241,7 +253,7 @@ export async function POST(request: NextRequest) {
         .limit(1)
 
       const existingChildVisit = childVisitRows[0]
-      if (existingChildVisit) {
+      if (canReuseVisitForChild(existingChildVisit, child.id)) {
         visitId = existingChildVisit.id
         finalSessionId = existingChildVisit.sessionId
         await db

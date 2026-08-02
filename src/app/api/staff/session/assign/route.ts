@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { getStaffSession } from '@/lib/staff-auth'
 import { logger } from '@/lib/logger'
 import { updateVisitProgress } from '@/lib/visit-status'
+import { isVisitCurrent } from '@/lib/parent-questionnaire-flow'
 
 /**
  * POST: QRスキャン時にスタッフを診断セッションに紐付け
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     // sessionIdが渡された場合、visitIdを取得
     if (!targetVisitId && sessionId) {
       const visitRows = await db
-        .select({ id: visits.id })
+        .select({ id: visits.id, visitDate: visits.visitDate, createdAt: visits.createdAt })
         .from(visits)
         .where(eq(visits.sessionId, sessionId))
         .limit(1)
@@ -80,6 +81,27 @@ export async function POST(request: NextRequest) {
           action: 'created',
         })
       }
+    }
+
+    const targetRows = await db
+      .select({ visitDate: visits.visitDate, createdAt: visits.createdAt })
+      .from(visits)
+      .where(eq(visits.id, targetVisitId))
+      .limit(1)
+
+    if (!targetRows[0]) {
+      return NextResponse.json({ error: 'Visit not found' }, { status: 404 })
+    }
+
+    if (!isVisitCurrent(targetRows[0])) {
+      logger.warn('Rejected stale visit assignment', {
+        ...logContext,
+        visitId: targetVisitId,
+      })
+      return NextResponse.json(
+        { error: 'stale_visit', message: '過去の受付QRは使用できません。今回の問診から受付し直してください。' },
+        { status: 409 }
+      )
     }
 
     const updatedRows = await updateVisitProgress(targetVisitId, 'diagnosis_started', {

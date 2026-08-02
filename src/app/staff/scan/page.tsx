@@ -113,7 +113,9 @@ export default function StaffScanPage() {
 
       if (!assignData.success) {
         console.error('[Scan] Staff assignment failed:', assignData.error)
-        // 紐付け失敗してもセッションデータは表示
+        setScanState('error')
+        setErrorMessage(assignData.message || '診断受付を開始できません')
+        return
       }
 
       setVisitData(sessionData.visit)
@@ -483,4 +485,3 @@ export default function StaffScanPage() {
     </div>
   )
 }
-
