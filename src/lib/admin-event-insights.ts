@@ -196,7 +196,11 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
   ))
   const eventCandidates = dateMatchedVisits.length > 0
     ? dateMatchedVisits
-    : visitRows.filter((visit) => visit.eventId === selectedEvent.id)
+    : visitRows.filter((visit) => visit.eventId === selectedEvent.id && isWithinEventDate(
+      visit.visitDate ?? visit.createdAt,
+      selectedEvent.startDate,
+      selectedEvent.endDate
+    ))
   const knownTestLineIds = new Set(eventCandidates.flatMap((visit) => {
     const lineUserId = visit.lineUserId ?? visit.parentLineUserId
     const marked = hasKnownTestIdentity(
