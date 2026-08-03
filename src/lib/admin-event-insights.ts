@@ -8,6 +8,7 @@ import {
   diagnosisResponses,
   diagnoses,
   events as eventTable,
+  profiles,
   questionnaireCategories,
   questionnaireItems,
   questionnaireResponses,
@@ -36,6 +37,9 @@ import {
   elapsedMinutes,
   getStepTimestamp,
   groupResponses,
+  hasKnownTestIdentity,
+  isOutsideEventHours,
+  isWithinEventDate,
   halfHourBucket,
   type ResponseRow,
 } from '@/lib/event-insights'
@@ -56,6 +60,39 @@ function realDataPredicate() {
     or(eq(children.isTestData, false), isNull(children.isTestData)),
     notInArray(visits.id, [...EVENT_INSIGHT_EXCLUDED_VISIT_IDS])
   )
+}
+
+function isTestRecord(visit: {
+  id: string
+  isTestData: boolean | null
+  childIsTestData: boolean | null
+  childFirstName: string | null
+  childLastName: string | null
+  childNickname: string | null
+  parentFirstName: string | null
+  parentLastName: string | null
+  parentDisplayName: string | null
+  parentRole: string | null
+  lineUserId: string | null
+  parentLineUserId: string | null
+  diagnosisStartedAt: Date | null
+}, knownTestLineIds: Set<string>, event: EventInsightEvent): boolean {
+  const lineUserId = visit.lineUserId ?? visit.parentLineUserId
+  return Boolean(visit.isTestData || visit.childIsTestData)
+    || EVENT_INSIGHT_EXCLUDED_VISIT_IDS.includes(visit.id as typeof EVENT_INSIGHT_EXCLUDED_VISIT_IDS[number])
+    || hasKnownTestIdentity(
+      visit.childFirstName,
+      visit.childLastName,
+      visit.childNickname,
+      visit.parentFirstName,
+      visit.parentLastName,
+      visit.parentDisplayName,
+      lineUserId
+    )
+    || Boolean(visit.parentRole && ['staff', 'admin'].includes(visit.parentRole)
+      && isOutsideEventHours(visit.diagnosisStartedAt, event.startDate, event.endDate))
+    || Boolean(lineUserId && knownTestLineIds.has(lineUserId))
+    || isOutsideEventHours(visit.diagnosisStartedAt, event.startDate, event.endDate)
 }
 
 function eventToJson(row: {
@@ -121,6 +158,7 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
   const visitRows = await db
     .select({
       id: visits.id,
+      eventId: visits.eventId,
       sessionId: visits.sessionId,
       receptionNumber: visits.receptionNumber,
       visitDate: visits.visitDate,
@@ -129,18 +167,54 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
       status: visits.status,
       currentStep: visits.currentStep,
       stepTimestamps: visits.stepTimestamps,
+      diagnosisStartedAt: sql<Date | null>`(${visits.stepTimestamps} ->> 'diagnosis_started')::timestamptz`,
+      isTestData: visits.isTestData,
+      lineUserId: visits.lineUserId,
       visitParentId: visits.parentProfileId,
       childGender: children.gender,
       childParentId: children.parentProfileId,
+      childIsTestData: children.isTestData,
+      childFirstName: children.firstName,
+      childLastName: children.lastName,
+      childNickname: children.nickname,
+      parentFirstName: profiles.firstName,
+      parentLastName: profiles.lastName,
+      parentDisplayName: profiles.displayName,
+      parentLineUserId: profiles.lineUserId,
+      parentRole: profiles.role,
     })
     .from(visits)
     .leftJoin(children, eq(children.id, visits.childId))
-    .where(and(eq(visits.eventId, selectedEvent.id), realDataPredicate()))
+    .leftJoin(profiles, eq(profiles.id, visits.parentProfileId))
+    .where(realDataPredicate())
     .orderBy(asc(sql`coalesce(${visits.visitDate}, ${visits.createdAt})`))
 
-  const visitIds = visitRows.map((visit) => visit.id)
-  const sessionIds = visitRows.map((visit) => visit.sessionId)
-  const sessionToVisit = new Map(visitRows.map((visit) => [visit.sessionId, visit.id]))
+  const dateMatchedVisits = visitRows.filter((visit) => isWithinEventDate(
+    visit.diagnosisStartedAt,
+    selectedEvent.startDate,
+    selectedEvent.endDate
+  ))
+  const eventCandidates = dateMatchedVisits.length > 0
+    ? dateMatchedVisits
+    : visitRows.filter((visit) => visit.eventId === selectedEvent.id)
+  const knownTestLineIds = new Set(eventCandidates.flatMap((visit) => {
+    const lineUserId = visit.lineUserId ?? visit.parentLineUserId
+    const marked = hasKnownTestIdentity(
+      visit.childFirstName,
+      visit.childLastName,
+      visit.childNickname,
+      visit.parentFirstName,
+      visit.parentLastName,
+      visit.parentDisplayName,
+      lineUserId
+    )
+    return marked && lineUserId ? [lineUserId] : []
+  }))
+  const realVisitRows = eventCandidates.filter((visit) => !isTestRecord(visit, knownTestLineIds, selectedEvent))
+
+  const visitIds = realVisitRows.map((visit) => visit.id)
+  const sessionIds = realVisitRows.map((visit) => visit.sessionId)
+  const sessionToVisit = new Map(realVisitRows.map((visit) => [visit.sessionId, visit.id]))
 
   const legacyTableRows = await db.execute<{ tableName: string }>(sql`
     select table_name as "tableName"
@@ -195,7 +269,7 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
     ])
 
   const siblingCounts = new Map<string, number>()
-  for (const visit of visitRows) {
+  for (const visit of realVisitRows) {
     const parentId = visit.childParentId ?? visit.visitParentId
     if (parentId) siblingCounts.set(parentId, (siblingCounts.get(parentId) ?? 0) + 1)
   }
@@ -234,7 +308,7 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
     diagnosisTimes.set(visitId, current)
   }
 
-  const records = visitRows.map((visit, index): EventInsightRecord => {
+  const records = realVisitRows.map((visit, index): EventInsightRecord => {
     const questionnaire = [...(questionnairesByVisit.get(visit.id) ?? [])]
     const diagnosis = [...(diagnosesByVisit.get(visit.id) ?? [])]
     const legacyQuestionnaire = legacyQuestionnaireByVisit.get(visit.id)
@@ -281,7 +355,7 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
   return {
     generatedAt: new Date().toISOString(),
     events: eventList.filter((event) => event.visitCount > 0),
-    selectedEvent,
+    selectedEvent: { ...selectedEvent, visitCount: records.length },
     overview: {
       visits: records.length,
       questionnaires: records.filter((record) => record.questionnaireCompleted).length,

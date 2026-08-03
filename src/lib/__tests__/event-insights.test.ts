@@ -5,7 +5,11 @@ import {
   durationBucket,
   elapsedMinutes,
   formatResponseValue,
+  hasTestMarker,
+  hasKnownTestIdentity,
   halfHourBucket,
+  isOutsideEventHours,
+  isWithinEventDate,
   splitStoredValue,
 } from '@/lib/event-insights'
 
@@ -15,6 +19,14 @@ describe('event insights utilities', () => {
       'bb5c0f02-f576-4898-9e5a-604f5457d802',
       '6ab1028f-9fb5-4ba5-9bf9-2ebf8aaabf61',
     ])
+  })
+
+  test('event-date matching and explicit test markers exclude only clear test records', () => {
+    expect(isWithinEventDate('2026-02-28T23:40:57.494Z', '2026-03-01T00:00:00.000Z', '2026-03-01T09:00:00.000Z')).toBe(true)
+    expect(isOutsideEventHours('2026-02-28T23:40:57.494Z', '2026-03-01T00:00:00.000Z', '2026-03-01T09:00:00.000Z')).toBe(true)
+    expect(hasTestMarker('テスト太郎')).toBe(true)
+    expect(hasTestMarker('U123456')).toBe(false)
+    expect(hasKnownTestIdentity('木幡 靖彦')).toBe(true)
   })
 
   test('stored arrays and option labels are rendered for people', () => {

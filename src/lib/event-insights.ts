@@ -11,6 +11,50 @@ export const EVENT_INSIGHT_EXCLUDED_VISIT_IDS = [
   '6ab1028f-9fb5-4ba5-9bf9-2ebf8aaabf61',
 ] as const
 
+const TEST_MARKER = /test|テスト/iu
+const OWNER_TEST_MARKER = /木幡/u
+
+function tokyoDateKey(value: Date | string): string | null {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  return year && month && day ? `${year}-${month}-${day}` : null
+}
+
+export function hasTestMarker(...values: Array<string | null | undefined>): boolean {
+  return values.some((value) => typeof value === 'string' && TEST_MARKER.test(value))
+}
+
+export function hasKnownTestIdentity(...values: Array<string | null | undefined>): boolean {
+  return hasTestMarker(...values)
+    || values.some((value) => typeof value === 'string' && OWNER_TEST_MARKER.test(value))
+}
+
+export function isWithinEventDate(value: Date | string | null, start: Date | string | null, end: Date | string | null): boolean {
+  if (!value || !start) return false
+  const dateKey = tokyoDateKey(value)
+  const startKey = tokyoDateKey(start)
+  const endKey = tokyoDateKey(end ?? start)
+  return Boolean(dateKey && startKey && endKey && dateKey >= startKey && dateKey <= endKey)
+}
+
+export function isOutsideEventHours(value: Date | string | null, start: Date | string | null, end: Date | string | null): boolean {
+  if (!value || !start || !end) return false
+  const timestamp = new Date(value).getTime()
+  const startTimestamp = new Date(start).getTime()
+  const endTimestamp = new Date(end).getTime()
+  return Number.isFinite(timestamp) && Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp)
+    && (timestamp < startTimestamp || timestamp > endTimestamp)
+}
+
 export interface ResponseRow {
   id: string
   visitId: string | null

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BarChart3, MapPin, RefreshCw, ShieldCheck } from 'lucide-react'
+import { BarChart3, MapPin, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
 import { DistributionSections } from '@/components/admin/event-insights/DistributionSections'
 import { EventPicker } from '@/components/admin/event-insights/EventPicker'
 import { ItemDistributionPanel } from '@/components/admin/event-insights/ItemDistributionPanel'
@@ -87,22 +87,22 @@ export default function AnalyticsPage() {
   if (!data) return null
 
   return (
-    <div className="-mx-4 -mt-6 bg-slate-50 pb-16 sm:-mx-6 lg:-mx-8">
-      <header className="border-b border-slate-200 bg-slate-950 text-white">
+    <div className="-mx-4 -mt-6 bg-stone-50 pb-16 sm:-mx-6 lg:-mx-8">
+      <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-coral-300"><BarChart3 className="h-4 w-4" aria-hidden="true" />Event insights</div>
-              <h1 className="text-2xl font-black tracking-tight sm:text-3xl">イベント診断ダッシュボード</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">イベントの全体像から、一人ひとりの問診・診断内容まで。必要なところだけ、すぐ掘り下げられます。</p>
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-coral-700"><BarChart3 className="h-4 w-4" aria-hidden="true" />Event report</div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">イベント診断レポート</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">まず全体の傾向を読み、必要なときだけ個別の記録まで掘り下げます。</p>
             </div>
-            <button type="button" disabled={loading} onClick={() => void fetchInsights(data.selectedEvent.eventKey)} className="flex w-fit items-center gap-2 border border-slate-600 px-3 py-2 text-sm font-bold text-white hover:border-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-coral-400 disabled:cursor-wait disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />最新データに更新</button>
+            <button type="button" disabled={loading} onClick={() => void fetchInsights(data.selectedEvent.eventKey)} className="flex w-fit items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-slate-900 focus:outline-none focus:ring-2 focus:ring-coral-500 disabled:cursor-wait disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />最新データに更新</button>
           </div>
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-l-2 border-coral-500 pl-4 text-xs text-slate-300">
-            <strong className="text-sm text-white">{data.selectedEvent.name}</strong>
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-l-2 border-coral-500 pl-4 text-xs text-slate-600">
+            <strong className="text-sm text-slate-950">{data.selectedEvent.name}</strong>
             <span>{formatEventDate(data.selectedEvent.startDate, data.selectedEvent.endDate)}</span>
             {data.selectedEvent.venue && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{data.selectedEvent.venue}</span>}
-            <span className="flex items-center gap-1 text-teal-300"><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />テストデータ除外・管理者限定</span>
+            <span className="flex items-center gap-1 text-teal-700"><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />テストデータ除外・管理者限定</span>
           </div>
         </div>
       </header>
@@ -113,11 +113,12 @@ export default function AnalyticsPage() {
 
         <main className="space-y-12 pt-8">
           <Overview overview={data.overview} />
+          <EventNarrative data={data} />
           <DistributionSections distributions={data.distributions} />
 
           <section aria-labelledby="answers-title">
-            <div className="mb-4"><p className="text-xs font-bold uppercase tracking-widest text-coral-700">Responses</p><h2 id="answers-title" className="text-xl font-black text-slate-950">何を答え、どう診断された？</h2><p className="text-xs text-slate-500">問診と診断を混ぜず、それぞれの項目ごとに分布を確認できます。</p></div>
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="mb-4"><p className="text-xs font-bold uppercase tracking-widest text-coral-700">Response landscape</p><h2 id="answers-title" className="text-xl font-black text-slate-950">全設問の回答マップ</h2><p className="text-sm text-slate-600">選択せずに全体を比較できます。各バーは、その設問の回答構成です。</p></div>
+            <div className="space-y-6">
               <ItemDistributionPanel kind="questionnaire" items={data.questionnaireDistributions} />
               <ItemDistributionPanel kind="diagnosis" items={data.diagnosisDistributions} />
             </div>
@@ -128,6 +129,31 @@ export default function AnalyticsPage() {
         <p className="mt-10 text-right text-[11px] text-slate-400">最終取得 {new Date(data.generatedAt).toLocaleString('ja-JP')}</p>
       </div>
     </div>
+  )
+}
+
+function EventNarrative({ data }: { data: EventInsightsResponse }) {
+  const signals = data.diagnosisDistributions
+    .flatMap((item) => item.values.map((value) => ({
+      label: item.label,
+      value: value.label,
+      count: value.count,
+      total: item.total,
+      percentage: item.total > 0 ? Math.round((value.count / item.total) * 100) : 0,
+    })))
+    .filter((signal) => signal.value !== '未回答')
+    .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
+    .slice(0, 3)
+
+  if (signals.length === 0) return null
+
+  return (
+    <section aria-labelledby="signals-title" className="border-y border-slate-200 bg-slate-950 px-5 py-6 text-white sm:px-7">
+      <div className="mb-5 flex items-center gap-2"><Sparkles className="h-4 w-4 text-coral-300" aria-hidden="true" /><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-coral-300">Signals</p><h2 id="signals-title" className="text-lg font-black">今回の注目ポイント</h2></div></div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {signals.map((signal, index) => <article key={`${signal.label}-${signal.value}`} className="border-l border-slate-700 pl-4"><p className="text-xs font-bold text-slate-400">0{index + 1}</p><p className="mt-2 text-sm font-bold leading-relaxed">{signal.label}</p><p className="mt-1 text-sm text-slate-300"><strong className="text-xl text-white">{signal.percentage}%</strong> が「{signal.value}」</p><p className="mt-1 text-xs text-slate-400">{signal.count}/{signal.total}件</p></article>)}
+      </div>
+    </section>
   )
 }
 
