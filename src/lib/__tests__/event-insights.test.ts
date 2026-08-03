@@ -1,4 +1,5 @@
 import {
+  EVENT_INSIGHT_EXCLUDED_VISIT_IDS,
   ageBucket,
   buildItemDistributions,
   durationBucket,
@@ -9,6 +10,13 @@ import {
 } from '@/lib/event-insights'
 
 describe('event insights utilities', () => {
+  test('owner-confirmed test visits are excluded from event insights', () => {
+    expect(EVENT_INSIGHT_EXCLUDED_VISIT_IDS).toEqual([
+      'bb5c0f02-f576-4898-9e5a-604f5457d802',
+      '6ab1028f-9fb5-4ba5-9bf9-2ebf8aaabf61',
+    ])
+  })
+
   test('stored arrays and option labels are rendered for people', () => {
     expect(splitStoredValue('["mouth","nose"]')).toEqual(['mouth', 'nose'])
     expect(formatResponseValue('mouth', [{ value: 'mouth', label: '口呼吸' }])).toBe('口呼吸')

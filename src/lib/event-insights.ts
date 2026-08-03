@@ -4,6 +4,13 @@ import type {
   InsightResponse,
 } from '@/types/event-insights'
 
+// 2026-08-02 YourTIME東京イベントの来場01・02は、運営確認済みのテスト記録。
+// 元データは監査のため保持し、イベント分析だけから除外する。
+export const EVENT_INSIGHT_EXCLUDED_VISIT_IDS = [
+  'bb5c0f02-f576-4898-9e5a-604f5457d802',
+  '6ab1028f-9fb5-4ba5-9bf9-2ebf8aaabf61',
+] as const
+
 export interface ResponseRow {
   id: string
   visitId: string | null

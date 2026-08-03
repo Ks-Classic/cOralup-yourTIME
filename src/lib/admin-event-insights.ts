@@ -22,10 +22,12 @@ import {
   eq,
   inArray,
   isNull,
+  notInArray,
   or,
   sql,
 } from 'drizzle-orm'
 import {
+  EVENT_INSIGHT_EXCLUDED_VISIT_IDS,
   addLegacyResponse,
   ageBucket,
   buildItemDistributions,
@@ -51,7 +53,8 @@ const DURATION_LABELS = ['10分未満', '10〜19分', '20〜29分', '30〜44分'
 function realDataPredicate() {
   return and(
     or(eq(visits.isTestData, false), isNull(visits.isTestData)),
-    or(eq(children.isTestData, false), isNull(children.isTestData))
+    or(eq(children.isTestData, false), isNull(children.isTestData)),
+    notInArray(visits.id, [...EVENT_INSIGHT_EXCLUDED_VISIT_IDS])
   )
 }
 
