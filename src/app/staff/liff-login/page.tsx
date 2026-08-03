@@ -71,7 +71,7 @@ export default function LiffLoginPage() {
           // LIFF/LINE内ブラウザの場合 → 外部ブラウザで開く（トークン付き）
           if (isLiffBrowser() && liff.isInClient()) {
             // トークンをURLパラメータに追加してセッション引き継ぎ
-            const loginUrl = `${window.location.origin}/staff/login?token=${encodeURIComponent(data.token)}`
+            const loginUrl = `${window.location.origin}/staff/login?token=${encodeURIComponent(data.token)}&next=${encodeURIComponent('/staff/event-setup')}`
             setExternalUrl(loginUrl)
             setStatus('opening_browser')
 
@@ -85,7 +85,7 @@ export default function LiffLoginPage() {
           } else {
             // 通常ブラウザの場合 → そのまま遷移
             setTimeout(() => {
-              window.location.href = '/staff/home'
+              window.location.href = '/staff/event-setup'
             }, 1500)
           }
         } else if (data.error === 'not_registered') {
@@ -231,7 +231,7 @@ export default function LiffLoginPage() {
             友だち追加してください。
           </p>
           <a
-            href="https://line.me/R/ti/p/@coralup-staff"
+            href="https://lin.ee/ZUvmToP"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#06C755] px-6 py-3 font-medium text-white transition-colors hover:bg-[#05b04c]"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">

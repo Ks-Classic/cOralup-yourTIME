@@ -23,6 +23,7 @@ type LoginStatus =
   | 'pin_input'
   | 'loading_staff'
   | 'staff_select'
+  | 'transferring'
   | 'logging_in'
   | 'error'
   | 'success'
@@ -42,6 +43,7 @@ export default function StaffLoginPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
   const [showLineWarning, setShowLineWarning] = useState(false)
+  const [loginError, setLoginError] = useState('')
 
   // イベントタブ関連
   const [eventList, setEventList] = useState<EventInfo[]>([])
@@ -52,23 +54,35 @@ export default function StaffLoginPage() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const tokenFromUrl = urlParams.get('token')
+    const requestedNext = urlParams.get('next')
+    const nextPath =
+      requestedNext === '/staff/event-setup'
+        ? requestedNext
+        : '/staff/event-setup'
 
     if (tokenFromUrl) {
+      setStatus('transferring')
       // H-1: セッションJWTをURL/履歴/Refererに残さない。読み取り直後に消去。
       window.history.replaceState(null, '', window.location.pathname)
 
-      fetch('/api/auth/staff-session', {
+      void fetch('/api/auth/staff-session', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: tokenFromUrl }),
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            window.location.href = '/staff/home'
+        .then(async (res) => ({ ok: res.ok, data: await res.json() }))
+        .then(({ ok, data }) => {
+          if (ok && data.success) {
+            window.location.href = nextPath
+            return
           }
+          setLoginError('ログイン状態を引き継げませんでした。もう一度LINEログインしてください。')
+          setStatus('error')
         })
-        .catch(() => {})
+        .catch(() => {
+          setLoginError('ログイン状態を引き継げませんでした。もう一度LINEログインしてください。')
+          setStatus('error')
+        })
     }
   }, [])
 
@@ -106,12 +120,6 @@ export default function StaffLoginPage() {
 
           if (eventsRes.ok && eventsData.events) {
             setEventList(eventsData.events)
-            // イベントが1つだけなら自動選択
-            if (eventsData.events.length === 1) {
-              setSelectedEventId(eventsData.events[0].id)
-              // そのイベントのスタッフを取得
-              await loadStaffForEvent(eventsData.events[0].id)
-            }
           }
 
           setStatus('staff_select')
@@ -177,7 +185,7 @@ export default function StaffLoginPage() {
       if (res.ok && data.success) {
         setStatus('success')
         setTimeout(() => {
-          window.location.href = '/staff/home'
+          window.location.href = '/staff/event-setup'
         }, 1000)
       } else {
         setStatus('error')
@@ -266,7 +274,7 @@ export default function StaffLoginPage() {
           <div className="mb-6 text-center">
             <h1 className="text-xl font-bold text-white">スタッフを選択</h1>
             <p className="mt-1 text-sm text-slate-400">
-              あなたの名前をタップしてください
+              スタッフLINEで登録した実名をタップしてください
             </p>
           </div>
 
@@ -287,7 +295,9 @@ export default function StaffLoginPage() {
           {/* イベントタブ */}
           {eventList.length > 0 && (
             <div className="mb-4">
-              <p className="mb-2 text-xs text-slate-400">📋 イベントを選択</p>
+              <p className="mb-2 text-xs text-slate-400">
+                📋 参加イベントで絞り込み
+              </p>
               <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
                 <button
                   onClick={() => handleEventChange('all')}
@@ -415,7 +425,7 @@ export default function StaffLoginPage() {
   }
 
   // ログイン中
-  if (status === 'logging_in') {
+  if (status === 'logging_in' || status === 'transferring') {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
         <div className="text-center">
@@ -423,7 +433,9 @@ export default function StaffLoginPage() {
             <div className="absolute inset-0 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
           </div>
           <p className="font-medium text-white">
-            {selectedStaff?.name}さんでログイン中...
+            {status === 'transferring'
+              ? 'Safari/Chromeへログインを引き継いでいます...'
+              : `${selectedStaff?.name}さんでログイン中...`}
           </p>
         </div>
       </div>
@@ -481,15 +493,25 @@ export default function StaffLoginPage() {
         <h1 className="mb-2 text-xl font-bold text-white">
           エラーが発生しました
         </h1>
-        <button
-          onClick={() => {
-            setStatus('pin_input')
-            setPin('')
-          }}
-          className="mt-4 rounded-xl bg-slate-700 px-6 py-3 text-white hover:bg-slate-600"
-        >
-          もう一度試す
-        </button>
+        {loginError && <p className="mt-2 text-sm text-red-200">{loginError}</p>}
+        {loginError ? (
+          <a
+            href="/staff/liff-login"
+            className="mt-4 inline-flex rounded-xl bg-emerald-500 px-6 py-3 font-bold text-white"
+          >
+            LINEでログインし直す
+          </a>
+        ) : (
+          <button
+            onClick={() => {
+              setStatus('pin_input')
+              setPin('')
+            }}
+            className="mt-4 rounded-xl bg-slate-700 px-6 py-3 text-white hover:bg-slate-600"
+          >
+            もう一度試す
+          </button>
+        )}
       </div>
     </div>
   )

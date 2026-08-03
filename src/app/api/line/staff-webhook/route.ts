@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { db } from '@/db'
 import { profiles, events, eventStaffs } from '@/db/schema'
-import { eq, or, and, inArray } from 'drizzle-orm'
+import { eq, or, and, inArray, sql } from 'drizzle-orm'
 
 const LINE_STAFF_CHANNEL_SECRET = process.env.LINE_STAFF_CHANNEL_SECRET!
 const LINE_STAFF_CHANNEL_ACCESS_TOKEN = process.env.LINE_STAFF_CHANNEL_ACCESS_TOKEN!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://coralup-yourtime.vercel.app'
+const STAFF_LIFF_ID = process.env.NEXT_PUBLIC_STAFF_LIFF_ID
+const STAFF_LOGIN_URL = STAFF_LIFF_ID
+  ? `https://liff.line.me/${STAFF_LIFF_ID}`
+  : `${APP_URL}/staff/login`
 
 // ========================================
 // エントリポイント
@@ -93,14 +97,14 @@ async function handleFollow(event: any) {
         // イベントが存在しない → ログインリンクのみ
         await sendMessage(lineUserId, {
           type: 'text',
-          text: `${existing.displayName}さん、おかえりなさい！🦷\n\nスタッフアプリにログインするには、下のURLを長押し →「Safariで開く」or「Chromeで開く」で開いてください。\n\n${APP_URL}/staff/login`
+          text: `${existing.displayName}さん、おかえりなさい！🦷\n\n下のURLからスタッフアプリへログインしてください。\n\n${STAFF_LOGIN_URL}`
         })
       } else if (staffEvents.length > 0) {
         // 既にイベント選択済み → ログインリンク + 現在の登録状況
         const eventList = staffEvents.map(e => `・${e.eventName}`).join('\n')
         await sendMessage(lineUserId, {
           type: 'text',
-          text: `${existing.displayName}さん、おかえりなさい！🦷\n\n【登録済みイベント】\n${eventList}\n\n📱 URLを長押し →「Safariで開く」or「Chromeで開く」\n${APP_URL}/staff/login\n\n他のイベントにも参加する場合は「イベント変更」と送ってください。`
+          text: `${existing.displayName}さん、おかえりなさい！🦷\n\n【登録済みイベント】\n${eventList}\n\n📱 スタッフアプリ\n${STAFF_LOGIN_URL}\n\n他のイベントにも参加する場合は「イベント変更」と送ってください。`
         })
       } else {
         // イベント未選択 → 選択メッセージ
@@ -122,6 +126,11 @@ async function handleFollow(event: any) {
         isActive: true,
         lastActivityAt: new Date()
       } as Partial<typeof profiles.$inferInsert>).where(eq(profiles.id, anyExisting[0].id))
+
+      if (anyExisting[0].displayName) {
+        await sendEventSelectionMessage(lineUserId, anyExisting[0].displayName)
+        return
+      }
     } else {
       // 完全新規
       await db.insert(profiles).values({
@@ -143,7 +152,7 @@ async function handleFollow(event: any) {
 async function sendWelcomeMessage(userId: string, lineDisplayName: string) {
   await sendMessage(userId, {
     type: 'text',
-    text: `${lineDisplayName}さん、友だち登録ありがとうございます！🦷\n\ncOralupスタッフ用アカウントです。\n\nスタッフアプリにログインする際に表示するお名前を教えてください。\n\n（例：山田 太郎）`
+    text: `${lineDisplayName}さん、友だち登録ありがとうございます！🦷\n\ncOralupスタッフ用アカウントです。\n\nスタッフアプリに表示する実名（姓名）を教えてください。\n\n（例：山田 太郎）`
   })
 }
 
@@ -168,7 +177,7 @@ async function sendEventSelectionMessage(userId: string, displayName: string) {
   if (activeEvents.length === 0) {
     await sendMessage(userId, {
       type: 'text',
-      text: `${displayName}さん、登録ありがとうございます！✨\n\n現在参加可能なイベントがありません。\nイベントが登録されましたらお知らせします。\n\n📱 URLを長押し →「Safariで開く」or「Chromeで開く」\n${APP_URL}/staff/login`
+      text: `${displayName}さん、登録ありがとうございます！✨\n\n現在参加可能なイベントがありません。\nイベントが登録されましたらお知らせします。\n\n📱 スタッフアプリ\n${STAFF_LOGIN_URL}`
     })
     return
   }
@@ -288,7 +297,7 @@ async function handleMessage(event: any) {
     } else {
       await sendMessage(lineUserId, {
         type: 'text',
-        text: 'まずお名前を入力してください。\n\n（例：山田 太郎）'
+        text: 'まず実名（姓名）を入力してください。\n\n（例：山田 太郎）'
       })
     }
     return
@@ -298,34 +307,53 @@ async function handleMessage(event: any) {
   if (text === 'ヘルプ' || text === '使い方') {
     await sendMessage(lineUserId, {
       type: 'text',
-      text: `【cOralupスタッフBot 使い方】\n\n・お名前をメッセージで送信 → 名前変更\n・「イベント変更」→ 参加イベント再選択\n・「ヘルプ」→ この画面\n\nスタッフアプリ：${APP_URL}/staff/login`
+      text: `【cOralupスタッフBot 使い方】\n\n・登録名変更 →「名前変更 山田 太郎」\n・参加イベント追加 →「イベント変更」\n・使い方確認 →「ヘルプ」\n\nスタッフアプリ：${STAFF_LOGIN_URL}`
+    })
+    return
+  }
+
+  if (text === '名前変更') {
+    await sendMessage(lineUserId, {
+      type: 'text',
+      text: '「名前変更」の後に実名（姓名）を入力してください。\n\n（例：名前変更 山田 太郎）'
+    })
+    return
+  }
+
+  const nameChangeMatch = text.match(/^名前変更[\s：:]+(.+)$/)
+  if (staff.displayName && !nameChangeMatch) {
+    await sendMessage(lineUserId, {
+      type: 'text',
+      text: `メッセージを受け取りました。登録名は変更していません。\n\n参加イベントを追加する場合は「イベント変更」、登録名を直す場合は「名前変更 実名」と送ってください。\n\nスタッフアプリ：${STAFF_LOGIN_URL}`
     })
     return
   }
 
   // ===== 名前入力処理 =====
+  const nameInput = nameChangeMatch?.[1]?.trim() || text
+
   // バリデーション
-  if (text.length === 0) {
+  if (nameInput.length === 0) {
     await sendMessage(lineUserId, {
       type: 'text',
-      text: 'お名前を入力してください。\n\n（例：山田 太郎）'
+      text: '実名（姓名）を入力してください。\n\n（例：山田 太郎）'
     })
     return
   }
 
-  if (text.length > 50) {
+  if (nameInput.length > 50) {
     await sendMessage(lineUserId, {
       type: 'text',
-      text: 'お名前は50文字以内で入力してください。\n\n（例：山田 太郎）'
+      text: '実名（姓名）は50文字以内で入力してください。\n\n（例：山田 太郎）'
     })
     return
   }
 
   // URL っぽい文字列は警告（ただしブロックはしない）
-  if (text.match(/^https?:\/\//)) {
+  if (nameInput.match(/^https?:\/\//)) {
     await sendMessage(lineUserId, {
       type: 'text',
-      text: 'お名前を入力してください。URLではなくお名前をお願いします。\n\n（例：山田 太郎）'
+      text: 'URLではなく、実名（姓名）を入力してください。\n\n（例：山田 太郎）'
     })
     return
   }
@@ -333,18 +361,18 @@ async function handleMessage(event: any) {
   // displayNameを更新
   const isFirstRegistration = !staff.displayName
   await db.update(profiles).set({
-    displayName: text,
+    displayName: nameInput,
     lastActivityAt: new Date()
   } as Partial<typeof profiles.$inferInsert>).where(eq(profiles.id, staff.id))
 
   if (isFirstRegistration) {
     // 初回名前登録 → イベント選択に進む
-    await sendEventSelectionMessage(lineUserId, text)
+    await sendEventSelectionMessage(lineUserId, nameInput)
   } else {
     // 名前変更のみ（イベント選択は再送しない）
     await sendMessage(lineUserId, {
       type: 'text',
-      text: `お名前を「${text}」に更新しました！✨\n\nスタッフアプリ：${APP_URL}/staff/login\n\n参加イベントを変更したい場合は「イベント変更」と送ってください。`
+      text: `登録名を「${nameInput}」に更新しました！✨\n\nスタッフアプリ：${STAFF_LOGIN_URL}\n\n参加イベントを追加したい場合は「イベント変更」と送ってください。`
     })
   }
 }
@@ -399,7 +427,10 @@ async function handleEventSelection(lineUserId: string, eventIdStr: string) {
 
   // 選択されたイベント情報を取得（存在チェック兼ねる）
   const selectedEvents = await db.select().from(events)
-    .where(inArray(events.id, eventIds))
+    .where(and(
+      inArray(events.id, eventIds),
+      or(eq(events.status, 'active'), eq(events.status, 'upcoming'))
+    ))
 
   if (selectedEvents.length === 0) {
     await sendMessage(lineUserId, {
@@ -409,15 +440,15 @@ async function handleEventSelection(lineUserId: string, eventIdStr: string) {
     return
   }
 
-  // event_staffs に登録（重複は UNIQUE 制約で安全に無視）
-  let registeredCount = 0
+  // event_staffs に登録。取消済みだった場合も confirmed へ戻す。
   for (const evt of selectedEvents) {
     try {
-      await db.insert(eventStaffs).values({
-        eventId: evt.id,
-        profileId: staff.id,
-      }).onConflictDoNothing()
-      registeredCount++
+      await db.execute(sql`
+        INSERT INTO event_staffs (event_id, profile_id, status, updated_at)
+        VALUES (${evt.id}, ${staff.id}, 'confirmed', NOW())
+        ON CONFLICT (event_id, profile_id)
+        DO UPDATE SET status = 'confirmed', updated_at = NOW()
+      `)
     } catch (error) {
       console.error(`[Staff Webhook] Failed to register event_staff for event=${evt.id}:`, error)
     }
@@ -435,7 +466,7 @@ async function handleEventSelection(lineUserId: string, eventIdStr: string) {
 
   await sendMessage(lineUserId, {
     type: 'text',
-    text: `${displayName}さん、イベント登録完了です！🎉\n\n【参加イベント】\n${eventNames}\n\n━━━━━━━━━━━━━━━\n📱 アプリの準備をお願いします\n━━━━━━━━━━━━━━━\n\n① 下のURLを長押し → 「Safariで開く」or「Chromeで開く」\n（LINEのブラウザではなく、スマホのブラウザで開いてください）\n\n${APP_URL}/staff/login\n\n② 初回ログイン画面が開きます\n③ ログイン後、ブックマーク登録📌\n\n当日はブックマークからすぐアクセスできます！\n\n━━━━━━━━━━━━━━━\n💡 コマンド\n・名前変更 → お名前を送信\n・イベント変更 →「イベント変更」と送信\n・使い方 →「ヘルプ」と送信`
+    text: `${displayName}さん、イベント登録完了です！🎉\n\n【参加イベント】\n${eventNames}\n\n━━━━━━━━━━━━━━━\n📱 アプリの準備をお願いします\n━━━━━━━━━━━━━━━\n\n① 下のURLからLINEログイン\n${STAFF_LOGIN_URL}\n\n② Safari/Chromeでスタッフホームが開きます\n③ ブックマーク登録📌\n\n当日はブックマークからすぐアクセスできます！\n\n━━━━━━━━━━━━━━━\n💡 コマンド\n・登録名変更 →「名前変更 山田 太郎」\n・イベント追加 →「イベント変更」\n・使い方 →「ヘルプ」と送信`
   })
 }
 
@@ -451,7 +482,8 @@ async function getStaffActiveEvents(profileId: string) {
     .innerJoin(events, eq(eventStaffs.eventId, events.id))
     .where(and(
       eq(eventStaffs.profileId, profileId),
-      or(eq(events.status, 'active'), eq(events.status, 'upcoming'))
+      or(eq(events.status, 'active'), eq(events.status, 'upcoming')),
+      or(eq(eventStaffs.status, 'confirmed'), eq(eventStaffs.status, 'pending'))
     ))
 }
 
