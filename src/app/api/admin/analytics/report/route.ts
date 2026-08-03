@@ -5,13 +5,17 @@ import {
     diagnosisResponses, diagnosisItems, diagnosisCategories,
     questionnaires, aiAnalysisLogs
 } from '@/db/schema'
-import { eq, gte, lte, sql, desc, and, ne, isNotNull } from 'drizzle-orm'
+import { eq, gte, lte, sql, desc, and, ne, isNotNull, inArray, type SQL } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
 /**
+ * GET /api/admin/analytics/report?eventIds=uuid1,uuid2&includeTest=false
  * GET /api/admin/analytics/report?from=YYYY-MM-DD&to=YYYY-MM-DD&includeTest=false
- * 
+ *
+ * eventIdsが指定された場合はそのイベント群のvisitのみを対象にする（期間フィルタは無視）。
+ * 未指定の場合は従来どおりfrom/toの期間で絞り込む。
+ *
  * 世界水準の包括的エビデンスレポートAPI
  * Part 0: Executive Summary
  * Part 1: 基礎集計
@@ -25,10 +29,21 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url)
         const fromStr = searchParams.get('from')
         const toStr = searchParams.get('to')
+        const eventIds = (searchParams.get('eventIds') ?? '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean)
         const includeTest = searchParams.get('includeTest') === 'true'
 
         const fromDate = fromStr ? new Date(fromStr + 'T00:00:00+09:00') : new Date('2025-01-01T00:00:00+09:00')
         const toDate = toStr ? new Date(toStr + 'T23:59:59+09:00') : new Date()
+
+        const visitScope: SQL = eventIds.length > 0
+            ? inArray(visits.eventId, eventIds)
+            : and(
+                gte(visits.createdAt, fromDate),
+                lte(visits.createdAt, toDate)
+            )!
 
         // ============================================================
         // CORE: 全visitデータ取得
@@ -48,14 +63,10 @@ export async function GET(request: Request) {
                 stepTimestamps: visits.stepTimestamps,
                 isTestData: visits.isTestData,
                 parentProfileId: visits.parentProfileId,
+                eventId: visits.eventId,
             })
             .from(visits)
-            .where(
-                and(
-                    gte(visits.createdAt, fromDate),
-                    lte(visits.createdAt, toDate)
-                )
-            )
+            .where(visitScope)
             .orderBy(desc(visits.createdAt))
 
         const filteredVisits = includeTest ? allVisits : allVisits.filter(v => !v.isTestData)
@@ -167,8 +178,7 @@ export async function GET(request: Request) {
             .innerJoin(visits, eq(diagnosisResponses.visitId, visits.id))
             .where(
                 and(
-                    gte(visits.createdAt, fromDate),
-                    lte(visits.createdAt, toDate),
+                    visitScope,
                     includeTest ? undefined : eq(visits.isTestData, false)
                 )
             )
@@ -547,7 +557,7 @@ export async function GET(request: Request) {
         })
         findingRates.sort((a, b) => b.rate - a.rate)
 
-        // LINE配信状況
+        // LINE配信状況（イベント絞り込み時はvisitId経由、期間指定時はcreatedAtで絞る）
         const lineStats = await db
             .select({
                 status: lineMessageLogs.status,
@@ -555,10 +565,12 @@ export async function GET(request: Request) {
             })
             .from(lineMessageLogs)
             .where(
-                and(
-                    gte(lineMessageLogs.createdAt, fromDate),
-                    lte(lineMessageLogs.createdAt, toDate)
-                )
+                eventIds.length > 0
+                    ? (visitIds.length > 0 ? inArray(lineMessageLogs.visitId, visitIds) : sql`false`)
+                    : and(
+                        gte(lineMessageLogs.createdAt, fromDate),
+                        lte(lineMessageLogs.createdAt, toDate)
+                    )
             )
             .groupBy(lineMessageLogs.status)
 
@@ -581,7 +593,9 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             generatedAt: new Date().toISOString(),
-            period: { from: fromDate.toISOString(), to: toDate.toISOString() },
+            period: eventIds.length > 0
+                ? { mode: 'events' as const, eventIds }
+                : { mode: 'range' as const, from: fromDate.toISOString(), to: toDate.toISOString() },
             dataQuality: {
                 totalVisitsIncludingTest: allVisits.length,
                 totalVisits,

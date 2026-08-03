@@ -22,6 +22,8 @@ import {
   Filter,
   Zap,
   Award,
+  Check,
+  CalendarDays,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -37,9 +39,21 @@ import {
 // ============================================================
 // Types
 // ============================================================
+interface EventSummary {
+  id: string
+  eventId: string
+  name: string
+  startDate: string | null
+  venue: string | null
+  status: string | null
+  visitCount: number
+}
+
 interface ReportData {
   generatedAt: string
-  period: { from: string; to: string }
+  period:
+    | { mode: 'events'; eventIds: string[] }
+    | { mode: 'range'; from: string; to: string }
   dataQuality: {
     totalVisitsIncludingTest: number
     totalVisits: number
@@ -116,11 +130,10 @@ interface ReportData {
   }
 }
 
-function formatDateForInput(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+function formatEventDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 type TabKey =
@@ -138,25 +151,46 @@ export default function AnalyticsReportPage() {
   const [data, setData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date()
-    d.setMonth(d.getMonth() - 6)
-    return formatDateForInput(d)
-  })
-  const [toDate, setToDate] = useState(() => formatDateForInput(new Date()))
+  const [events, setEvents] = useState<EventSummary[]>([])
+  const [eventsError, setEventsError] = useState<string | null>(null)
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(
+    new Set()
+  )
   const [includeTest, setIncludeTest] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('summary')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   )
 
+  useEffect(() => {
+    fetch('/api/admin/analytics/events')
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`)
+        return res.json()
+      })
+      .then((body) => setEvents(body.events ?? []))
+      .catch((err) =>
+        setEventsError(err.message || 'イベント一覧の取得に失敗しました')
+      )
+  }, [])
+
+  const toggleEvent = (id: string) => {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(
-        `/api/admin/analytics/report?from=${fromDate}&to=${toDate}&includeTest=${includeTest}`
-      )
+      const params = new URLSearchParams({ includeTest: String(includeTest) })
+      if (selectedEventIds.size > 0) {
+        params.set('eventIds', Array.from(selectedEventIds).join(','))
+      }
+      const res = await fetch(`/api/admin/analytics/report?${params}`)
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}))
         throw new Error(errBody.error || `API error: ${res.status}`)
@@ -167,7 +201,7 @@ export default function AnalyticsReportPage() {
     } finally {
       setLoading(false)
     }
-  }, [fromDate, toDate, includeTest])
+  }, [selectedEventIds, includeTest])
 
   useEffect(() => {
     fetchData()
@@ -239,23 +273,53 @@ export default function AnalyticsReportPage() {
             </div>
           </div>
 
+          {/* Event Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
+              <CalendarDays className="h-3.5 w-3.5" /> 対象イベント
+            </span>
+            <button
+              onClick={() => setSelectedEventIds(new Set())}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                selectedEventIds.size === 0
+                  ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white shadow-sm shadow-coral-500/25'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:border-coral-200 hover:bg-coral-50/60 hover:text-coral-700'
+              }`}
+            >
+              すべて
+            </button>
+            {events.map((ev) => {
+              const isSelected = selectedEventIds.has(ev.id)
+              return (
+                <button
+                  key={ev.id}
+                  onClick={() => toggleEvent(ev.id)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white shadow-sm shadow-coral-500/25'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:border-coral-200 hover:bg-coral-50/60 hover:text-coral-700'
+                  }`}
+                  title={ev.venue ?? undefined}
+                >
+                  {isSelected && <Check className="h-3 w-3" />}
+                  {formatEventDate(ev.startDate)} {ev.name}
+                  <span
+                    className={
+                      isSelected ? 'text-white/70' : 'text-slate-400'
+                    }
+                  >
+                    ({ev.visitCount})
+                  </span>
+                </button>
+              )
+            })}
+            {eventsError && (
+              <span className="text-xs text-red-500">{eventsError}</span>
+            )}
+          </div>
+
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="border-none bg-transparent text-sm text-slate-700 outline-none"
-              />
-              <span className="text-xs text-slate-400">〜</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="border-none bg-transparent text-sm text-slate-700 outline-none"
-              />
-            </div>
             <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
               <input
                 type="checkbox"
@@ -311,6 +375,11 @@ export default function AnalyticsReportPage() {
                 {data.dataQuality.totalVisits}
               </strong>
               件
+            </span>
+            <span>
+              {data.period.mode === 'events'
+                ? `イベント${data.period.eventIds.length}件`
+                : '全期間'}
             </span>
             {data.dataQuality.testDataExcluded > 0 && (
               <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] text-amber-600">
