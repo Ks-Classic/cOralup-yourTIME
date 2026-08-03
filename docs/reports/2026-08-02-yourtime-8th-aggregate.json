@@ -1,0 +1,1216 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-03T11:16:46.006Z",
+  "source": {
+    "type": "production_database_read_only",
+    "eventSlug": "yourtime-8th-tokyo-2026",
+    "scope": "official_event_time_window",
+    "filters": [
+      "visit_date or created_at is within the official event start/end time",
+      "visits.is_test_data is not true",
+      "children.is_test_data is not true"
+    ],
+    "attributionNote": "Most operational visits were stored under a prior event ID; dateReconciliation preserves that discrepancy.",
+    "privacy": "No names, LINE IDs, contact details, free text, image paths, or row IDs are exported."
+  },
+  "event": {
+    "eventId": "yourtime-8th-tokyo-2026",
+    "name": "8/2 YourTIME.8th 東京",
+    "startDate": "2026-08-02T01:30:00.000Z",
+    "endDate": "2026-08-02T07:30:00.000Z",
+    "status": "upcoming"
+  },
+  "dateReconciliation": {
+    "jstDate": "2026-08-02",
+    "groups": [
+      {
+        "eventSlug": "oizumigakuen-yourtime-2026",
+        "eventName": "大泉学園YourTIME.",
+        "totalIncludingTest": 31,
+        "realVisits": 31,
+        "uniqueChildren": 30,
+        "diagnosedVisits": 28,
+        "reportVisits": 27,
+        "lineSuccessVisits": 27,
+        "firstJst": "2026-08-02 03:59",
+        "lastJst": "2026-08-02 15:59"
+      },
+      {
+        "eventSlug": "yourtime-8th-tokyo-2026",
+        "eventName": "8/2 YourTIME.8th 東京",
+        "totalIncludingTest": 1,
+        "realVisits": 1,
+        "uniqueChildren": 1,
+        "diagnosedVisits": 0,
+        "reportVisits": 0,
+        "lineSuccessVisits": 0,
+        "firstJst": "2026-08-02 10:35",
+        "lastJst": "2026-08-02 10:35"
+      }
+    ]
+  },
+  "overview": {
+    "totalVisitsIncludingTest": 30,
+    "testCount": 0,
+    "totalVisits": 30,
+    "uniqueChildren": 30,
+    "uniqueParents": 24,
+    "activeStaff": 13
+  },
+  "eventAttribution": [
+    {
+      "eventSlug": "oizumigakuen-yourtime-2026",
+      "eventName": "大泉学園YourTIME.",
+      "visits": 29
+    },
+    {
+      "eventSlug": "yourtime-8th-tokyo-2026",
+      "eventName": "8/2 YourTIME.8th 東京",
+      "visits": 1
+    }
+  ],
+  "dataQuality": {
+    "missingChild": 0,
+    "missingAge": 1,
+    "missingGender": 0,
+    "reportSentMarker": 26,
+    "visitsWithRecordedError": 1,
+    "visits_with_multiple_diagnoses": 0,
+    "visits_with_multiple_reports": 0,
+    "diagnosed_without_photos": 0,
+    "report_without_successful_line": 0,
+    "returning_children": 2,
+    "returning_parents": 2
+  },
+  "ageStats": {
+    "mean_age_years": "5.9",
+    "median_age_years": "5.1",
+    "min_age_months": 2,
+    "max_age_months": 176
+  },
+  "distributions": {
+    "age": {
+      "0-1歳": 3,
+      "2-3歳": 7,
+      "4-5歳": 7,
+      "6-8歳": 7,
+      "9歳以上": 5,
+      "不明": 1
+    },
+    "gender": {
+      "女": 17,
+      "男": 13
+    },
+    "hour": {
+      "10時": 5,
+      "11時": 8,
+      "12時": 7,
+      "13時": 4,
+      "14時": 3,
+      "15時": 3
+    },
+    "status": {
+      "completed": 1,
+      "in_progress": 3,
+      "published": 25,
+      "waiting": 1
+    },
+    "step": {
+      "analysis_completed": 1,
+      "diagnosis_started": 2,
+      "line_confirmed": 24,
+      "line_registered": 1,
+      "line_sent": 1,
+      "questionnaire_completed": 1
+    }
+  },
+  "funnel": {
+    "visits": {
+      "count": 30,
+      "rate": 100
+    },
+    "questionnaire_saved": {
+      "count": 29,
+      "rate": 96.7
+    },
+    "diagnosis_saved": {
+      "count": 27,
+      "rate": 90
+    },
+    "photos_saved": {
+      "count": 27,
+      "rate": 90
+    },
+    "ai_success": {
+      "count": 0,
+      "rate": 0
+    },
+    "report_created": {
+      "count": 26,
+      "rate": 86.7
+    },
+    "any_line_success": {
+      "count": 26,
+      "rate": 86.7
+    },
+    "any_line_failure": {
+      "count": 0,
+      "rate": 0
+    }
+  },
+  "flowStates": [
+    {
+      "status": "published",
+      "currentStep": "line_confirmed",
+      "questionnaireSaved": true,
+      "diagnosisSaved": true,
+      "photosSaved": true,
+      "reportCreated": true,
+      "lineSuccess": true,
+      "visits": 24
+    },
+    {
+      "status": "completed",
+      "currentStep": "analysis_completed",
+      "questionnaireSaved": true,
+      "diagnosisSaved": true,
+      "photosSaved": true,
+      "reportCreated": false,
+      "lineSuccess": false,
+      "visits": 1
+    },
+    {
+      "status": "in_progress",
+      "currentStep": "diagnosis_started",
+      "questionnaireSaved": true,
+      "diagnosisSaved": false,
+      "photosSaved": false,
+      "reportCreated": false,
+      "lineSuccess": false,
+      "visits": 1
+    },
+    {
+      "status": "in_progress",
+      "currentStep": "diagnosis_started",
+      "questionnaireSaved": true,
+      "diagnosisSaved": true,
+      "photosSaved": true,
+      "reportCreated": true,
+      "lineSuccess": true,
+      "visits": 1
+    },
+    {
+      "status": "in_progress",
+      "currentStep": "questionnaire_completed",
+      "questionnaireSaved": true,
+      "diagnosisSaved": false,
+      "photosSaved": false,
+      "reportCreated": false,
+      "lineSuccess": false,
+      "visits": 1
+    },
+    {
+      "status": "published",
+      "currentStep": "line_sent",
+      "questionnaireSaved": true,
+      "diagnosisSaved": true,
+      "photosSaved": true,
+      "reportCreated": true,
+      "lineSuccess": true,
+      "visits": 1
+    },
+    {
+      "status": "waiting",
+      "currentStep": "line_registered",
+      "questionnaireSaved": false,
+      "diagnosisSaved": false,
+      "photosSaved": false,
+      "reportCreated": false,
+      "lineSuccess": false,
+      "visits": 1
+    }
+  ],
+  "lineDelivery": [
+    {
+      "messageType": "report",
+      "status": "success",
+      "attempts": 26,
+      "visits": 26
+    }
+  ],
+  "aiAnalysis": [],
+  "recordedIncidents": [
+    {
+      "type": "fetch_error",
+      "count": 1
+    }
+  ],
+  "clinical": {
+    "diagnosisCoverageVisitCount": 27,
+    "topFindings": [
+      {
+        "category": "足",
+        "item": "足",
+        "count": 25,
+        "denominator": 27,
+        "rate": 92.6
+      },
+      {
+        "category": "姿勢",
+        "item": "骨盤",
+        "count": 11,
+        "denominator": 12,
+        "rate": 91.7
+      },
+      {
+        "category": "歯列・咬合",
+        "item": "歯列・咬合",
+        "count": 19,
+        "denominator": 25,
+        "rate": 76
+      },
+      {
+        "category": "嚥下",
+        "item": "口腔周囲筋収縮",
+        "count": 18,
+        "denominator": 27,
+        "rate": 66.7
+      },
+      {
+        "category": "呼吸",
+        "item": "口呼吸・鼻呼吸",
+        "count": 15,
+        "denominator": 25,
+        "rate": 60
+      },
+      {
+        "category": "靴",
+        "item": "サイズアウト",
+        "count": 10,
+        "denominator": 18,
+        "rate": 55.6
+      },
+      {
+        "category": "靴",
+        "item": "ソールの減り",
+        "count": 11,
+        "denominator": 21,
+        "rate": 52.4
+      },
+      {
+        "category": "姿勢",
+        "item": "軸（左右差）",
+        "count": 4,
+        "denominator": 9,
+        "rate": 44.4
+      },
+      {
+        "category": "姿勢",
+        "item": "頭位",
+        "count": 3,
+        "denominator": 7,
+        "rate": 42.9
+      },
+      {
+        "category": "嚥下",
+        "item": "舌突出癖",
+        "count": 9,
+        "denominator": 26,
+        "rate": 34.6
+      },
+      {
+        "category": "口唇",
+        "item": "口唇閉鎖",
+        "count": 6,
+        "denominator": 26,
+        "rate": 23.1
+      },
+      {
+        "category": "舌",
+        "item": "ハート舌",
+        "count": 6,
+        "denominator": 27,
+        "rate": 22.2
+      },
+      {
+        "category": "口唇",
+        "item": "上唇翻転",
+        "count": 5,
+        "denominator": 27,
+        "rate": 18.5
+      },
+      {
+        "category": "舌",
+        "item": "舌小帯短縮症",
+        "count": 4,
+        "denominator": 26,
+        "rate": 15.4
+      },
+      {
+        "category": "舌",
+        "item": "舌の動き",
+        "count": 2,
+        "denominator": 26,
+        "rate": 7.7
+      },
+      {
+        "category": "口唇",
+        "item": "上唇小帯異常",
+        "count": 1,
+        "denominator": 26,
+        "rate": 3.8
+      },
+      {
+        "category": "姿勢",
+        "item": "下肢",
+        "count": 0,
+        "denominator": 8,
+        "rate": 0
+      }
+    ],
+    "items": [
+      {
+        "category": "全身",
+        "question": "正面間",
+        "code": "body_front_symmetry",
+        "total": 10,
+        "values": {
+          "asymmetric": 2,
+          "symmetric": 8
+        },
+        "optionCounts": {
+          "asymmetric": 2,
+          "symmetric": 8
+        },
+        "options": [
+          {
+            "label": "左右対称",
+            "value": "symmetric"
+          },
+          {
+            "label": "非対称",
+            "value": "asymmetric"
+          }
+        ]
+      },
+      {
+        "category": "口唇",
+        "question": "上唇小帯異常",
+        "code": "lips_frenulum",
+        "total": 26,
+        "values": {
+          "no": 25,
+          "yes": 1
+        },
+        "optionCounts": {
+          "no": 25,
+          "yes": 1
+        },
+        "options": [
+          {
+            "label": "有",
+            "value": "yes"
+          },
+          {
+            "label": "無",
+            "value": "no"
+          }
+        ]
+      },
+      {
+        "category": "口唇",
+        "question": "上唇翻転",
+        "code": "lips_eversion",
+        "total": 27,
+        "values": {
+          "no": 22,
+          "yes": 5
+        },
+        "optionCounts": {
+          "no": 22,
+          "yes": 5
+        },
+        "options": [
+          {
+            "label": "有",
+            "value": "yes"
+          },
+          {
+            "label": "無",
+            "value": "no"
+          }
+        ]
+      },
+      {
+        "category": "口唇",
+        "question": "口唇閉鎖",
+        "code": "lips_closure",
+        "total": 26,
+        "values": {
+          "impossible": 6,
+          "possible": 20
+        },
+        "optionCounts": {
+          "impossible": 6,
+          "possible": 20
+        },
+        "options": [
+          {
+            "label": "可",
+            "value": "possible"
+          },
+          {
+            "label": "不可",
+            "value": "impossible"
+          }
+        ]
+      },
+      {
+        "category": "呼吸",
+        "question": "口呼吸・鼻呼吸",
+        "code": "breathing_type",
+        "total": 25,
+        "values": {
+          "mouth": 15,
+          "nose": 10
+        },
+        "optionCounts": {
+          "mouth": 15,
+          "nose": 10
+        },
+        "options": [
+          {
+            "label": "口呼吸",
+            "value": "mouth"
+          },
+          {
+            "label": "鼻呼吸",
+            "value": "nose"
+          }
+        ]
+      },
+      {
+        "category": "嚥下",
+        "question": "口腔周囲筋収縮",
+        "code": null,
+        "total": 27,
+        "values": {
+          "no": 9,
+          "yes": 18
+        },
+        "optionCounts": {
+          "no": 9,
+          "yes": 18
+        },
+        "options": [
+          {
+            "label": "有",
+            "value": "yes"
+          },
+          {
+            "label": "無",
+            "value": "no"
+          }
+        ]
+      },
+      {
+        "category": "嚥下",
+        "question": "舌突出癖",
+        "code": "swallow_tongue_thrust",
+        "total": 26,
+        "values": {
+          "no": 17,
+          "yes": 9
+        },
+        "optionCounts": {
+          "no": 17,
+          "yes": 9
+        },
+        "options": [
+          {
+            "label": "有",
+            "value": "yes"
+          },
+          {
+            "label": "無",
+            "value": "no"
+          }
+        ]
+      },
+      {
+        "category": "姿勢",
+        "question": "下肢",
+        "code": "posture_legs",
+        "total": 8,
+        "values": {
+          "ox": 8
+        },
+        "optionCounts": {
+          "ox": 8
+        },
+        "options": [
+          {
+            "label": "正常（生理的O脚・X脚含む）",
+            "value": "ox"
+          },
+          {
+            "label": "O脚",
+            "value": "bow"
+          },
+          {
+            "label": "X脚",
+            "value": "knock"
+          }
+        ]
+      },
+      {
+        "category": "姿勢",
+        "question": "軸（左右差）",
+        "code": "posture_axis",
+        "total": 9,
+        "values": {
+          "opt_0": 4,
+          "opt_1": 5
+        },
+        "optionCounts": {
+          "opt_0": 4,
+          "opt_1": 5
+        },
+        "options": [
+          {
+            "label": "有",
+            "value": "opt_0"
+          },
+          {
+            "label": "無",
+            "value": "opt_1"
+          }
+        ]
+      },
+      {
+        "category": "姿勢",
+        "question": "頭位",
+        "code": "posture_head",
+        "total": 7,
+        "values": {
+          "forward": 3,
+          "normal": 4
+        },
+        "optionCounts": {
+          "forward": 3,
+          "normal": 4
+        },
+        "options": [
+          {
+            "label": "正常",
+            "value": "normal"
+          },
+          {
+            "label": "フォワードヘッド",
+            "value": "forward"
+          }
+        ]
+      },
+      {
+        "category": "姿勢",
+        "question": "骨盤",
+        "code": "posture_pelvis",
+        "total": 12,
+        "values": {
+          "anterior": 8,
+          "neutral": 1,
+          "posterior": 3
+        },
+        "optionCounts": {
+          "anterior": 8,
+          "neutral": 1,
+          "posterior": 3
+        },
+        "options": [
+          {
+            "label": "後傾",
+            "value": "posterior"
+          },
+          {
+            "label": "ニュートラル",
+            "value": "neutral"
+          },
+          {
+            "label": "前傾",
+            "value": "anterior"
+          }
+        ]
+      },
+      {
+        "category": "歯列・咬合",
+        "question": "歯列・咬合",
+        "code": null,
+        "total": 25,
+        "values": {
+          "[\"opt_0\",\"opt_4\"]": 1,
+          "[\"opt_0\"]": 6,
+          "[\"opt_1\",\"opt_4\",\"opt_5\"]": 1,
+          "[\"opt_1\"]": 11,
+          "[\"opt_3\"]": 3,
+          "[\"opt_4\"]": 2,
+          "[\"opt_5\"]": 1
+        },
+        "optionCounts": {
+          "opt_0": 7,
+          "opt_4": 4,
+          "opt_1": 12,
+          "opt_5": 2,
+          "opt_3": 3
+        },
+        "options": [
+          {
+            "label": "正常",
+            "value": "opt_0"
+          },
+          {
+            "label": "過蓋咬合",
+            "value": "opt_1"
+          },
+          {
+            "label": "開咬",
+            "value": "opt_2"
+          },
+          {
+            "label": "反対咬合",
+            "value": "opt_3"
+          },
+          {
+            "label": "叢生",
+            "value": "opt_4"
+          },
+          {
+            "label": "顎偏位",
+            "value": "opt_5"
+          }
+        ]
+      },
+      {
+        "category": "舌",
+        "question": "ハート舌",
+        "code": "tongue_heart",
+        "total": 27,
+        "values": {
+          "opt_0": 6,
+          "opt_1": 21
+        },
+        "optionCounts": {
+          "opt_0": 6,
+          "opt_1": 21
+        },
+        "options": [
+          {
+            "label": "あり",
+            "value": "opt_0"
+          },
+          {
+            "label": "なし",
+            "value": "opt_1"
+          }
+        ]
+      },
+      {
+        "category": "舌",
+        "question": "舌の動き",
+        "code": "tongue_low_position",
+        "total": 26,
+        "values": {
+          "opt_0": 10,
+          "opt_1": 14,
+          "opt_2": 2
+        },
+        "optionCounts": {
+          "opt_0": 10,
+          "opt_1": 14,
+          "opt_2": 2
+        },
+        "options": [
+          {
+            "label": "良い",
+            "value": "opt_0"
+          },
+          {
+            "label": "ふつう",
+            "value": "opt_1"
+          },
+          {
+            "label": "悪い",
+            "value": "opt_2"
+          }
+        ]
+      },
+      {
+        "category": "舌",
+        "question": "舌小帯短縮症",
+        "code": "tongue_tie",
+        "total": 26,
+        "values": {
+          "no": 22,
+          "yes": 4
+        },
+        "optionCounts": {
+          "no": 22,
+          "yes": 4
+        },
+        "options": [
+          {
+            "label": "有",
+            "value": "yes"
+          },
+          {
+            "label": "無",
+            "value": "no"
+          }
+        ]
+      },
+      {
+        "category": "足",
+        "question": "足",
+        "code": null,
+        "total": 27,
+        "values": {
+          "[\"opt_0\"]": 2,
+          "[\"opt_1\",\"opt_2\",\"opt_4\"]": 1,
+          "[\"opt_1\",\"opt_2\",\"opt_5\"]": 2,
+          "[\"opt_1\",\"opt_2\"]": 4,
+          "[\"opt_1\",\"opt_4\",\"opt_2\"]": 1,
+          "[\"opt_1\",\"opt_4\"]": 2,
+          "[\"opt_1\"]": 8,
+          "[\"opt_2\",\"opt_1\",\"opt_4\",\"opt_5\"]": 1,
+          "[\"opt_2\",\"opt_1\"]": 1,
+          "[\"opt_2\"]": 1,
+          "[\"opt_3\",\"opt_1\",\"opt_4\"]": 1,
+          "[\"opt_4\",\"opt_1\"]": 1,
+          "[\"opt_4\"]": 1,
+          "[\"opt_5\",\"opt_3\"]": 1
+        },
+        "optionCounts": {
+          "opt_0": 2,
+          "opt_1": 22,
+          "opt_2": 11,
+          "opt_4": 8,
+          "opt_5": 4,
+          "opt_3": 2
+        },
+        "options": [
+          {
+            "label": "正常",
+            "value": "opt_0"
+          },
+          {
+            "label": "寝指",
+            "value": "opt_1"
+          },
+          {
+            "label": "浮指",
+            "value": "opt_2"
+          },
+          {
+            "label": "外反母趾",
+            "value": "opt_3"
+          },
+          {
+            "label": "扁平足",
+            "value": "opt_4"
+          },
+          {
+            "label": "ハイアーチ",
+            "value": "opt_5"
+          }
+        ]
+      },
+      {
+        "category": "靴",
+        "question": "サイズアウト",
+        "code": "shoes_outgrown",
+        "total": 18,
+        "values": {
+          "no": 8,
+          "yes": 10
+        },
+        "optionCounts": {
+          "no": 8,
+          "yes": 10
+        },
+        "options": [
+          {
+            "label": "無",
+            "value": "no"
+          },
+          {
+            "label": "有",
+            "value": "yes"
+          }
+        ]
+      },
+      {
+        "category": "靴",
+        "question": "ソールの減り",
+        "code": "shoes_sole_wear",
+        "total": 21,
+        "values": {
+          "no": 10,
+          "yes": 11
+        },
+        "optionCounts": {
+          "no": 10,
+          "yes": 11
+        },
+        "options": [
+          {
+            "label": "無",
+            "value": "no"
+          },
+          {
+            "label": "有",
+            "value": "yes"
+          }
+        ]
+      },
+      {
+        "category": "靴",
+        "question": "メーカー",
+        "code": "shoes_brand",
+        "total": 20,
+        "values": {
+          "adidas": 1,
+          "asics": 2,
+          "frodda": 1,
+          "アシックス": 3,
+          "アンパンマン": 1,
+          "サンダル": 1,
+          "サンダル（ニューバランス）": 1,
+          "サンプルテキスト": 1,
+          "スーパーフィット": 3,
+          "ナイキ": 2,
+          "バイオメカニクス": 1,
+          "ムーンスター": 1,
+          "瞬足": 2
+        },
+        "optionCounts": {
+          "adidas": 1,
+          "asics": 2,
+          "frodda": 1,
+          "アシックス": 3,
+          "アンパンマン": 1,
+          "サンダル": 1,
+          "サンダル（ニューバランス）": 1,
+          "サンプルテキスト": 1,
+          "スーパーフィット": 3,
+          "ナイキ": 2,
+          "バイオメカニクス": 1,
+          "ムーンスター": 1,
+          "瞬足": 2
+        },
+        "options": null
+      },
+      {
+        "category": "靴",
+        "question": "靴の固定",
+        "code": "shoes_fastening",
+        "total": 23,
+        "values": {
+          "[\"none\"]": 2,
+          "[\"opt_2\"]": 9,
+          "[\"yes\",\"opt_2\"]": 4,
+          "[\"yes\"]": 8
+        },
+        "optionCounts": {
+          "none": 2,
+          "opt_2": 13,
+          "yes": 12
+        },
+        "options": [
+          {
+            "label": "無",
+            "value": "none"
+          },
+          {
+            "label": "有",
+            "value": "yes"
+          },
+          {
+            "label": "テープ",
+            "value": "opt_2"
+          }
+        ]
+      }
+    ]
+  },
+  "questionnaire": {
+    "normalizedItems": {
+      "eating_habits": {
+        "question": "食事について",
+        "total": 19,
+        "values": {
+          "[\"gulp\",\"large_bites\"]": 3,
+          "[\"gulp\"]": 1,
+          "[\"large_bites\",\"slow_eating\"]": 2,
+          "[\"large_bites\"]": 1,
+          "[\"no_chewing\",\"gulp\",\"large_bites\",\"fast_eating\"]": 1,
+          "[\"no_chewing\",\"large_bites\",\"fast_eating\"]": 1,
+          "[\"no_chewing\"]": 1,
+          "[\"other\",\"gulp\"]": 1,
+          "[\"picky\",\"cant_swallow\"]": 1,
+          "[\"picky\",\"large_bites\"]": 1,
+          "[\"picky\",\"slow_eating\"]": 2,
+          "[\"picky\"]": 2,
+          "[\"slow_eating\",\"picky\"]": 1,
+          "[\"slow_eating\"]": 1
+        },
+        "optionCounts": {
+          "gulp": 6,
+          "large_bites": 9,
+          "slow_eating": 6,
+          "no_chewing": 3,
+          "fast_eating": 2,
+          "other": 1,
+          "picky": 7,
+          "cant_swallow": 1
+        },
+        "options": "[{\"label\":\"偏食\",\"value\":\"picky\"},{\"label\":\"噛まない\",\"value\":\"no_chewing\"},{\"label\":\"飲み込めない（吐き出す）\",\"value\":\"cant_swallow\"},{\"label\":\"丸呑み食べ\",\"value\":\"gulp\"},{\"label\":\"一口量が多い\",\"value\":\"large_bites\"},{\"label\":\"食べるのが早い\",\"value\":\"fast_eating\"},{\"label\":\"食べるのが遅い\",\"value\":\"slow_eating\"},{\"label\":\"その他\",\"value\":\"other\"}]"
+      },
+      "photo_consent": {
+        "question": "学会発表や資料作成のために症例写真の使用にご協力いただけますか？",
+        "total": 29,
+        "values": {
+          "no": 4,
+          "yes": 25
+        },
+        "optionCounts": {
+          "no": 4,
+          "yes": 25
+        },
+        "options": "[{\"label\":\"YES\",\"value\":\"yes\"},{\"label\":\"NO\",\"value\":\"no\"}]"
+      },
+      "regular_lifestyle": {
+        "question": "規則正しい",
+        "total": 29,
+        "values": {
+          "no": 2,
+          "yes": 27
+        },
+        "optionCounts": {
+          "no": 2,
+          "yes": 27
+        },
+        "options": "[{\"label\":\"はい\",\"value\":\"yes\"},{\"label\":\"いいえ\",\"value\":\"no\"}]"
+      },
+      "screen_hours": {
+        "question": "視聴時間（それ以上の場合）",
+        "total": 2,
+        "values": {
+          "2": 1,
+          "2.3": 1
+        },
+        "optionCounts": {
+          "2": 1,
+          "2.3": 1
+        },
+        "options": null
+      },
+      "screen_time": {
+        "question": "スマホ・タブレット・TVを見る頻度と時間",
+        "total": 19,
+        "values": {
+          "over_1hour": 2,
+          "rarely": 6,
+          "under_1hour": 5,
+          "under_30min": 6
+        },
+        "optionCounts": {
+          "over_1hour": 2,
+          "rarely": 6,
+          "under_1hour": 5,
+          "under_30min": 6
+        },
+        "options": "[{\"label\":\"ほぼ見ない\",\"value\":\"rarely\"},{\"label\":\"30分以内\",\"value\":\"under_30min\"},{\"label\":\"1時間以内\",\"value\":\"under_1hour\"},{\"label\":\"それ以上\",\"value\":\"over_1hour\"}]"
+      },
+      "sleep_conditions": {
+        "question": "睡眠の様子",
+        "total": 27,
+        "values": {
+          "[\"frequent_waking\",\"prone\",\"side\"]": 1,
+          "[\"fussy_sleep\",\"fussy_wake\",\"supine\",\"side\"]": 1,
+          "[\"fussy_sleep\"]": 1,
+          "[\"fussy_wake\",\"frequent_waking\",\"supine\"]": 1,
+          "[\"fussy_wake\",\"prone\",\"supine\",\"side\"]": 1,
+          "[\"fussy_wake\",\"side\",\"prone\"]": 1,
+          "[\"prone\",\"frequent_waking\"]": 1,
+          "[\"prone\",\"supine\",\"side\"]": 1,
+          "[\"prone\"]": 1,
+          "[\"side\",\"frequent_waking\"]": 1,
+          "[\"side\",\"supine\",\"prone\"]": 2,
+          "[\"side\"]": 2,
+          "[\"snoring\",\"fussy_sleep\",\"fussy_wake\",\"prone\"]": 1,
+          "[\"snoring\",\"prone\",\"side\"]": 2,
+          "[\"snoring\",\"prone\"]": 1,
+          "[\"snoring\",\"supine\"]": 1,
+          "[\"snoring\"]": 2,
+          "[\"supine\",\"prone\",\"side\"]": 1,
+          "[\"supine\",\"prone\"]": 1,
+          "[\"supine\",\"side\",\"fussy_wake\"]": 1,
+          "[\"supine\"]": 2,
+          "[]": 1
+        },
+        "optionCounts": {
+          "frequent_waking": 4,
+          "prone": 14,
+          "side": 14,
+          "fussy_sleep": 3,
+          "fussy_wake": 6,
+          "supine": 12,
+          "snoring": 7,
+          "none_selected": 1
+        },
+        "options": "[{\"label\":\"いびき\",\"value\":\"snoring\"},{\"label\":\"寝ぐずり\",\"value\":\"fussy_sleep\"},{\"label\":\"起きぐずり\",\"value\":\"fussy_wake\"},{\"label\":\"頻回起き\",\"value\":\"frequent_waking\"},{\"label\":\"うつ伏せ寝\",\"value\":\"prone\"},{\"label\":\"仰向け\",\"value\":\"supine\"},{\"label\":\"横向き寝\",\"value\":\"side\"}]"
+      },
+      "きょうだいの有無": {
+        "question": "きょうだいの有無",
+        "total": 19,
+        "values": {
+          "has": 8,
+          "none": 11
+        },
+        "optionCounts": {
+          "has": 8,
+          "none": 11
+        },
+        "options": "[{\"label\":\"いない\",\"value\":\"none\"},{\"label\":\"いる\",\"value\":\"has\"}]"
+      },
+      "ゲーム・スマホ・タブレット・TVを見る頻度と時間": {
+        "question": "ゲーム・スマホ・タブレット・TVを見る頻度と時間",
+        "total": 10,
+        "values": {
+          "over_1hour": 5,
+          "under_1hour": 2,
+          "under_30min": 3
+        },
+        "optionCounts": {
+          "over_1hour": 5,
+          "under_1hour": 2,
+          "under_30min": 3
+        },
+        "options": "[{\"label\":\"ほぼ見ない\",\"value\":\"rarely\"},{\"label\":\"30分以内\",\"value\":\"under_30min\"},{\"label\":\"1時間以内\",\"value\":\"under_1hour\"},{\"label\":\"それ以上\",\"value\":\"over_1hour\"}]"
+      },
+      "何人目": {
+        "question": "何人目",
+        "total": 19,
+        "values": {
+          "1": 11,
+          "2": 6,
+          "3": 1,
+          "4": 1
+        },
+        "optionCounts": {
+          "1": 11,
+          "2": 6,
+          "3": 1,
+          "4": 1
+        },
+        "options": "[{\"value\":\"1\",\"label\":\"1人目\"},{\"value\":\"2\",\"label\":\"2人目\"},{\"value\":\"3\",\"label\":\"3人目\"},{\"value\":\"4\",\"label\":\"4人目\"},{\"value\":\"5\",\"label\":\"5人目\"}]"
+      },
+      "就寝時間": {
+        "question": "就寝時間",
+        "total": 29,
+        "values": {
+          "20": 4,
+          "21": 21,
+          "22": 2,
+          "23": 1,
+          "option_7": 1
+        },
+        "optionCounts": {
+          "20": 4,
+          "21": 21,
+          "22": 2,
+          "23": 1,
+          "option_7": 1
+        },
+        "options": "[{\"label\":\"19時\",\"value\":\"19\"},{\"label\":\"20時\",\"value\":\"20\"},{\"label\":\"21時\",\"value\":\"21\"},{\"label\":\"22時\",\"value\":\"22\"},{\"label\":\"23時\",\"value\":\"23\"},{\"value\":\"24\",\"label\":\"24時\"},{\"value\":\"option_7\",\"label\":\"決まってない\"}]"
+      },
+      "気になること": {
+        "question": "気になること",
+        "total": 10,
+        "values": {
+          "[\"mouth_open\",\"posture\",\"night_waking\",\"tired_easily\",\"restless\"]": 1,
+          "[\"mouth_open\",\"teeth_worry\",\"posture\",\"night_waking\",\"tired_easily\"]": 1,
+          "[\"mouth_open\",\"teeth_worry\",\"posture\",\"tired_easily\",\"tv_during_meal\",\"picky_eater\"]": 1,
+          "[\"mouth_open\",\"teeth_worry\",\"posture\",\"tired_easily\"]": 1,
+          "[\"posture\",\"bedwetting\",\"restless\",\"cant_sit_still\",\"picky_eater\"]": 1,
+          "[\"posture\",\"restless\",\"cant_sit_still\",\"picky_eater\"]": 1,
+          "[\"teeth_worry\",\"articulation\",\"picky_eater\"]": 1,
+          "[\"teeth_worry\",\"posture\",\"bedwetting\",\"tired_easily\",\"restless\"]": 1,
+          "[\"teeth_worry\",\"posture\",\"night_waking\",\"tired_easily\",\"tv_during_meal\",\"picky_eater\"]": 1,
+          "[\"teeth_worry\",\"posture\",\"sleep_position\",\"drink_during_meal\",\"tv_during_meal\"]": 1
+        },
+        "optionCounts": {
+          "mouth_open": 4,
+          "posture": 9,
+          "night_waking": 3,
+          "tired_easily": 6,
+          "restless": 4,
+          "teeth_worry": 7,
+          "tv_during_meal": 3,
+          "picky_eater": 5,
+          "bedwetting": 2,
+          "cant_sit_still": 2,
+          "articulation": 1,
+          "sleep_position": 1,
+          "drink_during_meal": 1
+        },
+        "options": "[{\"label\":\"お口がポカンと開いていることがある\",\"value\":\"mouth_open\"},{\"label\":\"将来歯並びや噛み合わせが良くなるか不安\",\"value\":\"teeth_worry\"},{\"label\":\"滑舌が悪いと感じることがある\",\"value\":\"articulation\"},{\"label\":\"姿勢が悪いと感じる\",\"value\":\"posture\"},{\"label\":\"ママとお子様の寝る位置が決まっている\",\"value\":\"sleep_position\"},{\"label\":\"夜中に起きることがある\",\"value\":\"night_waking\"},{\"label\":\"おねしょをする\",\"value\":\"bedwetting\"},{\"label\":\"すぐ「疲れた」と言う（体力がない）\",\"value\":\"tired_easily\"},{\"label\":\"落ち着きがない\",\"value\":\"restless\"},{\"label\":\"食べるのが早い（あまり噛んでいない）\",\"value\":\"fast_eating\"},{\"label\":\"一口量が多かったり詰め込みたべをする\",\"value\":\"large_bites\"},{\"label\":\"食事中じっとしていない\",\"value\":\"cant_sit_still\"},{\"label\":\"食事中よく水分をとる\",\"value\":\"drink_during_meal\"},{\"label\":\"食事中テレビがついている\",\"value\":\"tv_during_meal\"},{\"label\":\"好き嫌いが多い\",\"value\":\"picky_eater\"},{\"label\":\"割座（お姉さん座り）をする\",\"value\":\"w_sitting\"},{\"label\":\"よく体調を崩す\",\"value\":\"often_sick\"},{\"label\":\"その他\",\"value\":\"other\"}]"
+      },
+      "視聴時間（それ以上の場合）": {
+        "question": "視聴時間（それ以上の場合）",
+        "total": 6,
+        "values": {
+          "2": 2,
+          "3": 3,
+          "4": 1
+        },
+        "optionCounts": {
+          "2": 2,
+          "3": 3,
+          "4": 1
+        },
+        "options": "[{\"value\":\"2\",\"label\":\"2時間以内\"},{\"value\":\"3\",\"label\":\"3時間以内\"},{\"value\":\"4\",\"label\":\"4時間以内\"},{\"value\":\"5\",\"label\":\"5時間以内\"}]"
+      },
+      "習い事": {
+        "question": "習い事",
+        "total": 21,
+        "values": {
+          "[\"english\",\"other\"]": 1,
+          "[\"english\"]": 2,
+          "[\"gymnastics\",\"other\"]": 1,
+          "[\"gymnastics\"]": 1,
+          "[\"other\"]": 7,
+          "[\"soccer\"]": 1,
+          "[\"swimming\",\"english\"]": 1,
+          "[\"swimming\",\"gymnastics\",\"english\",\"other\"]": 1,
+          "[\"swimming\",\"gymnastics\",\"other\"]": 1,
+          "[\"swimming\",\"gymnastics\",\"soccer\"]": 1,
+          "[\"swimming\"]": 4
+        },
+        "optionCounts": {
+          "english": 5,
+          "other": 11,
+          "gymnastics": 5,
+          "soccer": 2,
+          "swimming": 8
+        },
+        "options": "[{\"label\":\"スイミング\",\"value\":\"swimming\"},{\"label\":\"体操\",\"value\":\"gymnastics\"},{\"label\":\"サッカー\",\"value\":\"soccer\"},{\"label\":\"野球\",\"value\":\"baseball\"},{\"label\":\"英語\",\"value\":\"english\"},{\"label\":\"その他\",\"value\":\"other\"}]"
+      }
+    }
+  },
+  "limitations": [
+    "The event report is a screening summary, not a medical diagnosis.",
+    "Legacy JSON diagnosis/questionnaire values are counted for funnel coverage but are not expanded into trend distributions.",
+    "Runtime 404 incidents and deployment rollback history are not fully represented in visits.error_info.",
+    "Rates from small denominators should be treated as descriptive only."
+  ]
+}
