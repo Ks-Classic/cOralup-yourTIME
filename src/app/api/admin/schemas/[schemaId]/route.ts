@@ -3,23 +3,11 @@ import { db } from '@/db'
 import { formSchemas } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 
-const adminApiKey = process.env.ADMIN_API_KEY
-
-const assertAdminAuthorized = (request: NextRequest) => {
-  if (!adminApiKey) return
-  const authHeader = request.headers.get('authorization') || ''
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-  const headerKey = request.headers.get('x-admin-key')
-  if (bearer === adminApiKey || headerKey === adminApiKey) return
-  throw new Error('unauthorized')
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ schemaId: string }> }
 ) {
   try {
-    assertAdminAuthorized(request)
     const { schemaId } = await params
     const rows = await db.select().from(formSchemas).where(eq(formSchemas.schemaId, schemaId)).limit(1)
     if (rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -34,7 +22,6 @@ export async function PUT(
   { params }: { params: Promise<{ schemaId: string }> }
 ) {
   try {
-    assertAdminAuthorized(request)
     const { schemaId } = await params
     const body = await request.json()
     const { name, description, config, version } = body
@@ -65,7 +52,6 @@ export async function DELETE(
   { params }: { params: Promise<{ schemaId: string }> }
 ) {
   try {
-    assertAdminAuthorized(request)
     const { schemaId } = await params
     await db.update(formSchemas).set({
       isActive: false,

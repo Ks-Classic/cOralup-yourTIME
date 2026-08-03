@@ -7,18 +7,6 @@ import { elementaryFormSchema } from '@/data/elementary-form-schema'
 import { basicInfoFormSchema, basicInfoElementaryFormSchema } from '@/data/basic-info-schema'
 import { diagnosisItems, categoryOrder } from '@/data/staff-diagnosis-items'
 
-const adminApiKey = process.env.ADMIN_API_KEY
-
-const assertAdminAuthorized = (request: NextRequest) => {
-  if (!adminApiKey) return
-  const authHeader = request.headers.get('authorization') || ''
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-  const headerKey = request.headers.get('x-admin-key')
-  if (!bearer && !headerKey) return // 暫定
-  if (bearer === adminApiKey || headerKey === adminApiKey) return
-  throw new Error('unauthorized')
-}
-
 async function convertQuestionnaireToSchema(targetAge: 'preschool' | 'elementary') {
   const categories = await db
     .select()
@@ -55,7 +43,6 @@ async function convertQuestionnaireToSchema(targetAge: 'preschool' | 'elementary
 
 export async function GET(request: NextRequest) {
   try {
-    assertAdminAuthorized(request)
     const { searchParams } = new URL(request.url)
     const formType = searchParams.get('form_type')
     const schemaId = searchParams.get('schema_id')
@@ -98,14 +85,12 @@ export async function GET(request: NextRequest) {
     const schemas = await query
     return NextResponse.json({ data: schemas, error: null })
   } catch (error) {
-    if ((error as Error).message === 'unauthorized') return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    assertAdminAuthorized(request)
     const body = await request.json()
     const { schema_id, form_type, name, description, config, hardDeleteCategoryIds = [], hardDeleteItemIds = [] } = body
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { visits, children, profiles } from '@/db/schema'
 import { eq, or, inArray, desc } from 'drizzle-orm'
-import { getStaffSession } from '@/lib/staff-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,26 +15,6 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    // 管理者認証（暫定: ADMIN_API_KEY、将来: role='admin'のセッション）
-    const session = await getStaffSession()
-    const adminApiKey = process.env.ADMIN_API_KEY
-    const authHeader = request.headers.get('authorization') || ''
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-    const headerKey = request.headers.get('x-admin-key')
-
-    // 管理者チェック（暫定対応）
-    const isAdmin =
-      (session && (session.role === 'admin' || session.role === 'staff')) ||
-      (adminApiKey && (bearer === adminApiKey || headerKey === adminApiKey)) ||
-      !adminApiKey // ADMIN_API_KEY未設定時は許可（開発環境）
-
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Admin access required' },
-        { status: 401 }
-      )
-    }
-
     const { searchParams } = new URL(request.url)
     const staffId = searchParams.get('staffId')
     const status = searchParams.get('status')

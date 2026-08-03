@@ -983,62 +983,6 @@ export default function SchemaEditorPage() {
   }
 
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [inputPin, setInputPin] = useState('')
-  const [authError, setAuthError] = useState('')
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (inputPin === '7777') {
-      setIsAuthenticated(true)
-      setAuthError('')
-    } else {
-      setAuthError('PINコードが違います')
-      setInputPin('')
-    }
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] flex-col gap-4">
-        <Link href="/" className="text-slate-500 hover:text-slate-800 text-sm flex items-center gap-1">
-          <ArrowLeft className="w-4 h-4" />
-          ホームへ戻る
-        </Link>
-        <div className="w-full max-w-sm p-6 bg-white rounded-xl shadow-lg border border-slate-200">
-          <h2 className="text-xl font-bold text-center mb-6 text-slate-800">管理者認証</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                PINコードを入力
-              </label>
-              <Input
-                type="password"
-                value={inputPin}
-                onChange={(e) => setInputPin(e.target.value)}
-                placeholder="4桁のPIN"
-                className="text-center text-lg tracking-widest"
-                maxLength={4}
-                autoFocus
-              />
-            </div>
-            {authError && (
-              <p className="text-sm text-red-500 text-center font-medium bg-red-50 py-2 rounded">
-                {authError}
-              </p>
-            )}
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
-            >
-              ログイン
-            </button>
-          </form>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* ヘッダー */}

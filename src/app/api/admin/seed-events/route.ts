@@ -7,18 +7,9 @@ import { eq, or, sql } from 'drizzle-orm'
  * 管理者用: イベントデータ登録 + 既存スタッフ一括紐付け
  * 
  * POST /api/admin/seed-events
- * Header: Authorization: Bearer <ADMIN_API_KEY>
- * 
  * 冪等: 何度実行しても安全
  */
 export async function POST(request: NextRequest) {
-    // 認証チェック
-    const authHeader = request.headers.get('authorization')
-    const adminKey = process.env.ADMIN_API_KEY
-    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     try {
         const results: string[] = []
 
