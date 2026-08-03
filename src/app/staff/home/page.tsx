@@ -3,6 +3,7 @@ import { getStaffSession } from '@/lib/staff-auth'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import Image from 'next/image'
+import { StaffEventRegistration } from '@/components/staff/StaffEventRegistration'
 
 export const dynamic = 'force-dynamic'
 
@@ -78,6 +79,13 @@ export default async function StaffHomePage() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs text-gray-500">スタッフ登録名（実名）</p>
+          <p className="mt-1 font-bold text-gray-900">{session.staffName}</p>
+        </section>
+
+        <StaffEventRegistration />
+
         {/* 統計カード */}
         <div className="bg-gradient-to-r from-coral-500 to-orange-400 rounded-2xl p-4 text-white shadow-lg">
           <div className="flex items-center gap-3">
@@ -260,6 +268,5 @@ export default async function StaffHomePage() {
     </div>
   )
 }
-
 
 
