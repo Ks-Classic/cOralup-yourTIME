@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "correctionId": "COR-12",
+  "status": "applied",
+  "appliedAt": "2026-08-03T11:29:53.330Z",
+  "correctionMarker": "2026-08-03T11:25:09.841Z",
+  "oldEventSlug": "oizumigakuen-yourtime-2026",
+  "newEventSlug": "yourtime-8th-tokyo-2026",
+  "updatedVisits": 29,
+  "beforeMetrics": {
+    "visits": 29,
+    "questionnaireVisits": 29,
+    "diagnosisVisits": 27,
+    "photoVisits": 27,
+    "reportVisits": 26,
+    "lineSuccessVisits": 26
+  },
+  "afterMetrics": {
+    "visits": 29,
+    "questionnaireVisits": 29,
+    "diagnosisVisits": 27,
+    "photoVisits": 27,
+    "reportVisits": 26,
+    "lineSuccessVisits": 26
+  },
+  "beforeAttribution": [
+    {
+      "eventSlug": "oizumigakuen-yourtime-2026",
+      "visits": 29
+    },
+    {
+      "eventSlug": "yourtime-8th-tokyo-2026",
+      "visits": 1
+    }
+  ],
+  "afterAttribution": [
+    {
+      "eventSlug": "yourtime-8th-tokyo-2026",
+      "visits": 30
+    }
+  ],
+  "backup": {
+    "path": "docs/reports/2026-08-03-yourtime-event-id-correction-backup.tmp",
+    "sha256": "2a07a96fd9bfcf4b3e19075c5cf694312ebd59e2bcef13132356f32b9c020005",
+    "containsPii": false,
+    "gitIgnored": true
+  },
+  "rollback": {
+    "command": "node scripts/fix-yourtime-2026-08-02-event-id.mjs rollback",
+    "expectedRows": 29
+  }
+}

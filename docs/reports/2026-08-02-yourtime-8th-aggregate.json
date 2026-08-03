@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-03T11:16:46.006Z",
+  "generatedAt": "2026-08-03T11:30:28.229Z",
   "source": {
     "type": "production_database_read_only",
     "eventSlug": "yourtime-8th-tokyo-2026",
@@ -24,28 +24,28 @@
     "jstDate": "2026-08-02",
     "groups": [
       {
-        "eventSlug": "oizumigakuen-yourtime-2026",
-        "eventName": "大泉学園YourTIME.",
-        "totalIncludingTest": 31,
-        "realVisits": 31,
+        "eventSlug": "yourtime-8th-tokyo-2026",
+        "eventName": "8/2 YourTIME.8th 東京",
+        "totalIncludingTest": 30,
+        "realVisits": 30,
         "uniqueChildren": 30,
-        "diagnosedVisits": 28,
-        "reportVisits": 27,
-        "lineSuccessVisits": 27,
-        "firstJst": "2026-08-02 03:59",
+        "diagnosedVisits": 27,
+        "reportVisits": 26,
+        "lineSuccessVisits": 26,
+        "firstJst": "2026-08-02 10:35",
         "lastJst": "2026-08-02 15:59"
       },
       {
-        "eventSlug": "yourtime-8th-tokyo-2026",
-        "eventName": "8/2 YourTIME.8th 東京",
-        "totalIncludingTest": 1,
-        "realVisits": 1,
-        "uniqueChildren": 1,
-        "diagnosedVisits": 0,
-        "reportVisits": 0,
-        "lineSuccessVisits": 0,
-        "firstJst": "2026-08-02 10:35",
-        "lastJst": "2026-08-02 10:35"
+        "eventSlug": "oizumigakuen-yourtime-2026",
+        "eventName": "大泉学園YourTIME.",
+        "totalIncludingTest": 2,
+        "realVisits": 2,
+        "uniqueChildren": 2,
+        "diagnosedVisits": 1,
+        "reportVisits": 1,
+        "lineSuccessVisits": 1,
+        "firstJst": "2026-08-02 03:59",
+        "lastJst": "2026-08-02 04:00"
       }
     ]
   },
@@ -59,14 +59,9 @@
   },
   "eventAttribution": [
     {
-      "eventSlug": "oizumigakuen-yourtime-2026",
-      "eventName": "大泉学園YourTIME.",
-      "visits": 29
-    },
-    {
       "eventSlug": "yourtime-8th-tokyo-2026",
       "eventName": "8/2 YourTIME.8th 東京",
-      "visits": 1
+      "visits": 30
     }
   ],
   "dataQuality": {
