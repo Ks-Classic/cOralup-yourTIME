@@ -18,35 +18,21 @@ export function Overview({ overview }: OverviewProps) {
   ]
 
   return (
-    <section aria-labelledby="overview-title" className="space-y-4">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-coral-700">Overview</p>
-          <h2 id="overview-title" className="text-xl font-black tracking-tight text-slate-950">まず、全体像</h2>
-        </div>
-        <div className="hidden gap-5 text-right text-xs text-slate-500 sm:flex">
-          <span>平均年齢 <strong className="block text-base text-slate-900">{overview.averageAgeYears ?? '—'}歳</strong></span>
-          <span>兄弟姉妹で来場 <strong className="block text-base text-slate-900">{overview.siblingVisits}人</strong></span>
-          <span>平均診断時間 <strong className="block text-base text-slate-900">{overview.averageDiagnosisMinutes ?? '—'}分</strong></span>
-        </div>
+    <section aria-labelledby="overview-title" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-7">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div><p className="text-xs font-bold uppercase tracking-widest text-coral-700">Event snapshot</p><h2 id="overview-title" className="mt-1 text-2xl font-black tracking-tight text-slate-950">今回の全体像</h2><p className="mt-2 text-sm text-slate-600">来場からレポートまでの進行状況を、ひとつの流れで確認できます。</p></div>
+        <div className="grid grid-cols-3 gap-5 text-left text-xs text-slate-500"><span>平均年齢<strong className="mt-1 block text-lg text-slate-950">{overview.averageAgeYears ?? '—'}歳</strong></span><span>兄弟来場<strong className="mt-1 block text-lg text-slate-950">{overview.siblingVisits}人</strong></span><span>平均診断<strong className="mt-1 block text-lg text-slate-950">{overview.averageDiagnosisMinutes ?? '—'}分</strong></span></div>
       </div>
-
-      <div className="grid grid-cols-2 border-l border-t border-slate-200 bg-white lg:grid-cols-4">
+      <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map(({ label, value, suffix, icon: Icon, color }) => (
-          <div key={label} className="border-b border-r border-slate-200 p-4 sm:p-5">
-            <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-500">
+          <div key={label} className="rounded-xl bg-slate-50 p-4">
+            <div className="mb-5 flex items-center justify-between text-xs font-semibold text-slate-500">
               <span>{label}</span><Icon className="h-4 w-4" aria-hidden="true" />
             </div>
             <p className={`text-3xl font-black tabular-nums ${color}`}>{value}<span className="ml-1 text-xs font-medium text-slate-400">{suffix}</span></p>
             <p className="mt-1 text-xs text-slate-400">来場者の{rate(value, overview.visits)}%</p>
           </div>
         ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-center text-xs sm:hidden">
-        <div className="border border-slate-200 bg-white p-2"><span className="block text-slate-400">平均年齢</span><strong>{overview.averageAgeYears ?? '—'}歳</strong></div>
-        <div className="border border-slate-200 bg-white p-2"><span className="block text-slate-400">兄弟来場</span><strong>{overview.siblingVisits}人</strong></div>
-        <div className="border border-slate-200 bg-white p-2"><span className="block text-slate-400">平均診断</span><strong>{overview.averageDiagnosisMinutes ?? '—'}分</strong></div>
       </div>
     </section>
   )

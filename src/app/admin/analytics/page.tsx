@@ -87,18 +87,18 @@ export default function AnalyticsPage() {
   if (!data) return null
 
   return (
-    <div className="-mx-4 -mt-6 bg-stone-50 pb-16 sm:-mx-6 lg:-mx-8">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+    <div className="-mx-4 -mt-6 bg-slate-50 pb-20 sm:-mx-6 lg:-mx-8">
+      <header className="bg-white">
+        <div className="mx-auto max-w-7xl px-4 pb-5 pt-8 sm:px-6 lg:px-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
             <div>
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-coral-700"><BarChart3 className="h-4 w-4" aria-hidden="true" />Event report</div>
               <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">イベント診断レポート</h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">まず全体の傾向を読み、必要なときだけ個別の記録まで掘り下げます。</p>
             </div>
-            <button type="button" disabled={loading} onClick={() => void fetchInsights(data.selectedEvent.eventKey)} className="flex w-fit items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-slate-900 focus:outline-none focus:ring-2 focus:ring-coral-500 disabled:cursor-wait disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />最新データに更新</button>
+            <button type="button" disabled={loading} onClick={() => void fetchInsights(data.selectedEvent.eventKey)} className="flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-coral-500 disabled:cursor-wait disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />更新</button>
           </div>
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-l-2 border-coral-500 pl-4 text-xs text-slate-600">
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600">
             <strong className="text-sm text-slate-950">{data.selectedEvent.name}</strong>
             <span>{formatEventDate(data.selectedEvent.startDate, data.selectedEvent.endDate)}</span>
             {data.selectedEvent.venue && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{data.selectedEvent.venue}</span>}
@@ -148,10 +148,10 @@ function EventNarrative({ data }: { data: EventInsightsResponse }) {
   if (signals.length === 0) return null
 
   return (
-    <section aria-labelledby="signals-title" className="border-y border-slate-200 bg-slate-950 px-5 py-6 text-white sm:px-7">
-      <div className="mb-5 flex items-center gap-2"><Sparkles className="h-4 w-4 text-coral-300" aria-hidden="true" /><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-coral-300">Signals</p><h2 id="signals-title" className="text-lg font-black">今回の注目ポイント</h2></div></div>
+    <section aria-labelledby="signals-title" className="rounded-2xl bg-coral-50 px-5 py-6 ring-1 ring-coral-100 sm:px-7">
+      <div className="mb-5 flex items-center gap-2"><Sparkles className="h-4 w-4 text-coral-700" aria-hidden="true" /><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-coral-700">Signals</p><h2 id="signals-title" className="text-lg font-black text-slate-950">今回の注目ポイント</h2></div></div>
       <div className="grid gap-4 md:grid-cols-3">
-        {signals.map((signal, index) => <article key={`${signal.label}-${signal.value}`} className="border-l border-slate-700 pl-4"><p className="text-xs font-bold text-slate-400">0{index + 1}</p><p className="mt-2 text-sm font-bold leading-relaxed">{signal.label}</p><p className="mt-1 text-sm text-slate-300"><strong className="text-xl text-white">{signal.percentage}%</strong> が「{signal.value}」</p><p className="mt-1 text-xs text-slate-400">{signal.count}/{signal.total}件</p></article>)}
+        {signals.map((signal, index) => <article key={`${signal.label}-${signal.value}`} className="border-l border-coral-300 pl-4"><p className="text-xs font-bold text-coral-700">0{index + 1}</p><p className="mt-2 text-sm font-bold leading-relaxed text-slate-950">{signal.label}</p><p className="mt-1 text-sm text-slate-600"><strong className="text-xl text-slate-950">{signal.percentage}%</strong> が「{signal.value}」</p><p className="mt-1 text-xs text-slate-500">{signal.count}/{signal.total}件</p></article>)}
       </div>
     </section>
   )
