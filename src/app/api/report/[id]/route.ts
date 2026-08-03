@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { visits, children, events, reports, diagnoses, visitPhotos } from '@/db/schema'
+import { visits, children, events, reports, diagnoses, visitPhotos, lineMessageLogs } from '@/db/schema'
 import { eq, desc, and, inArray } from 'drizzle-orm'
 import { createClient } from '@supabase/supabase-js'
+import {
+  DEMO_REPORT_RETENTION_DAYS,
+  getDemoReportId,
+  parseDemoReportSnapshot,
+} from '@/lib/demo-report'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -20,6 +25,52 @@ export async function GET(
   const { id } = await params
 
   try {
+    const demoReportId = getDemoReportId(id)
+    if (demoReportId) {
+      const rows = await db
+        .select({
+          messageContent: lineMessageLogs.messageContent,
+          createdAt: lineMessageLogs.createdAt,
+        })
+        .from(lineMessageLogs)
+        .where(
+          and(
+            eq(lineMessageLogs.id, demoReportId),
+            eq(lineMessageLogs.messageType, 'demo_report')
+          )
+        )
+        .limit(1)
+
+      const row = rows[0]
+      const expiresAt = row?.createdAt
+        ? row.createdAt.getTime() + DEMO_REPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000
+        : 0
+      const content = row?.messageContent
+      const contentRecord =
+        content && typeof content === 'object'
+          ? (content as Record<string, unknown>)
+          : null
+      const snapshot = parseDemoReportSnapshot(contentRecord?.demoReport)
+
+      if (!snapshot || Date.now() > expiresAt) {
+        return NextResponse.json(
+          { error: 'デモレポートが見つかりません' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({
+        id,
+        childName: snapshot.childName,
+        childAge: snapshot.childAge,
+        parentName: '',
+        eventName: snapshot.eventName,
+        diagnosisDate: snapshot.diagnosisDate,
+        photos: {},
+        aiAnalysis: { summary: snapshot.summary },
+      })
+    }
+
     // 1. レポート取得（visitId で）
     const reportRows = await db
       .select()

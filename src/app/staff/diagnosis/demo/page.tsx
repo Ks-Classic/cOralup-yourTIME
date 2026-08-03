@@ -53,6 +53,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { ReportPreview } from '@/components/staff/ReportPreview'
+import { DEFAULT_DEMO_REPORT_SUMMARY } from '@/lib/demo-report'
 import { cn } from '@/utils'
 import {
   calculateDiagnosisProgressPercentage,
@@ -683,14 +684,7 @@ export default function IntegratedDiagnosisPage() {
             functionEstimation: '良好',
           },
         },
-        reportSummary: `【口腔機能について】
-お子さんの歯は噛み合わせが深い過蓋咬合の状態で、舌の位置が低くなる「低位舌」も見られます。口呼吸の傾向があると口まわりの筋肉のバランスが崩れやすく、歯並びにも影響します。口まわりの筋肉の使い方が安定すると、歯並びへの負担も軽減されやすくなります。日常的な口腔トレーニング（あいうべ体操など）を継続することで、改善が期待できます。
-
-【姿勢について】
-背中が丸くなりお腹が前に出る「凹円背」の傾向があります。肩のバランスに左右差があり、骨盤のわずかな前傾も確認されました。姿勢の癖は顎の動きや咬合状態にも影響しやすいため、放置すると歯並びの乱れにつながることがあります。日常的な姿勢への意識づけと、軽い体幹トレーニングを取り入れることが効果的です。
-
-【総合評価】
-姿勢と歯並びは筋肉・骨格を通じてつながっており、片方だけでなく両方を一緒に見ていくことが大切です。今回の診断結果を参考に、口腔トレーニングと姿勢改善を並行して取り組んでいただくことをお勧めします。ご家庭でできる簡単なケアから始め、定期的なフォローアップを行うことで、お子さんの健やかな成長をサポートします。`,
+        reportSummary: DEFAULT_DEMO_REPORT_SUMMARY,
       }
 
       setAnalysisResult(mockResult)
@@ -754,8 +748,8 @@ export default function IntegratedDiagnosisPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           childName: questionnaire?.child_name || session?.child_name || 'デモ',
-          reportSummary:
-            editableReport?.summary || analysisResult?.reportSummary,
+          childAge: questionnaire?.child_age || session?.child_age || 0,
+          reportSummary: editableSummary || analysisResult?.reportSummary,
         }),
       })
 
@@ -2007,7 +2001,7 @@ export default function IntegratedDiagnosisPage() {
                         childAge={
                           questionnaire?.child_age || session?.child_age
                         }
-                        eventName="cOral up 診断"
+                        eventName="8/2 YourTIME.8th 東京"
                         diagnosisDate={new Date().toISOString()}
                         photos={{
                           postureSide: photos.find(

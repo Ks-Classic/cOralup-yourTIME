@@ -84,6 +84,11 @@ export function ReportPreview({
               return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
             })()} cOral up診断
           </p>
+          {eventName && (
+            <p className="mb-1 text-xs font-semibold text-blue-800">
+              {eventName}
+            </p>
+          )}
           <h1 className="text-xl font-bold text-blue-800 tracking-wider">分析シート</h1>
           <p className="text-sm mt-2 text-gray-800">
             {getAgeDisplay()} {childName}

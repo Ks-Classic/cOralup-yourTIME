@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/utils'
+import { DEFAULT_DEMO_REPORT_SUMMARY } from '@/lib/demo-report'
 
 interface ReportData {
   id: string
@@ -26,11 +27,11 @@ const MOCK_DATA: ReportData = {
   childAge: 2,
   childAgeMonths: 22,
   parentName: '日比野様',
-  eventName: 'Your TIME. 5th cOral upブース',
-  diagnosisDate: '2026-03-15',
+  eventName: '8/2 YourTIME.8th 東京',
+  diagnosisDate: '2026-08-02',
   photos: { postureSide: '', postureFront: '', oralFront: '' },
   aiAnalysis: {
-    summary: 'お子さんの姿勢は背中が丸くなりお腹が前に出る「凹円背」で、歯は噛み合わせが深い過蓋咬合の状態です。どちらも体の使い方やバランスの乱れから起こることがあります。姿勢がゆるやかに変わるとあごの動きにも影響しやすく、歯並びにも関わることがあります。また、歯並びが整うと口まわりの筋肉の使い方が安定して、姿勢も自然と整いやすくなります。そのため、姿勢と歯並びはつながっていると考え、両方を一緒に見ることが大切です。'
+    summary: DEFAULT_DEMO_REPORT_SUMMARY,
   }
 }
 
@@ -156,6 +157,11 @@ export default function ReportPage({ params }: PageProps) {
                 return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
               })()} cOral up診断
             </p>
+            {reportData.eventName && (
+              <p className="mb-2 text-sm font-semibold text-blue-800">
+                {reportData.eventName}
+              </p>
+            )}
             <h1 className="text-3xl font-bold text-blue-800 tracking-wider">分析シート</h1>
             <p className="text-lg mt-3 text-gray-800">
               {getAgeDisplay()} {reportData.childName}

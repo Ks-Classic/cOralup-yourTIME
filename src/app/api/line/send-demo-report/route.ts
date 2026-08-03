@@ -1,43 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getStaffSession } from '@/lib/staff-auth'
 import { logger } from '@/lib/logger'
 import { db } from '@/db'
-import { profiles } from '@/db/schema'
+import { lineMessageLogs, profiles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import {
   buildReportMessages,
   type LineReportMessage,
 } from '@/lib/line-report-message'
+import {
+  DEMO_REPORT_PREFIX,
+  parseDemoReportRequest,
+  type DemoReportSnapshot,
+} from '@/lib/demo-report'
 
 export const maxDuration = 30
 
-const MAX_CHILD_NAME_LENGTH = 100
 const LINE_PUSH_TIMEOUT_MS = 10_000
 
-// デモ通知のボタンはモックレポートページへ向ける（本番同様にボタンから開ける）
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || 'https://coralup-yourtime.vercel.app'
-const DEMO_REPORT_URL = `${APP_URL}/report/demo`
-
-interface SendDemoReportRequest {
-  childName: string
-}
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 
-function parseRequestBody(body: unknown): SendDemoReportRequest | null {
-  if (!body || typeof body !== 'object') return null
-
-  const record = body as Record<string, unknown>
-  if (!isNonEmptyString(record.childName)) return null
-
-  const childName = record.childName.trim()
-  if (childName.length > MAX_CHILD_NAME_LENGTH) return null
-
-  return { childName }
-}
 
 async function sendStaffLineMessages(
   lineUserId: string,
@@ -128,25 +116,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const parsedBody = parseRequestBody(await request.json().catch(() => null))
+    const parsedBody = parseDemoReportRequest(
+      await request.json().catch(() => null)
+    )
     if (!parsedBody) {
       return NextResponse.json(
-        { error: 'childName is required' },
+        { error: 'invalid demo report' },
         { status: 400 }
       )
     }
+
+    const demoReportId = randomUUID()
+    const reportUrl = `${APP_URL}/report/${DEMO_REPORT_PREFIX}${demoReportId}`
+    const snapshot: DemoReportSnapshot = {
+      childName: parsedBody.childName,
+      childAge: parsedBody.childAge,
+      eventName: '8/2 YourTIME.8th 東京',
+      diagnosisDate: new Date().toISOString(),
+      summary: parsedBody.reportSummary,
+    }
+
+    await db.insert(lineMessageLogs).values({
+      id: demoReportId,
+      lineUserId: recipientLineUserId,
+      messageType: 'demo_report',
+      messageContent: { demoReport: snapshot },
+      status: 'pending',
+    } as typeof lineMessageLogs.$inferInsert)
 
     // 本番と同一フォーマットのFlex。違いはボタンの向き先(デモレポート)と
     // altText/注記の「デモ」明示だけ。staffNameはaltTextに含めない(本番同様)。
     const messages = buildReportMessages({
       childName: parsedBody.childName,
-      reportUrl: DEMO_REPORT_URL,
+      reportUrl,
       isDemo: true,
     })
 
     const result = await sendStaffLineMessages(recipientLineUserId, messages)
 
     if (!result.success) {
+      await db
+        .update(lineMessageLogs)
+        .set({
+          status: 'failed',
+          errorMessage: result.error,
+        } as Partial<typeof lineMessageLogs.$inferInsert>)
+        .where(eq(lineMessageLogs.id, demoReportId))
       // 内部エラー詳細(env名/LINE生エラー)はサーバログのみ。クライアントには返さない。
       logger.error(
         'Demo LINE report send failed',
@@ -163,9 +178,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    await db
+      .update(lineMessageLogs)
+      .set({
+        status: 'success',
+        response: result.responseData,
+        sentAt: new Date(),
+      } as Partial<typeof lineMessageLogs.$inferInsert>)
+      .where(eq(lineMessageLogs.id, demoReportId))
+
     return NextResponse.json({
       success: true,
       message: 'スタッフ本人へデモLINEを送信しました',
+      reportUrl,
     })
   } catch (error) {
     logger.error(
