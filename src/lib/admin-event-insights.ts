@@ -330,6 +330,9 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
       ?? timing?.last
       ?? legacyDiagnosis?.updatedAt
       ?? null
+    const arrivedAt = isWithinEventDate(visit.visitDate, selectedEvent.startDate, selectedEvent.endDate)
+      ? visit.visitDate
+      : diagnosisStart ?? visit.createdAt
     const parentId = visit.childParentId ?? visit.visitParentId
     const ageMonths = visit.ageMonths ?? (legacyQuestionnaire?.childAge ? legacyQuestionnaire.childAge * 12 : null)
     const gender = normalizedGender(visit.childGender ?? legacyQuestionnaire?.childGender ?? null)
@@ -337,7 +340,7 @@ export async function loadEventInsights(eventKey?: string | null): Promise<Event
     return {
       id: visit.id,
       reference: recordReference(visit.receptionNumber, index),
-      arrivedAt: (visit.visitDate ?? visit.createdAt)?.toISOString() ?? null,
+      arrivedAt: arrivedAt?.toISOString() ?? null,
       diagnosisStartedAt: diagnosisStart?.toISOString() ?? null,
       diagnosisMinutes: elapsedMinutes(diagnosisStart, diagnosisEnd),
       ageMonths,
