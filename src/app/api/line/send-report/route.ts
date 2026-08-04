@@ -17,12 +17,14 @@ interface SendReportRequest {
   childName: string
   eventName?: string
   sessionId?: string
+  /** 定型メッセージの前に差し込む任意のテキスト（個別送信の挨拶文など） */
+  extraLeadingText?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SendReportRequest = await request.json()
-    const { lineUserId, childName, eventName, visitId, sessionId } = body
+    const { lineUserId, childName, eventName, visitId, sessionId, extraLeadingText } = body
 
     if (!lineUserId || !visitId) {
       return NextResponse.json(
@@ -34,11 +36,14 @@ export async function POST(request: NextRequest) {
     const reportUrl = `${APP_URL}/report/${visitId}`
 
     // Flex Messageでリッチな通知を送信（本番/デモ共通の生成元を使用）
-    const messages = buildReportMessages({
+    const reportMessages = buildReportMessages({
       childName,
       reportUrl,
       eventName,
     })
+    const messages = extraLeadingText
+      ? [{ type: 'text', text: extraLeadingText }, ...reportMessages]
+      : reportMessages
 
     // 残数チェック付きで送信
     const result = await sendPushMessageSafe({
