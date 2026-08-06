@@ -304,9 +304,7 @@ export default function AnalyticsReportPage() {
                   {isSelected && <Check className="h-3 w-3" />}
                   {formatEventDate(ev.startDate)} {ev.name}
                   <span
-                    className={
-                      isSelected ? 'text-white/70' : 'text-slate-400'
-                    }
+                    className={isSelected ? 'text-white/70' : 'text-slate-400'}
                   >
                     ({ev.visitCount})
                   </span>

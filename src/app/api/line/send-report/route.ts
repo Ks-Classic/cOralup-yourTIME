@@ -24,7 +24,14 @@ interface SendReportRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SendReportRequest = await request.json()
-    const { lineUserId, childName, eventName, visitId, sessionId, extraLeadingText } = body
+    const {
+      lineUserId,
+      childName,
+      eventName,
+      visitId,
+      sessionId,
+      extraLeadingText,
+    } = body
 
     if (!lineUserId || !visitId) {
       return NextResponse.json(
